@@ -1,0 +1,15 @@
+# M1 integration only. Both listeners must remain loopback.
+server_id = "zeroterm-bastion-dev"
+gateway_id = "main"
+api_listen = "127.0.0.1:8080"
+ssh_listen = "127.0.0.1:2222"
+# Absolute paths are recommended. Secret files must be owner-only 0600.
+database_url_file = "/absolute/path/.local/database-url"
+ssh_host_key_file = "/absolute/path/.local/ssh_host_ed25519_key"
+active_kek_version = 1
+[kek_files]
+"1" = "/absolute/path/.local/kek-v1"
+[network]
+# Restrict target addresses to your test network; deny always takes precedence.
+allow = ["10.20.0.0/16"]
+deny = ["127.0.0.0/8", "169.254.0.0/16", "::1/128", "fe80::/10"]

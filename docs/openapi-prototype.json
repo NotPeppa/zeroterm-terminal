@@ -1,0 +1,812 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "ZeroTerm Bastion M0 Prototype API",
+    "version": "0.1.0",
+    "description": "Development-only fixed identity and asset API. This is not the production login or ACL contract. Loopback HTTP only; the default binary excludes this API."
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:8080"
+    }
+  ],
+  "paths": {
+    "/api/v1/info": {
+      "get": {
+        "operationId": "getInfo",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Info"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/assets": {
+      "get": {
+        "operationId": "getAssets",
+        "security": [
+          {
+            "developmentBearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Assets"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid development bearer",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/connection-tickets": {
+      "post": {
+        "operationId": "issueTicket",
+        "security": [
+          {
+            "developmentBearer": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid development bearer",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid JSON or request; unknown capabilities are rejected",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Asset/account/capability not allowed",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Pending ticket or history limit reached",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Retry-After": {
+                "schema": {
+                  "type": "integer",
+                  "const": 30
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TicketRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/connections/{id}": {
+      "get": {
+        "operationId": "getConnection",
+        "security": [
+          {
+            "developmentBearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Connection"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid development bearer",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid UUID",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown connection",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/health/live": {
+      "get": {
+        "operationId": "liveness",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Event loop running",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string",
+                  "const": "ok"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "developmentBearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "32 random bytes from the development API token file; not a production login token."
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "enum": [
+                  "INVALID_ARGUMENT",
+                  "UNAUTHENTICATED",
+                  "PERMISSION_DENIED",
+                  "RESOURCE_NOT_FOUND",
+                  "CONNECTION_LIMIT",
+                  "INTERNAL_ERROR",
+                  "TICKET_INVALID",
+                  "TICKET_USED",
+                  "TICKET_EXPIRED",
+                  "TARGET_HOST_KEY_CHANGED",
+                  "TARGET_UNREACHABLE",
+                  "TARGET_TIMEOUT",
+                  "TARGET_AUTH_FAILED"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "request_id": {
+                "type": "string",
+                "format": "uuid"
+              }
+            },
+            "required": [
+              "code",
+              "message",
+              "request_id"
+            ]
+          }
+        },
+        "required": [
+          "error"
+        ]
+      },
+      "TicketRequest": {
+        "type": "object",
+        "properties": {
+          "asset_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "account_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "capabilities": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "shell",
+                "exec",
+                "sftp"
+              ]
+            },
+            "minItems": 1,
+            "maxItems": 3,
+            "uniqueItems": true
+          },
+          "purpose": {
+            "type": "string",
+            "enum": [
+              "terminal",
+              "sftp",
+              "metrics",
+              "server_tool"
+            ]
+          }
+        },
+        "required": [
+          "asset_id",
+          "account_id",
+          "capabilities",
+          "purpose"
+        ],
+        "additionalProperties": false
+      },
+      "Gateway": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "host": {
+            "type": "string"
+          },
+          "port": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 65535
+          },
+          "username": {
+            "type": "string",
+            "pattern": "^zt1:[0-9a-f-]{36}$"
+          }
+        },
+        "required": [
+          "id",
+          "host",
+          "port",
+          "username"
+        ]
+      },
+      "TicketResponse": {
+        "type": "object",
+        "properties": {
+          "protocol_version": {
+            "type": "integer",
+            "const": 1
+          },
+          "ticket_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "ticket_secret": {
+            "type": "string",
+            "minLength": 43,
+            "maxLength": 43,
+            "description": "32 random bytes, base64url without padding. Returned once; never log."
+          },
+          "connection_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "gateway": {
+            "$ref": "#/components/schemas/Gateway"
+          },
+          "capabilities": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "shell",
+                "exec",
+                "sftp"
+              ]
+            },
+            "minItems": 1,
+            "maxItems": 3,
+            "uniqueItems": true
+          }
+        },
+        "required": [
+          "protocol_version",
+          "ticket_id",
+          "ticket_secret",
+          "connection_id",
+          "expires_at",
+          "gateway",
+          "capabilities"
+        ]
+      },
+      "Connection": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "ticket_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "asset_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "account_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "capabilities": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "shell",
+                "exec",
+                "sftp"
+              ]
+            },
+            "minItems": 1,
+            "maxItems": 3,
+            "uniqueItems": true
+          },
+          "purpose": {
+            "type": "string",
+            "enum": [
+              "terminal",
+              "sftp",
+              "metrics",
+              "server_tool"
+            ]
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "connecting",
+              "active",
+              "closing",
+              "closed",
+              "failed",
+              "expired",
+              "revoked",
+              "interrupted"
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "failure": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "type": "string",
+                    "enum": [
+                      "INVALID_ARGUMENT",
+                      "UNAUTHENTICATED",
+                      "PERMISSION_DENIED",
+                      "RESOURCE_NOT_FOUND",
+                      "CONNECTION_LIMIT",
+                      "INTERNAL_ERROR",
+                      "TICKET_INVALID",
+                      "TICKET_USED",
+                      "TICKET_EXPIRED",
+                      "TARGET_HOST_KEY_CHANGED",
+                      "TARGET_UNREACHABLE",
+                      "TARGET_TIMEOUT",
+                      "TARGET_AUTH_FAILED"
+                    ]
+                  }
+                },
+                "required": [
+                  "code"
+                ]
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "ticket_id",
+          "asset_id",
+          "account_id",
+          "capabilities",
+          "purpose",
+          "state",
+          "created_at",
+          "failure"
+        ]
+      },
+      "Info": {
+        "type": "object",
+        "properties": {
+          "server_id": {
+            "type": "string"
+          },
+          "protocol_version": {
+            "type": "integer",
+            "const": 1
+          },
+          "minimum_client_protocol_version": {
+            "type": "integer",
+            "const": 1
+          },
+          "mode": {
+            "type": "string",
+            "const": "development_prototype"
+          },
+          "production_ready": {
+            "type": "boolean",
+            "const": false
+          },
+          "gateway": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "host": {
+                "type": "string"
+              },
+              "port": {
+                "type": "integer"
+              },
+              "public_key": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "host",
+              "port",
+              "public_key"
+            ]
+          }
+        },
+        "required": [
+          "server_id",
+          "protocol_version",
+          "minimum_client_protocol_version",
+          "mode",
+          "production_ready",
+          "gateway"
+        ]
+      },
+      "Assets": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "revision": {
+                  "type": "integer"
+                },
+                "tags": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "accounts": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "username": {
+                        "type": "string"
+                      },
+                      "capabilities": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "enum": [
+                            "shell",
+                            "exec",
+                            "sftp"
+                          ]
+                        },
+                        "minItems": 1,
+                        "maxItems": 3,
+                        "uniqueItems": true
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "username",
+                      "capabilities"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "revision",
+                "tags",
+                "accounts"
+              ]
+            }
+          },
+          "next_cursor": {
+            "type": "null"
+          },
+          "policy_revision": {
+            "type": "integer",
+            "const": 1
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor",
+          "policy_revision"
+        ]
+      }
+    }
+  }
+}
