@@ -1,3 +1,6 @@
+mod browser;
+use browser::BrowserLogin;
+
 use axum::{
     extract::{ConnectInfo, DefaultBodyLimit, Path, Query, State},
     http::{header, HeaderMap, HeaderValue, StatusCode},
@@ -29,6 +32,7 @@ pub struct ControlApi {
     pub gateway: GatewayAddress,
     pub gateway_public_key: String,
     pub network: Arc<bastion_gateway::NetworkPolicy>,
+    pub browser: Option<browser::BrowserConfig>,
     dummy_phc: String,
     password_work: Arc<Semaphore>,
     rate: Mutex<HashMap<String, (Instant, u32)>>,
@@ -47,10 +51,20 @@ impl ControlApi {
             gateway,
             gateway_public_key,
             network,
+            browser: None,
             dummy_phc: hash_password(Secret::random().expose())?,
             password_work: Arc::new(Semaphore::new(4)),
             rate: Mutex::new(HashMap::new()),
         })
+    }
+    pub fn with_browser(
+        mut self,
+        origin: String,
+        backend: Arc<dyn bastion_gateway::GatewayBackend>,
+        shutdown: tokio_util::sync::CancellationToken,
+    ) -> anyhow::Result<Self> {
+        self.browser = Some(browser::BrowserConfig::new(origin, backend, shutdown)?);
+        Ok(self)
     }
     fn hit(&self, key: String, limit: u32) -> bool {
         let mut buckets = self.rate.lock().expect("rate map poisoned");
@@ -141,18 +155,23 @@ impl From<ErrorCode> for ApiError {
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
         let status = match self.0 {
-            ErrorCode::InvalidArgument => StatusCode::BAD_REQUEST,
+            ErrorCode::InvalidArgument | ErrorCode::UnknownCapability => StatusCode::BAD_REQUEST,
             ErrorCode::Unauthenticated
             | ErrorCode::AccessTokenExpired
             | ErrorCode::LoginSessionRevoked => StatusCode::UNAUTHORIZED,
             ErrorCode::PermissionDenied
+            | ErrorCode::ChannelPermissionDenied
             | ErrorCode::UserDisabled
             | ErrorCode::TargetAddressDenied => StatusCode::FORBIDDEN,
             ErrorCode::ResourceNotFound => StatusCode::NOT_FOUND,
             ErrorCode::PreconditionRequired => StatusCode::PRECONDITION_REQUIRED,
             ErrorCode::RevisionConflict => StatusCode::PRECONDITION_FAILED,
             ErrorCode::RateLimited | ErrorCode::ConnectionLimit => StatusCode::TOO_MANY_REQUESTS,
-            ErrorCode::PolicyStoreUnavailable => StatusCode::SERVICE_UNAVAILABLE,
+            ErrorCode::PolicyStoreUnavailable | ErrorCode::RecordingUnavailable => {
+                StatusCode::SERVICE_UNAVAILABLE
+            }
+            ErrorCode::ClientProtocolUnsupported => StatusCode::UPGRADE_REQUIRED,
+            ErrorCode::AuthOrGatewayFailed => StatusCode::BAD_GATEWAY,
             ErrorCode::TicketExpired
             | ErrorCode::TicketUsed
             | ErrorCode::TicketInvalid
@@ -161,7 +180,9 @@ impl IntoResponse for ApiError {
             | ErrorCode::TargetHostKeyUnknown
             | ErrorCode::ResourceConflict => StatusCode::CONFLICT,
             ErrorCode::TargetTimeout => StatusCode::GATEWAY_TIMEOUT,
-            ErrorCode::TargetUnreachable | ErrorCode::TargetAuthFailed => StatusCode::BAD_GATEWAY,
+            ErrorCode::TargetUnreachable
+            | ErrorCode::TargetAuthFailed
+            | ErrorCode::TargetRequestRejected => StatusCode::BAD_GATEWAY,
             ErrorCode::InternalError => StatusCode::INTERNAL_SERVER_ERROR,
         };
         let mut response = (
@@ -224,6 +245,8 @@ pub fn control_router(state: Arc<ControlApi>) -> Router {
         .route("/assets", get(assets))
         .route("/assets/{id}", get(asset))
         .route("/connection-tickets", post(issue_ticket))
+        .route("/sessions", post(browser::issue_session))
+        .route("/sessions/{id}/stream", get(browser::stream))
         .route("/connections", get(connections))
         .route("/connections/{id}", get(connection))
         .route("/connections/{id}/disconnect", post(disconnect))
@@ -236,7 +259,8 @@ pub fn control_router(state: Arc<ControlApi>) -> Router {
                 .merge(protected)
                 .route("/info", get(info))
                 .route("/auth/login", post(login))
-                .route("/auth/refresh", post(refresh)),
+                .route("/auth/csrf", get(browser::csrf_token))
+                .route("/auth/refresh", post(browser::refresh)),
         )
         .route("/health/live", get(|| async { "ok" }))
         .route("/health/ready", get(readiness))
@@ -286,35 +310,7 @@ async fn context(mut request: axum::extract::Request, next: Next) -> Response {
     );
     response
 }
-async fn authenticate(
-    State(state): State<Arc<ControlApi>>,
-    mut request: axum::extract::Request,
-    next: Next,
-) -> Response {
-    let Some(token) = request
-        .headers()
-        .get(header::AUTHORIZATION)
-        .and_then(|v| v.to_str().ok())
-        .and_then(|v| v.strip_prefix("Bearer "))
-        .filter(|v| v.len() <= 256)
-    else {
-        return ApiError(ErrorCode::Unauthenticated).into_response();
-    };
-    if request.uri().path() == "/api/v1/auth/logout" {
-        match state.store.logout_completed(token).await {
-            Ok(true) => return StatusCode::NO_CONTENT.into_response(),
-            Err(code) => return ApiError(code).into_response(),
-            Ok(false) => {}
-        }
-    }
-    match state.store.authenticate(token).await {
-        Ok(identity) => {
-            request.extensions_mut().insert(identity);
-            next.run(request).await
-        }
-        Err(code) => ApiError(code).into_response(),
-    }
-}
+use browser::authenticate;
 async fn require_admin(request: axum::extract::Request, next: Next) -> Response {
     if request
         .extensions()
@@ -388,17 +384,20 @@ async fn readiness(State(state): State<Arc<ControlApi>>) -> ApiResult<&'static s
 async fn me(
     State(state): State<Arc<ControlApi>>,
     Extension(identity): Extension<Identity>,
+    headers: HeaderMap,
 ) -> ApiResult<Json<Value>> {
     Ok(Json(
-        json!({"user":identity.user,"login_session_id":identity.login_session_id,"policy_revision":state.store.policy_revision().await?}),
+        json!({"user":identity.user,"login_session_id":identity.login_session_id,"policy_revision":state.store.policy_revision().await?,"csrf_token":browser::csrf_for_me(&headers)}),
     ))
 }
 async fn login(
     State(state): State<Arc<ControlApi>>,
     Extension(ctx): Extension<RequestContext>,
-    body: Result<Json<LoginInput>, axum::extract::rejection::JsonRejection>,
-) -> ApiResult<Json<LoginResponse>> {
+    headers: HeaderMap,
+    body: Result<Json<BrowserLogin>, axum::extract::rejection::JsonRejection>,
+) -> ApiResult<Response> {
     let mut body = input(body)?;
+    let web = browser::web_login(&state, &headers, &body)?;
     if !state.hit(format!("ip:{}", ctx.ip), 10) {
         return Err(ApiError(ErrorCode::RateLimited));
     }
@@ -428,48 +427,43 @@ async fn login(
         .await?;
     if let Some((user, hash)) = candidate {
         if matches && user.enabled {
-            return Ok(Json(
+            let result = if web {
+                state
+                    .store
+                    .login_web(&user, &hash, &body.device_label, ctx.id)
+                    .await?
+            } else {
                 state
                     .store
                     .login(&user, &hash, &body.device_label, ctx.id)
-                    .await?,
-            ));
+                    .await?
+            };
+            return browser::login_response(&state, result, web);
         }
     }
     state.hit(format!("user:{username}"), 5);
     state.store.login_failure(ctx.id).await?;
     Err(ApiError(ErrorCode::Unauthenticated))
 }
-async fn refresh(
-    State(state): State<Arc<ControlApi>>,
-    Extension(ctx): Extension<RequestContext>,
-    body: Result<Json<RefreshInput>, axum::extract::rejection::JsonRejection>,
-) -> ApiResult<Json<LoginResponse>> {
-    let body = input(body)?;
-    let secret = Secret::new(body.refresh_token);
-    if secret.expose().len() > 256 {
-        return Err(ApiError(ErrorCode::Unauthenticated));
-    }
-    if !state.hit(format!("refresh:{}", ctx.ip), 30) {
-        return Err(ApiError(ErrorCode::RateLimited));
-    }
-    Ok(Json(state.store.refresh(secret.expose(), ctx.id).await?))
-}
 async fn logout(
     State(state): State<Arc<ControlApi>>,
     Extension(identity): Extension<Identity>,
     Extension(ctx): Extension<RequestContext>,
-) -> ApiResult<StatusCode> {
+) -> ApiResult<Response> {
     state.store.logout(&identity, false, ctx.id).await?;
-    Ok(StatusCode::NO_CONTENT)
+    let mut response = StatusCode::NO_CONTENT.into_response();
+    browser::clear_cookies(&state, &mut response);
+    Ok(response)
 }
 async fn logout_all(
     State(state): State<Arc<ControlApi>>,
     Extension(identity): Extension<Identity>,
     Extension(ctx): Extension<RequestContext>,
-) -> ApiResult<StatusCode> {
+) -> ApiResult<Response> {
     state.store.logout(&identity, true, ctx.id).await?;
-    Ok(StatusCode::NO_CONTENT)
+    let mut response = StatusCode::NO_CONTENT.into_response();
+    browser::clear_cookies(&state, &mut response);
+    Ok(response)
 }
 
 #[derive(Deserialize)]

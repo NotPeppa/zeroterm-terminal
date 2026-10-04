@@ -1,3 +1,6 @@
+mod websocket;
+pub use websocket::*;
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -34,6 +37,21 @@ impl Purpose {
             Self::Sftp => "sftp",
             Self::Metrics => "metrics",
             Self::ServerTool => "server_tool",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TicketTransport {
+    Ssh,
+    Websocket,
+}
+impl TicketTransport {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Ssh => "ssh",
+            Self::Websocket => "websocket",
         }
     }
 }
@@ -81,6 +99,16 @@ pub struct TicketResponse {
     pub capabilities: Vec<Capability>,
 }
 
+#[derive(Serialize)]
+pub struct WebSessionResponse {
+    pub protocol_version: u32,
+    pub session_id: Uuid,
+    pub ws_token: String,
+    pub connection_id: Uuid,
+    pub expires_at: DateTime<Utc>,
+    pub capabilities: Vec<Capability>,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ConnectionState {
@@ -122,6 +150,8 @@ pub struct Connection {
     pub account_id: Uuid,
     pub capabilities: Vec<Capability>,
     pub purpose: Purpose,
+    pub transport: TicketTransport,
+    pub protocol_version: u32,
     pub state: ConnectionState,
     pub created_at: DateTime<Utc>,
     pub failure: Option<Failure>,
@@ -147,12 +177,18 @@ pub enum ErrorCode {
     PermissionDenied,
     #[error("资源不存在")]
     ResourceNotFound,
+    #[serde(rename = "SESSION_TICKET_INVALID", alias = "TICKET_INVALID")]
     #[error("连接票据无效")]
     TicketInvalid,
+    #[serde(rename = "SESSION_TICKET_USED", alias = "TICKET_USED")]
     #[error("连接票据已使用")]
     TicketUsed,
+    #[serde(rename = "SESSION_TICKET_EXPIRED", alias = "TICKET_EXPIRED")]
     #[error("连接票据已过期")]
     TicketExpired,
+    #[serde(rename = "UNKNOWN_CAPABILITY")]
+    #[error("未知能力")]
+    UnknownCapability,
     #[error("连接数量达到上限")]
     ConnectionLimit,
     #[error("目标主机密钥不匹配")]
@@ -165,12 +201,24 @@ pub enum ErrorCode {
     TargetAuthFailed,
     #[error("内部错误")]
     InternalError,
+    #[serde(rename = "SESSION_EXPIRED", alias = "ACCESS_TOKEN_EXPIRED")]
     #[error("访问令牌已过期")]
     AccessTokenExpired,
+    #[error("客户端协议版本不支持")]
+    ClientProtocolUnsupported,
+    #[error("通道权限不足")]
+    ChannelPermissionDenied,
+    #[error("目标请求被拒绝")]
+    TargetRequestRejected,
+    #[error("录制不可用")]
+    RecordingUnavailable,
+    #[error("认证或网关失败")]
+    AuthOrGatewayFailed,
     #[error("设备登录已撤销")]
     LoginSessionRevoked,
     #[error("用户已停用")]
     UserDisabled,
+    #[serde(rename = "SESSION_TICKET_STALE", alias = "TICKET_STALE")]
     #[error("连接票据的策略或配置已变化")]
     TicketStale,
     #[error("目标地址不在允许范围")]
@@ -257,6 +305,40 @@ mod tests {
         ] {
             assert!(!state.permits(ConnectionState::Active));
             assert!(!state.permits(ConnectionState::Connecting));
+        }
+    }
+    #[test]
+    fn error_wire_names_accept_legacy_values() {
+        for (code, current, legacy) in [
+            (
+                ErrorCode::TicketInvalid,
+                "SESSION_TICKET_INVALID",
+                "TICKET_INVALID",
+            ),
+            (ErrorCode::TicketUsed, "SESSION_TICKET_USED", "TICKET_USED"),
+            (
+                ErrorCode::TicketExpired,
+                "SESSION_TICKET_EXPIRED",
+                "TICKET_EXPIRED",
+            ),
+            (
+                ErrorCode::TicketStale,
+                "SESSION_TICKET_STALE",
+                "TICKET_STALE",
+            ),
+            (
+                ErrorCode::AccessTokenExpired,
+                "SESSION_EXPIRED",
+                "ACCESS_TOKEN_EXPIRED",
+            ),
+        ] {
+            assert_eq!(serde_json::to_value(code).unwrap(), current);
+            for name in [current, legacy] {
+                assert_eq!(
+                    serde_json::from_value::<ErrorCode>(serde_json::json!(name)).unwrap(),
+                    code
+                );
+            }
         }
     }
     #[test]

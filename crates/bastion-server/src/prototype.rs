@@ -113,9 +113,15 @@ pub async fn serve(path: PathBuf) -> Result<()> {
     let shutdown = CancellationToken::new();
     let signal_shutdown = shutdown.clone();
     let signal = tokio::spawn(async move {
-        let mut term = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
-            .expect("signal handler");
-        tokio::select! { _ = tokio::signal::ctrl_c() => {}, _ = term.recv() => {} }
+        #[cfg(unix)]
+        {
+            let mut term =
+                tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+                    .expect("signal handler");
+            tokio::select! { _ = tokio::signal::ctrl_c() => {}, _ = term.recv() => {} }
+        }
+        #[cfg(not(unix))]
+        let _ = tokio::signal::ctrl_c().await;
         signal_shutdown.cancel();
     });
     tracing::info!(api = %config.api_listen, ssh = %config.ssh_listen, "M0 prototype started; no production authentication or recording");

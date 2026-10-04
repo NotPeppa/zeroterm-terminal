@@ -2,3 +2,4 @@
 /.local/
 *.log
 .DS_Store
+/.dsh-permission-recovery/

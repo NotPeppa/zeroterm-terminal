@@ -1,0 +1,120 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Bastion Web API (RFC-004 M2)",
+    "version": "1.0.0",
+    "description": "Implemented browser login, assets, one-shell WebSocket sessions and connection lifecycle. Cookie and ZeroTerm bearer login families are isolated. Other RFC-004 roadmap features are not claimed by this document. WebSocket message details: websocket-v1.md."
+  },
+  "servers": [{"url": "/api/v1"}],
+  "security": [{"BrowserSession": []}],
+  "paths": {
+    "/info": {
+      "get": {
+        "security": [], "summary": "Discover server and protocol versions",
+        "responses": {"200": {"description": "Public server identity; no assets or credentials", "content": {"application/json": {"schema": {"type": "object", "properties": {"server_id": {"type": "string"}, "protocol_version": {"const": 1}, "websocket_protocol_version": {"const": 1}, "ssh_protocol_version": {"const": 1}}}}}}}
+      }
+    },
+    "/auth/csrf": {
+      "get": {"security": [], "summary": "Bootstrap browser CSRF cookie/token", "responses": {"200": {"description": "Sets SameSite=Strict bastion_csrf cookie", "content": {"application/json": {"schema": {"type": "object", "required": ["csrf_token"], "properties": {"csrf_token": {"$ref": "#/components/schemas/Secret"}}}}}}, "403": {"$ref": "#/components/responses/Error"}}}
+    },
+    "/auth/login": {
+      "post": {
+        "security": [], "summary": "Log in with a client-type-bound session", "description": "Web clients send client_type=web, exact configured Origin and X-Bastion-CSRF. Web login sets HttpOnly cookies and never returns tokens in JSON. Omitted client_type defaults to zeroterm for M1 compatibility; native login must not send Cookie or Origin.",
+        "parameters": [{"$ref": "#/components/parameters/Origin"}, {"$ref": "#/components/parameters/Csrf"}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"type": "object", "additionalProperties": false, "required": ["username", "password", "device_label"], "properties": {"username": {"type": "string", "minLength": 1, "maxLength": 64}, "password": {"type": "string", "minLength": 1, "maxLength": 1024, "writeOnly": true}, "device_label": {"type": "string", "minLength": 1, "maxLength": 128}, "client_type": {"type": "string", "enum": ["web", "zeroterm"], "default": "zeroterm"}}}}}},
+        "responses": {"200": {"description": "No-store. Web: Secure (HTTPS), HttpOnly, SameSite=Strict bastion_session/bastion_refresh cookies; browser metadata response. Native: bearer token response.", "content": {"application/json": {"schema": {"anyOf": [{"$ref": "#/components/schemas/WebLoginResponse"}, {"$ref": "#/components/schemas/NativeLoginResponse"}]}}}}, "400": {"$ref": "#/components/responses/Error"}, "401": {"$ref": "#/components/responses/Error"}, "403": {"$ref": "#/components/responses/Error"}, "429": {"$ref": "#/components/responses/Error"}}
+      }
+    },
+    "/auth/refresh": {
+      "post": {
+        "security": [], "summary": "Rotate current refresh token", "description": "Web: refresh cookie, CSRF header and exact Origin, JSON {}. Native: JSON refresh_token without browser cookies/Origin. Token families cannot cross client type. Replaying a rotated token revokes its family.",
+        "parameters": [{"$ref": "#/components/parameters/Origin"}, {"$ref": "#/components/parameters/Csrf"}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"type": "object", "additionalProperties": false, "properties": {"refresh_token": {"$ref": "#/components/schemas/Secret"}}}}}},
+        "responses": {"200": {"description": "Rotated family cookies or native tokens, no-store", "content": {"application/json": {"schema": {"anyOf": [{"$ref": "#/components/schemas/WebLoginResponse"}, {"$ref": "#/components/schemas/NativeLoginResponse"}]}}}}, "400": {"$ref": "#/components/responses/Error"}, "401": {"$ref": "#/components/responses/Error"}, "403": {"$ref": "#/components/responses/Error"}, "429": {"$ref": "#/components/responses/Error"}}
+      }
+    },
+    "/auth/logout": {
+      "post": {"summary": "Revoke current login and pending tickets", "description": "Clears browser session cookies and closes associated active connections. Native logout is idempotent.", "parameters": [{"$ref": "#/components/parameters/Origin"}, {"$ref": "#/components/parameters/Csrf"}], "responses": {"204": {"description": "Logged out"}, "401": {"$ref": "#/components/responses/Error"}, "403": {"$ref": "#/components/responses/Error"}}}
+    },
+    "/auth/logout-all": {
+      "post": {"summary": "Revoke all device logins", "parameters": [{"$ref": "#/components/parameters/Origin"}, {"$ref": "#/components/parameters/Csrf"}], "responses": {"204": {"description": "All device logins revoked"}, "401": {"$ref": "#/components/responses/Error"}, "403": {"$ref": "#/components/responses/Error"}}}
+    },
+    "/me": {
+      "get": {"summary": "Read current user and login identity", "responses": {"200": {"description": "Current authenticated user", "content": {"application/json": {"schema": {"type": "object", "properties": {"user": {"$ref": "#/components/schemas/User"}, "login_session_id": {"type": "string", "format": "uuid"}, "policy_revision": {"type": "integer", "minimum": 1}, "csrf_token": {"$ref": "#/components/schemas/Secret"}}}}}}, "401": {"$ref": "#/components/responses/Error"}}}
+    },
+    "/assets": {
+      "get": {"summary": "List explicitly authorized assets and accounts", "parameters": [{"$ref": "#/components/parameters/Limit"}, {"$ref": "#/components/parameters/Cursor"}], "responses": {"200": {"description": "Effective capabilities; administrators still require grants", "content": {"application/json": {"schema": {"type": "object", "required": ["items"], "properties": {"items": {"type": "array", "items": {"$ref": "#/components/schemas/Asset"}}, "next_cursor": {"type": ["string", "null"]}, "policy_revision": {"type": "integer"}}}}}}, "401": {"$ref": "#/components/responses/Error"}, "403": {"$ref": "#/components/responses/Error"}}}
+    },
+    "/assets/{id}": {
+      "parameters": [{"$ref": "#/components/parameters/Id"}],
+      "get": {"summary": "Read authorized asset", "responses": {"200": {"description": "Asset details", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Asset"}}}}, "404": {"$ref": "#/components/responses/Error"}}}
+    },
+    "/sessions": {
+      "post": {
+        "summary": "Issue one-use WebSocket session ticket", "description": "Browser cookies only; exact Origin and CSRF required. M2 accepts only capabilities=[shell]. Target route and capabilities are fixed in the stored ticket; issuance also creates a pending connection. Never automatically replay this operation.",
+        "parameters": [{"$ref": "#/components/parameters/Origin"}, {"$ref": "#/components/parameters/Csrf"}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/WebSessionRequest"}}}},
+        "responses": {"201": {"description": "One-time secret returned only here; Cache-Control:no-store", "headers": {"Cache-Control": {"schema": {"const": "no-store"}}}, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/WebSessionResponse"}}}}, "400": {"$ref": "#/components/responses/Error"}, "401": {"$ref": "#/components/responses/Error"}, "403": {"$ref": "#/components/responses/Error"}, "429": {"$ref": "#/components/responses/Error"}, "503": {"$ref": "#/components/responses/Error"}}
+      }
+    },
+    "/sessions/{id}/stream": {
+      "parameters": [{"$ref": "#/components/parameters/Id"}],
+      "get": {
+        "summary": "Upgrade to one-shell WebSocket v1", "description": "Exact Origin, authenticated owner and same login_session_id are required. No query parameters or Authorization. Sec-WebSocket-Protocol must contain exactly bastion.v1, <ws_token>; response selects only bastion.v1. Wrong transport, owner, secret, expiry and replay uniformly reject credentials; no ticket secrets appear in responses. Consumption is irrevocable after transaction commit. See websocket-v1.md.",
+        "parameters": [{"$ref": "#/components/parameters/Origin"}, {"name": "Sec-WebSocket-Protocol", "in": "header", "required": true, "schema": {"type": "string"}, "example": "bastion.v1, <ws_token>"}],
+        "responses": {"101": {"description": "WebSocket established; wait for session_ready, opened, pty_ready, ready"}, "400": {"$ref": "#/components/responses/Error"}, "401": {"$ref": "#/components/responses/Error"}, "503": {"$ref": "#/components/responses/Error"}}
+      }
+    },
+    "/connection-tickets": {
+      "post": {
+        "security": [{"BearerSession": []}], "summary": "Existing M1 SSH integration ticket endpoint", "description": "Compatibility endpoint; a ticket cannot authenticate a WebSocket. The RFC's /integrations/zeroterm/connection-tickets naming is a roadmap alias, not claimed implemented here.",
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/TicketRequest"}}}},
+        "responses": {"201": {"description": "Single-use SSH ticket, no-store", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/TicketResponse"}}}}, "403": {"$ref": "#/components/responses/Error"}, "429": {"$ref": "#/components/responses/Error"}}
+      }
+    },
+    "/connections": {
+      "get": {"summary": "List own connections; admin/auditor may list globally", "parameters": [{"$ref": "#/components/parameters/Limit"}, {"$ref": "#/components/parameters/Cursor"}], "responses": {"200": {"description": "Connection page", "content": {"application/json": {"schema": {"type": "object", "properties": {"items": {"type": "array", "items": {"$ref": "#/components/schemas/Connection"}}, "next_cursor": {"type": ["string", "null"]}}}}}}, "401": {"$ref": "#/components/responses/Error"}}}
+    },
+    "/connections/{id}": {
+      "parameters": [{"$ref": "#/components/parameters/Id"}],
+      "get": {"summary": "Read connection state and sanitized failure", "responses": {"200": {"description": "Target errors appear inside failure.code, not as HTTP 502 for this GET", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Connection"}}}}, "404": {"$ref": "#/components/responses/Error"}}}
+    },
+    "/connections/{id}/disconnect": {
+      "parameters": [{"$ref": "#/components/parameters/Id"}],
+      "post": {"summary": "Owner/admin requests disconnection", "parameters": [{"$ref": "#/components/parameters/Origin"}, {"$ref": "#/components/parameters/Csrf"}], "responses": {"202": {"description": "Closure requested"}, "403": {"$ref": "#/components/responses/Error"}, "404": {"$ref": "#/components/responses/Error"}}}
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "BrowserSession": {"type": "apiKey", "in": "cookie", "name": "bastion_session", "description": "HttpOnly SameSite=Strict Secure browser access session. Must never be placed in localStorage or substituted as bearer token."},
+      "BearerSession": {"type": "http", "scheme": "bearer", "description": "ZeroTerm client-type-bound opaque access token; not interchangeable with browser cookies."}
+    },
+    "parameters": {
+      "Id": {"name": "id", "in": "path", "required": true, "schema": {"type": "string", "format": "uuid"}},
+      "Origin": {"name": "Origin", "in": "header", "schema": {"type": "string", "format": "uri"}, "description": "Required for browser state changes and upgrade; must exactly equal configured same-origin URL. Native requests omit it."},
+      "Csrf": {"name": "X-Bastion-CSRF", "in": "header", "schema": {"$ref": "#/components/schemas/Secret"}, "description": "Required for browser state changes; equals bastion_csrf cookie. Native requests omit it."},
+      "Limit": {"name": "limit", "in": "query", "schema": {"type": "integer", "minimum": 1, "maximum": 200, "default": 50}},
+      "Cursor": {"name": "cursor", "in": "query", "schema": {"type": "string", "maxLength": 4096}, "description": "Opaque cursor; stable ordering; do not synthesize."}
+    },
+    "responses": {
+      "Error": {"description": "Stable sanitized error; X-Request-Id correlates diagnostics. No secrets or target credentials.", "headers": {"X-Request-Id": {"schema": {"type": "string", "format": "uuid"}}, "Cache-Control": {"schema": {"const": "no-store"}}}, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}, "example": {"error": {"code": "PERMISSION_DENIED", "message": "没有该资产账号或能力的权限", "request_id": "44444444-4444-4444-8444-444444444444"}}}}}
+    },
+    "schemas": {
+      "Secret": {"type": "string", "minLength": 43, "maxLength": 43, "pattern": "^[A-Za-z0-9_-]{43}$"},
+      "Capability": {"type": "string", "enum": ["shell", "exec", "sftp"]},
+      "Purpose": {"type": "string", "enum": ["terminal", "sftp", "metrics", "server_tool"], "description": "Audit label only; confers no permission or read-only guarantee."},
+      "TicketTransport": {"type": "string", "enum": ["ssh", "websocket"]},
+      "User": {"type": "object", "required": ["id", "username", "role", "enabled", "revision"], "properties": {"id": {"type": "string", "format": "uuid"}, "username": {"type": "string"}, "role": {"type": "string", "enum": ["admin", "operator", "auditor"]}, "enabled": {"type": "boolean"}, "revision": {"type": "integer", "minimum": 1}}},
+      "WebLoginResponse": {"type": "object", "required": ["user", "login_session_id", "access_expires_at", "refresh_expires_at"], "properties": {"user": {"$ref": "#/components/schemas/User"}, "login_session_id": {"type": "string", "format": "uuid"}, "access_expires_at": {"type": "string", "format": "date-time"}, "refresh_expires_at": {"type": "string", "format": "date-time"}}},
+      "NativeLoginResponse": {"allOf": [{"$ref": "#/components/schemas/WebLoginResponse"}, {"type": "object", "required": ["access_token", "refresh_token"], "properties": {"access_token": {"$ref": "#/components/schemas/Secret"}, "refresh_token": {"$ref": "#/components/schemas/Secret"}}}]},
+      "Asset": {"type": "object", "required": ["id", "name", "accounts"], "properties": {"id": {"type": "string", "format": "uuid"}, "name": {"type": "string"}, "tags": {"type": "array", "items": {"type": "string"}}, "revision": {"type": "integer", "minimum": 1}, "accounts": {"type": "array", "items": {"type": "object", "required": ["id", "username", "capabilities"], "properties": {"id": {"type": "string", "format": "uuid"}, "username": {"type": "string"}, "capabilities": {"type": "array", "items": {"$ref": "#/components/schemas/Capability"}}}}}}},
+      "TicketRequest": {"type": "object", "additionalProperties": false, "required": ["asset_id", "account_id", "capabilities", "purpose"], "properties": {"asset_id": {"type": "string", "format": "uuid"}, "account_id": {"type": "string", "format": "uuid"}, "capabilities": {"type": "array", "minItems": 1, "maxItems": 3, "items": {"$ref": "#/components/schemas/Capability"}}, "purpose": {"$ref": "#/components/schemas/Purpose"}}},
+      "WebSessionRequest": {"allOf": [{"$ref": "#/components/schemas/TicketRequest"}, {"type": "object", "properties": {"capabilities": {"const": ["shell"]}}}]},
+      "WebSessionResponse": {"type": "object", "required": ["protocol_version", "session_id", "ws_token", "connection_id", "expires_at", "capabilities"], "properties": {"protocol_version": {"const": 1}, "session_id": {"type": "string", "format": "uuid"}, "ws_token": {"$ref": "#/components/schemas/Secret"}, "connection_id": {"type": "string", "format": "uuid"}, "expires_at": {"type": "string", "format": "date-time"}, "capabilities": {"type": "array", "items": {"$ref": "#/components/schemas/Capability"}}}},
+      "TicketResponse": {"type": "object", "required": ["protocol_version", "ticket_id", "ticket_secret", "connection_id", "expires_at", "gateway", "capabilities"], "properties": {"protocol_version": {"const": 1}, "ticket_id": {"type": "string", "format": "uuid"}, "ticket_secret": {"$ref": "#/components/schemas/Secret"}, "connection_id": {"type": "string", "format": "uuid"}, "expires_at": {"type": "string", "format": "date-time"}, "capabilities": {"type": "array", "items": {"$ref": "#/components/schemas/Capability"}}, "gateway": {"type": "object", "properties": {"id": {"type": "string"}, "host": {"type": "string"}, "port": {"type": "integer", "minimum": 1, "maximum": 65535}, "username": {"type": "string", "pattern": "^zt1:"}}}}},
+      "Connection": {"type": "object", "required": ["id", "ticket_id", "asset_id", "account_id", "capabilities", "purpose", "transport", "protocol_version", "state", "created_at"], "properties": {"id": {"type": "string", "format": "uuid"}, "ticket_id": {"type": "string", "format": "uuid"}, "user_id": {"type": "string", "format": "uuid"}, "login_session_id": {"type": "string", "format": "uuid"}, "asset_id": {"type": "string", "format": "uuid"}, "account_id": {"type": "string", "format": "uuid"}, "capabilities": {"type": "array", "items": {"$ref": "#/components/schemas/Capability"}}, "purpose": {"$ref": "#/components/schemas/Purpose"}, "transport": {"$ref": "#/components/schemas/TicketTransport"}, "protocol_version": {"const": 1}, "state": {"type": "string", "enum": ["pending", "connecting", "active", "closing", "closed", "failed", "expired", "revoked", "interrupted"]}, "created_at": {"type": "string", "format": "date-time"}, "failure": {"oneOf": [{"type": "null"}, {"type": "object", "required": ["code"], "properties": {"code": {"$ref": "#/components/schemas/ErrorCode"}}}]}}},
+      "Error": {"type": "object", "required": ["error"], "properties": {"error": {"type": "object", "required": ["code", "message", "request_id"], "properties": {"code": {"$ref": "#/components/schemas/ErrorCode"}, "message": {"type": "string"}, "request_id": {"type": "string", "format": "uuid"}}}}},
+      "ErrorCode": {"type": "string", "enum": ["INVALID_ARGUMENT", "UNKNOWN_CAPABILITY", "UNAUTHENTICATED", "SESSION_EXPIRED", "LOGIN_SESSION_REVOKED", "USER_DISABLED", "PERMISSION_DENIED", "RESOURCE_NOT_FOUND", "SESSION_TICKET_INVALID", "SESSION_TICKET_USED", "SESSION_TICKET_EXPIRED", "SESSION_TICKET_STALE", "CLIENT_PROTOCOL_UNSUPPORTED", "RATE_LIMITED", "CONNECTION_LIMIT", "TARGET_HOST_KEY_UNKNOWN", "TARGET_HOST_KEY_CHANGED", "TARGET_ADDRESS_DENIED", "TARGET_UNREACHABLE", "TARGET_TIMEOUT", "TARGET_AUTH_FAILED", "CHANNEL_PERMISSION_DENIED", "TARGET_REQUEST_REJECTED", "RECORDING_UNAVAILABLE", "POLICY_STORE_UNAVAILABLE", "AUTH_OR_GATEWAY_FAILED", "PRECONDITION_REQUIRED", "REVISION_CONFLICT", "RESOURCE_CONFLICT", "INTERNAL_ERROR"], "description": "Serialization uses SESSION_TICKET_* and SESSION_EXPIRED; legacy TICKET_* and ACCESS_TOKEN_EXPIRED are accepted by the Rust deserializer. Error messages are display-only, never routing decisions."}
+    }
+  }
+}

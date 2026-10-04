@@ -1,16 +1,17 @@
-# ZeroTerm Bastion
+# Web Bastion
 
-配套 [ZeroTerm](https://github.com/NotPeppa/ZeroTerm) 的自托管 SSH 堡垒机。
-管理员托管目标账号凭据；客户端通过 HTTPS 申请一次性连接票据，再以标准 SSH
-访问目标的终端、exec 和 SFTP。目标凭据不会下发给客户端。
+面向浏览器的自托管 Web 堡垒机。管理员托管目标账号凭据；浏览器通过 HTTPS 和
+WebSocket 申请会话并访问目标的终端、exec 和 SFTP。目标凭据不会下发给浏览器。
+系统自身完整提供用户、资产、授权、SSH 代理、审计和管理能力；ZeroTerm 作为额外
+接入端，通过集成 API 和标准 SSH 入口使用同一批资产。
 
 当前实现是 **M0 开发协议原型**：单个固定资产、内存票据、开发 Bearer 身份和
 SSH 多通道代理。尚未实现 PostgreSQL、用户登录、生产授权、凭据加密、审计录制、
-管理界面或 ZeroTerm 客户端接入。原型只能监听本机，默认构建不包含开发认证入口。
+Web 前端或浏览器 WebSocket 数据面。原型只能监听本机，默认构建不包含开发认证入口。
 
 ```text
-ZeroTerm / OpenSSH ── SSH ticket ──> Bastion ── managed credential ──> Target SSH
-                  └─ HTTPS API ──> login / assets / tickets / connection status
+Browser ── HTTPS / WebSocket ──> Bastion ── managed credential ──> Target SSH
+ZeroTerm ── integration API + SSH ticket ──> Bastion
 ```
 
 M0 的 API 使用本机 HTTP 和文件 Bearer 代替生产登录，仅用于协议验证。
@@ -43,16 +44,16 @@ cp config/prototype.example.toml .local/prototype.toml
 target/debug/bastion-server prototype --config .local/prototype.toml
 ```
 
-初始化生成持久网关主机密钥和 32 字节随机 API token；文件权限 0600，目录 0700。
+初始化生成持久服务端密钥和 32 字节随机开发 API token；文件权限 0600，目录 0700。
 已有身份文件会拒绝覆盖。目标私钥、密码、口令文件同样必须是当前用户拥有的
 0600 普通文件。密码和口令文件不自动去除换行。
 
 通过受信任的本地程序在内存读 `.local/api-token`，作为
-`Authorization: Bearer ...` 调用 API。不要把 token 或 SSH 票据放在命令行参数。
+`Authorization: Bearer ...` 调用当前开发 API。不要把 token 或 SSH 票据放在命令行参数。
 
 | API | 用途 |
 |---|---|
-| GET /api/v1/info | 网关入口、公钥、协议版本与开发状态 |
+| GET /api/v1/info | 服务入口、公钥、协议版本与开发状态 |
 | GET /api/v1/assets | 固定授权资产与能力 |
 | POST /api/v1/connection-tickets | 30 秒、单次使用的连接票据 |
 | GET /api/v1/connections/{id} | pending / connecting / active / 终态 |
@@ -62,7 +63,8 @@ API 票据请求字段为 `asset_id`、`account_id`、`capabilities` 和 `purpos
 当前开发契约见 [openapi-prototype.json](docs/openapi-prototype.json)。
 SSH 用户名为 `zt1:<ticket_id>`，password 为 `ticket_secret`。
 目标初始化失败通过 `connection_id` 查询；票据消费后永不恢复，重连需要新票据。
-客户端必须校验网关主机密钥；API 的公钥只能用于核对，不能自动建立信任。
+当前 M0 的标准 SSH 客户端必须校验网关主机密钥；未来浏览器版本改为校验 HTTPS/WSS
+同源和 Origin，不把 SSH 主机密钥交给前端。
 
 ## 已支持的协议行为
 
@@ -86,8 +88,7 @@ cargo fmt --all -- --check
 cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
 cargo test --locked --workspace --all-features
 python3 tests/openssh_smoke.py
-# 可选：同时验证已构建的 ZeroTerm CLI，路径替换为本机实际路径。
-python3 tests/openssh_smoke.py --zeroterm-cli /absolute/path/to/zeroterm
+# 可选：验证标准 SSH 客户端；浏览器 WebSocket 测试在 M2 加入。
 ```
 
 OpenSSH 测试脚本在临时目录生成虚构密钥，启动独立测试 sshd 和网关，执行
@@ -99,13 +100,13 @@ sshd 可在 macOS 以当前用户运行；部分 Linux 环境需要配置测试�
 
 ## 后续阶段
 
-设计基线见 [RFC-004](docs/RFC-004-bastion-design.md)。原文建议的 `bastion/`
-workspace 在本项目作为仓库根目录实现；RFC 中 `./core/`、`./desktop/`、
-`./android/` 链接指向 ZeroTerm 主仓库。本仓库负责服务端，客户端改造仍在 ZeroTerm。
+设计基线见 [RFC-004](docs/RFC-004-bastion-design.md) 和根目录 [design.md](design.md)。
+本仓库负责服务端与同源 Web 前端，浏览器是主入口；ZeroTerm 通过独立集成入口接入，
+两条入口共享用户、资产、授权、审计和撤销逻辑。
 
-1. M1：PostgreSQL 迁移、用户登录/刷新、资产账号、凭据加密、主机密钥审批、grant、事务票据。
-2. M2：在 ZeroTerm 增加 API 客户端、ConnectionTarget、共享连接服务及池隔离。
-3. M3：required shell 输出录制、审计、管理界面、撤销、备份恢复与运维。
-4. M4 / M5：Android 接入和完整功能、安全、负载验收。
+1. M1：PostgreSQL 迁移、Web 登录、资产账号、凭据加密、主机密钥审批、grant、事务票据。
+2. M2：WebSocket 数据面、xterm.js 浏览器终端、会话状态与断线处理。
+3. M3：SFTP 文件管理、exec 工具、管理后台、required shell 录制、审计和撤销。
+4. M4 / M5：ZeroTerm 集成、备份恢复、部署运维、浏览器安全和双入口负载验收。
 
 M0 的通过结果仅证明开发协议路径；RFC 的生产发布条件尚未满足。

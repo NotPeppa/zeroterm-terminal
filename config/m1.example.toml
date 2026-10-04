@@ -2,6 +2,11 @@
 server_id = "zeroterm-bastion-dev"
 gateway_id = "main"
 api_listen = "127.0.0.1:8080"
+# Browser M2 is opt-in and NOT production ready (required recording is absent).
+# Vite development proxy: public_origin = "http://127.0.0.1:5173"
+# Built UI requires local HTTPS via a trusted reverse proxy:
+# public_origin = "https://bastion.local.test"
+# web_root = "/absolute/path/zeroterm-terminal/web/dist"
 ssh_listen = "127.0.0.1:2222"
 # Absolute paths are recommended. Secret files must be owner-only 0600.
 database_url_file = "/absolute/path/.local/database-url"

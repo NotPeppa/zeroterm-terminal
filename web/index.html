@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="dark light">
+  <title>堡垒机 · 终端</title>
+</head>
+<body>
+  <main>
+    <header><h1>堡垒机终端</h1><p>浏览器 → 堡垒机 → 授权 SSH 目标</p></header>
+    <p id="status" role="status" aria-live="polite">正在检查登录会话…</p>
+    <p id="error" role="alert" hidden></p>
+    <section id="login-panel" aria-labelledby="login-heading" hidden>
+      <h2 id="login-heading">登录</h2>
+      <form id="login-form">
+        <label for="username">用户名</label>
+        <input id="username" name="username" autocomplete="username" required maxlength="64">
+        <label for="password">密码</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required>
+        <label for="device">设备标签</label>
+        <input id="device" name="device_label" value="Web 浏览器" required maxlength="128">
+        <button id="login" type="submit">登录</button>
+      </form>
+      <p>仅使用 HttpOnly Cookie；不在浏览器持久保存令牌或目标凭据。</p>
+    </section>
+    <section id="workspace" aria-labelledby="assets-heading" hidden>
+      <div class="toolbar">
+        <p id="identity"></p>
+        <button id="refresh" type="button">主动刷新登录（仅一次）</button>
+        <button id="logout" type="button">注销</button>
+      </div>
+      <h2 id="assets-heading">授权资产</h2>
+      <p>下列能力只用于展示；每次连接仍由服务端重新授权。</p>
+      <div class="selection">
+        <div><label for="asset">资产</label><select id="asset"></select></div>
+        <div><label for="account">目标账号</label><select id="account"></select></div>
+        <button id="reload" type="button">重新读取资产</button>
+        <button id="more" type="button" hidden>加载更多资产</button>
+      </div>
+      <p id="capabilities"></p>
+      <div class="toolbar">
+        <button id="connect" type="button">连接终端</button>
+        <button id="eof" type="button" disabled>发送输入 EOF</button>
+        <button id="close" type="button" disabled>关闭连接</button>
+      </div>
+      <p id="connection">尚未建立连接</p>
+      <section aria-label="目标终端"><div id="terminal"></div></section>
+      <p class="hint">断线保留本页滚动历史；“重新连接”创建全新会话，不恢复旧通道、不重放输入。终端输出可能被服务端录制。</p>
+    </section>
+  </main>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

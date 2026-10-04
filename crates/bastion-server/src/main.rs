@@ -1,7 +1,12 @@
-use anyhow::{bail, Context, Result};
+#[cfg(unix)]
+use anyhow::Context;
+use anyhow::{bail, Result};
+#[cfg(unix)]
 use bastion_secrets::Secret;
 use clap::{Parser, Subcommand};
-use std::{io::Write, path::PathBuf};
+#[cfg(unix)]
+use std::io::Write;
+use std::path::PathBuf;
 mod control;
 
 #[cfg(feature = "dev-prototype")]
@@ -84,6 +89,12 @@ async fn main() -> Result<()> {
     }
 }
 
+#[cfg(not(unix))]
+fn init(_directory: PathBuf) -> Result<()> {
+    bail!("bastion initialization requires a Unix host with owner-only secret permissions")
+}
+
+#[cfg(unix)]
 fn init(directory: PathBuf) -> Result<()> {
     use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt, PermissionsExt};
     if !directory.exists() {

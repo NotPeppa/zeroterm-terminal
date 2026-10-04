@@ -26,6 +26,10 @@ struct Config {
     server_id: String,
     gateway_id: String,
     api_listen: SocketAddr,
+    #[serde(default)]
+    public_origin: Option<String>,
+    #[serde(default)]
+    web_root: Option<PathBuf>,
     ssh_listen: SocketAddr,
     database_url_file: PathBuf,
     ssh_host_key_file: PathBuf,
@@ -230,6 +234,35 @@ impl GatewayBackend for Backend {
             .await
     }
 }
+async fn web_headers(
+    request: axum::extract::Request,
+    next: axum::middleware::Next,
+) -> axum::response::Response {
+    use axum::{
+        http::{header, HeaderValue, StatusCode},
+        response::IntoResponse,
+    };
+    let path = request.uri().path().to_owned();
+    let mut response = next.run(request).await;
+    if response
+        .headers()
+        .get(header::CONTENT_TYPE)
+        .is_some_and(|v| v.to_str().is_ok_and(|s| s.starts_with("text/html")))
+        && (path.starts_with("/api/") || path.starts_with("/health/"))
+    {
+        response = StatusCode::NOT_FOUND.into_response();
+    }
+    for (name, value) in [
+        ("content-security-policy", "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; font-src 'self'; img-src 'self' data:; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"),
+        ("x-content-type-options", "nosniff"),
+        ("referrer-policy", "no-referrer"),
+        ("x-frame-options", "DENY"),
+    ] {
+        response.headers_mut().insert(name, HeaderValue::from_static(value));
+    }
+    response
+}
+
 pub async fn serve(path: PathBuf) -> Result<()> {
     let config = Config::load(&path)?;
     let store = config.store().await?;
@@ -249,26 +282,36 @@ pub async fn serve(path: PathBuf) -> Result<()> {
         port: config.ssh_listen.port(),
         username: String::new(),
     };
-    let api = Arc::new(bastion_api::ControlApi::new(
+    let backend = Arc::new(Backend {
+        store: store.clone(),
+        keys: keys.clone(),
+        network: network.clone(),
+    });
+    let shutdown = CancellationToken::new();
+    let mut api = bastion_api::ControlApi::new(
         store.clone(),
         keys.clone(),
         gateway,
         key.public_key().to_openssh()?,
         network.clone(),
-    )?);
-    let backend = Arc::new(Backend {
-        store,
-        keys,
-        network,
-    });
+    )?;
+    if let Some(origin) = config.public_origin {
+        api = api.with_browser(origin, backend.clone(), shutdown.clone())?;
+    }
+    let api = Arc::new(api);
     let http_listener = TcpListener::bind(config.api_listen).await?;
     let ssh_listener = TcpListener::bind(config.ssh_listen).await?;
-    let shutdown = CancellationToken::new();
     let signal_shutdown = shutdown.clone();
     let signal = tokio::spawn(async move {
-        let mut term = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
-            .expect("signal handler");
-        tokio::select! {_=tokio::signal::ctrl_c()=>{},_=term.recv()=>{}}
+        #[cfg(unix)]
+        {
+            let mut term =
+                tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+                    .expect("signal handler");
+            tokio::select! {_=tokio::signal::ctrl_c()=>{},_=term.recv()=>{}}
+        }
+        #[cfg(not(unix))]
+        let _ = tokio::signal::ctrl_c().await;
         signal_shutdown.cancel();
     });
     // Loss of the dedicated advisory-lock connection stops the whole gateway.
@@ -296,9 +339,19 @@ pub async fn serve(path: PathBuf) -> Result<()> {
         let _ = lease.close().await;
     });
     tracing::info!(api=%config.api_listen,ssh=%config.ssh_listen,"M1 integration service started; output recording is not implemented");
+    let mut app = bastion_api::control_router(api);
+    if let Some(root) = config.web_root {
+        if !root.join("index.html").is_file() {
+            bail!("web_root must contain the built index.html; run the web build first");
+        }
+        let index = tower_http::services::ServeFile::new(root.join("index.html"));
+        app = app
+            .fallback_service(tower_http::services::ServeDir::new(root).not_found_service(index));
+    }
+    app = app.layer(axum::middleware::from_fn(web_headers));
     let http = axum::serve(
         http_listener,
-        bastion_api::control_router(api).into_make_service_with_connect_info::<SocketAddr>(),
+        app.into_make_service_with_connect_info::<SocketAddr>(),
     )
     .with_graceful_shutdown(shutdown.clone().cancelled_owned())
     .into_future();

@@ -58,6 +58,8 @@ impl PrototypeStore {
             account_id: request.account_id,
             capabilities: request.capabilities.clone(),
             purpose: request.purpose,
+            transport: TicketTransport::Ssh,
+            protocol_version: 1,
             state: ConnectionState::Pending,
             created_at: Utc::now(),
             failure: None,

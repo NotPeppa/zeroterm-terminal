@@ -158,14 +158,35 @@ impl PgStore {
         label: &str,
         request_id: Uuid,
     ) -> StoreResult<LoginResponse> {
+        self.login_inner(verified, verified_hash, label, request_id, "zeroterm")
+            .await
+    }
+    pub async fn login_web(
+        &self,
+        verified: &UserView,
+        verified_hash: &str,
+        label: &str,
+        request_id: Uuid,
+    ) -> StoreResult<LoginResponse> {
+        self.login_inner(verified, verified_hash, label, request_id, "web")
+            .await
+    }
+    async fn login_inner(
+        &self,
+        verified: &UserView,
+        verified_hash: &str,
+        label: &str,
+        request_id: Uuid,
+        client_type: &str,
+    ) -> StoreResult<LoginResponse> {
         bounded(async {
             let mut tx=self.begin().await?;
             let row=sqlx::query("SELECT * FROM users WHERE id=$1 FOR UPDATE").bind(verified.id).fetch_one(&mut *tx).await.map_err(db)?;
             let user=user_view(&row)?;
             if !user.enabled || user.revision!=verified.revision || row.get::<String,_>("password_hash")!=verified_hash {return Err(ErrorCode::Unauthenticated); }
             let access=Secret::random();let refresh=Secret::random();let session=Uuid::new_v4();
-            let expiry:DateTime<Utc>=sqlx::query_scalar("INSERT INTO login_sessions(id,user_id,device_label,family_id,refresh_hash,expires_at) VALUES($1,$2,$3,$4,$5,clock_timestamp()+interval '7 days') RETURNING expires_at")
-                .bind(session).bind(user.id).bind(label).bind(Uuid::new_v4()).bind(refresh.hash().as_slice()).fetch_one(&mut *tx).await.map_err(db)?;
+            let expiry:DateTime<Utc>=sqlx::query_scalar("INSERT INTO login_sessions(id,user_id,device_label,family_id,refresh_hash,expires_at,client_type) VALUES($1,$2,$3,$4,$5,clock_timestamp()+interval '7 days',$6) RETURNING expires_at")
+                .bind(session).bind(user.id).bind(label).bind(Uuid::new_v4()).bind(refresh.hash().as_slice()).bind(client_type).fetch_one(&mut *tx).await.map_err(db)?;
             let access_expiry=insert_tokens(&mut tx,session,&access,&refresh,expiry).await?;
             audit(&mut tx,Some(user.id),Some(session),"user.login_success","login_session",Some(session),request_id,json!({"device_label":label})).await?;
             tx.commit().await.map_err(db)?;
@@ -188,8 +209,14 @@ impl PgStore {
         tx.commit().await.map_err(db)
     }
     pub async fn authenticate(&self, secret: &str) -> StoreResult<Identity> {
-        let row=sqlx::query("SELECT u.*,s.id AS session_id,s.revoked_at,s.expires_at>clock_timestamp() AS session_valid,t.expires_at>clock_timestamp() AS token_valid FROM access_tokens t JOIN login_sessions s ON s.id=t.login_session_id JOIN users u ON u.id=s.user_id WHERE t.token_hash=$1")
-            .bind(hash(secret).as_slice()).fetch_optional(&self.pool).await.map_err(db)?.ok_or(ErrorCode::Unauthenticated)?;
+        self.authenticate_inner(secret, "zeroterm").await
+    }
+    pub async fn authenticate_web(&self, secret: &str) -> StoreResult<Identity> {
+        self.authenticate_inner(secret, "web").await
+    }
+    async fn authenticate_inner(&self, secret: &str, client_type: &str) -> StoreResult<Identity> {
+        let row=sqlx::query("SELECT u.*,s.id AS session_id,s.revoked_at,s.expires_at>clock_timestamp() AS session_valid,t.expires_at>clock_timestamp() AS token_valid FROM access_tokens t JOIN login_sessions s ON s.id=t.login_session_id JOIN users u ON u.id=s.user_id WHERE t.token_hash=$1 AND s.client_type=$2")
+            .bind(hash(secret).as_slice()).bind(client_type).fetch_optional(&self.pool).await.map_err(db)?.ok_or(ErrorCode::Unauthenticated)?;
         identity_from_row(&row)
     }
     async fn actor(
@@ -210,11 +237,22 @@ impl PgStore {
         Ok(())
     }
     pub async fn refresh(&self, secret: &str, request_id: Uuid) -> StoreResult<LoginResponse> {
+        self.refresh_inner(secret, request_id, "zeroterm").await
+    }
+    pub async fn refresh_web(&self, secret: &str, request_id: Uuid) -> StoreResult<LoginResponse> {
+        self.refresh_inner(secret, request_id, "web").await
+    }
+    async fn refresh_inner(
+        &self,
+        secret: &str,
+        request_id: Uuid,
+        client_type: &str,
+    ) -> StoreResult<LoginResponse> {
         bounded(async {
             // Policy lock precedes identity/token locks, including replay revocation.
             let mut tx=self.begin().await?;
-            let row=sqlx::query("SELECT r.id AS refresh_id,r.state,r.expires_at>clock_timestamp() AS refresh_valid,u.*,s.id AS session_id,s.revoked_at,s.expires_at AS family_expiry,s.expires_at>clock_timestamp() AS session_valid,true AS token_valid FROM refresh_tokens r JOIN login_sessions s ON s.id=r.login_session_id JOIN users u ON u.id=s.user_id WHERE r.token_hash=$1 FOR UPDATE OF u,s,r")
-                .bind(hash(secret).as_slice()).fetch_optional(&mut *tx).await.map_err(db)?.ok_or(ErrorCode::Unauthenticated)?;
+            let row=sqlx::query("SELECT r.id AS refresh_id,r.state,r.expires_at>clock_timestamp() AS refresh_valid,u.*,s.id AS session_id,s.revoked_at,s.expires_at AS family_expiry,s.expires_at>clock_timestamp() AS session_valid,true AS token_valid FROM refresh_tokens r JOIN login_sessions s ON s.id=r.login_session_id JOIN users u ON u.id=s.user_id WHERE r.token_hash=$1 AND s.client_type=$2 FOR UPDATE OF u,s,r")
+                .bind(hash(secret).as_slice()).bind(client_type).fetch_optional(&mut *tx).await.map_err(db)?.ok_or(ErrorCode::Unauthenticated)?;
             let session:Uuid=row.get("session_id");let uid:Uuid=row.get("id");
             if row.get::<String,_>("state")!="active" {
                 revoke_session(&mut tx,session).await?;
@@ -792,10 +830,42 @@ impl PgStore {
     pub async fn issue_ticket(
         &self,
         identity: &Identity,
-        mut request: TicketRequest,
+        request: TicketRequest,
         gateway: GatewayAddress,
         request_id: Uuid,
     ) -> StoreResult<TicketResponse> {
+        let session = self
+            .issue_session(identity, request, TicketTransport::Ssh, request_id)
+            .await?;
+        Ok(TicketResponse {
+            protocol_version: session.protocol_version,
+            ticket_id: session.session_id,
+            ticket_secret: session.ws_token,
+            connection_id: session.connection_id,
+            expires_at: session.expires_at,
+            gateway: GatewayAddress {
+                username: format!("zt1:{}", session.session_id),
+                ..gateway
+            },
+            capabilities: session.capabilities,
+        })
+    }
+    pub async fn issue_web_session(
+        &self,
+        identity: &Identity,
+        request: TicketRequest,
+        request_id: Uuid,
+    ) -> StoreResult<WebSessionResponse> {
+        self.issue_session(identity, request, TicketTransport::Websocket, request_id)
+            .await
+    }
+    async fn issue_session(
+        &self,
+        identity: &Identity,
+        mut request: TicketRequest,
+        transport: TicketTransport,
+        request_id: Uuid,
+    ) -> StoreResult<WebSessionResponse> {
         bounded(async {
             let mut tx=self.begin().await?;self.actor(&mut tx,identity,false).await?;
             expire_tickets(&mut tx).await?;
@@ -806,38 +876,82 @@ impl PgStore {
             connection_limits(&mut tx,identity.user.id).await?;
             let policy:i64=sqlx::query_scalar("SELECT policy_revision FROM server_settings WHERE singleton").fetch_one(&mut *tx).await.map_err(db)?;
             let ticket=Uuid::new_v4();let connection=Uuid::new_v4();let secret=Secret::random();
-            let expiry:DateTime<Utc>=sqlx::query_scalar("INSERT INTO connection_tickets(id,secret_hash,connection_id,user_id,login_session_id,asset_id,account_id,capabilities,purpose,gateway_id,auth_revision,asset_revision,account_revision,policy_revision,state,expires_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'issued',clock_timestamp()+interval '30 seconds') RETURNING expires_at")
-                .bind(ticket).bind(secret.hash().as_slice()).bind(connection).bind(identity.user.id).bind(identity.login_session_id).bind(request.asset_id).bind(request.account_id).bind(cap_strings(&request.capabilities)).bind(request.purpose.as_str()).bind(self.gateway_id.as_ref()).bind(binding.user.revision).bind(binding.asset.revision).bind(binding.account_revision).bind(policy).fetch_one(&mut *tx).await.map_err(db)?;
-            sqlx::query("INSERT INTO connections(id,ticket_id,user_id,login_session_id,asset_id,account_id,capabilities,purpose,state,gateway_id,auth_revision,asset_revision,target_host,target_port,target_username,user_snapshot,asset_snapshot) VALUES($1,$2,$3,$4,$5,$6,$7,$8,'pending',$9,$10,$11,$12,$13,$14,$15,$16)")
-                .bind(connection).bind(ticket).bind(identity.user.id).bind(identity.login_session_id).bind(request.asset_id).bind(request.account_id).bind(cap_strings(&request.capabilities)).bind(request.purpose.as_str()).bind(self.gateway_id.as_ref()).bind(binding.user.revision).bind(binding.asset.revision).bind(&binding.asset.host).bind(binding.asset.port).bind(&binding.username).bind(&binding.user.username).bind(&binding.asset.name).execute(&mut *tx).await.map_err(db)?;
-            audit(&mut tx,Some(identity.user.id),Some(identity.login_session_id),"ticket.issued","connection",Some(connection),request_id,json!({"asset_id":request.asset_id,"account_id":request.account_id,"capabilities":request.capabilities})).await?;
+            let expiry:DateTime<Utc>=sqlx::query_scalar("INSERT INTO connection_tickets(id,secret_hash,connection_id,user_id,login_session_id,asset_id,account_id,capabilities,purpose,gateway_id,auth_revision,asset_revision,account_revision,policy_revision,state,expires_at,transport,protocol_version) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'issued',clock_timestamp()+interval '30 seconds',$15,1) RETURNING expires_at")
+                .bind(ticket).bind(secret.hash().as_slice()).bind(connection).bind(identity.user.id).bind(identity.login_session_id).bind(request.asset_id).bind(request.account_id).bind(cap_strings(&request.capabilities)).bind(request.purpose.as_str()).bind(self.gateway_id.as_ref()).bind(binding.user.revision).bind(binding.asset.revision).bind(binding.account_revision).bind(policy).bind(transport.as_str()).fetch_one(&mut *tx).await.map_err(db)?;
+            sqlx::query("INSERT INTO connections(id,ticket_id,user_id,login_session_id,asset_id,account_id,capabilities,purpose,state,gateway_id,auth_revision,asset_revision,target_host,target_port,target_username,user_snapshot,asset_snapshot,transport,protocol_version) VALUES($1,$2,$3,$4,$5,$6,$7,$8,'pending',$9,$10,$11,$12,$13,$14,$15,$16,$17,1)")
+                .bind(connection).bind(ticket).bind(identity.user.id).bind(identity.login_session_id).bind(request.asset_id).bind(request.account_id).bind(cap_strings(&request.capabilities)).bind(request.purpose.as_str()).bind(self.gateway_id.as_ref()).bind(binding.user.revision).bind(binding.asset.revision).bind(&binding.asset.host).bind(binding.asset.port).bind(&binding.username).bind(&binding.user.username).bind(&binding.asset.name).bind(transport.as_str()).execute(&mut *tx).await.map_err(db)?;
+            audit(&mut tx,Some(identity.user.id),Some(identity.login_session_id),"ticket.issued","connection",Some(connection),request_id,json!({"asset_id":request.asset_id,"account_id":request.account_id,"capabilities":request.capabilities,"transport":transport,"protocol_version":1})).await?;
             tx.commit().await.map_err(db)?;
-            Ok(TicketResponse {protocol_version:1,ticket_id:ticket,ticket_secret:secret.expose().into(),connection_id:connection,expires_at:expiry,gateway:GatewayAddress {username:format!("zt1:{ticket}"),..gateway},capabilities:request.capabilities})
+            Ok(WebSessionResponse {protocol_version:1,session_id:ticket,ws_token:secret.expose().into(),connection_id:connection,expires_at:expiry,capabilities:request.capabilities})
         }).await
     }
     pub async fn consume_ticket(&self, id: Uuid, secret: &str) -> StoreResult<Connection> {
+        self.consume_session(id, secret, TicketTransport::Ssh, None)
+            .await
+    }
+    pub async fn consume_web_session(
+        &self,
+        session_id: Uuid,
+        secret: &str,
+        identity: &Identity,
+    ) -> StoreResult<Connection> {
+        self.consume_session(
+            session_id,
+            secret,
+            TicketTransport::Websocket,
+            Some(identity),
+        )
+        .await
+    }
+    async fn consume_session(
+        &self,
+        id: Uuid,
+        secret: &str,
+        transport: TicketTransport,
+        identity: Option<&Identity>,
+    ) -> StoreResult<Connection> {
         bounded(async {
             let mut tx=self.begin().await?;
             // Non-locking routing lookup is followed by locked identity and target,
             // then the ticket lock. Every revocation holds the same policy lock.
-            let route=sqlx::query("SELECT user_id,login_session_id,asset_id,account_id FROM connection_tickets WHERE id=$1").bind(id).fetch_optional(&mut *tx).await.map_err(db)?.ok_or(ErrorCode::TicketInvalid)?;
+            let route=sqlx::query("SELECT user_id,login_session_id,asset_id,account_id FROM connection_tickets WHERE id=$1 AND transport=$2 AND protocol_version=1").bind(id).bind(transport.as_str()).fetch_optional(&mut *tx).await.map_err(db)?.ok_or(ErrorCode::TicketInvalid)?;
+            if let Some(identity) = identity {
+                if identity.user.id != route.get::<Uuid,_>("user_id") || identity.login_session_id != route.get::<Uuid,_>("login_session_id") {
+                    return Err(ErrorCode::TicketInvalid);
+                }
+            }
             // Acquire identity and target locks in order before the ticket lock.
             let _binding=self.binding(&mut tx,route.get("user_id"),route.get("login_session_id"),route.get("asset_id"),route.get("account_id")).await;
-            let ticket=sqlx::query("SELECT *,expires_at>clock_timestamp() AS time_valid FROM connection_tickets WHERE id=$1 FOR UPDATE").bind(id).fetch_one(&mut *tx).await.map_err(db)?;
+            let ticket=sqlx::query("SELECT * FROM connection_tickets WHERE id=$1 AND transport=$2 AND protocol_version=1 FOR UPDATE").bind(id).bind(transport.as_str()).fetch_optional(&mut *tx).await.map_err(db)?.ok_or(ErrorCode::TicketInvalid)?;
+            if ticket.get::<Uuid,_>("user_id") != route.get::<Uuid,_>("user_id")
+                || ticket.get::<Uuid,_>("login_session_id") != route.get::<Uuid,_>("login_session_id")
+                || ticket.get::<Uuid,_>("asset_id") != route.get::<Uuid,_>("asset_id")
+                || ticket.get::<Uuid,_>("account_id") != route.get::<Uuid,_>("account_id") {
+                return Err(ErrorCode::TicketInvalid);
+            }
             let stored:Vec<u8>=ticket.get("secret_hash");let expected:[u8;32]=stored.try_into().map_err(|_|ErrorCode::InternalError)?;
             if !matches_hash(&expected,secret) {return Err(ErrorCode::TicketInvalid); }
             match ticket.get::<String,_>("state").as_str() {"issued"=>{},"expired"=>return Err(ErrorCode::TicketExpired),"revoked"=>return Err(ErrorCode::TicketStale),_=>return Err(ErrorCode::TicketUsed)}
-            // Re-read actual login/grant expiration after any ticket-lock wait.
+            // The final connection UPDATE must not introduce another lock wait after
+            // checking login, grants and ticket expiry at the actual current time.
+            let connection:Uuid=ticket.get("connection_id");
+            let pending=sqlx::query("SELECT user_id,login_session_id,asset_id,account_id FROM connections WHERE id=$1 AND ticket_id=$2 AND state='pending' AND transport=$3 AND protocol_version=1 FOR UPDATE")
+                .bind(connection).bind(id).bind(transport.as_str()).fetch_optional(&mut *tx).await.map_err(db)?.ok_or(ErrorCode::TicketInvalid)?;
+            for field in ["user_id", "login_session_id", "asset_id", "account_id"] {
+                if pending.get::<Uuid,_>(field) != route.get::<Uuid,_>(field) { return Err(ErrorCode::TicketInvalid); }
+            }
+            // Re-read actual login/grant expiration after any ticket/connection-lock wait.
             // These identity/target locks are already owned by this transaction.
             let binding=self.binding(&mut tx,route.get("user_id"),route.get("login_session_id"),route.get("asset_id"),route.get("account_id")).await;
-            let connection:Uuid=ticket.get("connection_id");
-            let reason=if !ticket.get::<bool,_>("time_valid") {Some(ErrorCode::TicketExpired)} else {
+            let time_valid:bool=sqlx::query_scalar("SELECT expires_at>clock_timestamp() FROM connection_tickets WHERE id=$1").bind(id).fetch_one(&mut *tx).await.map_err(db)?;
+            let reason=if !time_valid {Some(ErrorCode::TicketExpired)} else {
                 match &binding {
                     Err(code)=>Some(*code),
                     Ok(binding)=>{
                         let policy:i64=sqlx::query_scalar("SELECT policy_revision FROM server_settings WHERE singleton").fetch_one(&mut *tx).await.map_err(db)?;
                         let caps=parse_caps(ticket.get("capabilities"))?;
-                        if ticket.get::<String,_>("gateway_id")!=self.gateway_id.as_ref() || ticket.get::<i64,_>("auth_revision")!=binding.user.revision || ticket.get::<i64,_>("asset_revision")!=binding.asset.revision || ticket.get::<i64,_>("account_revision")!=binding.account_revision || ticket.get::<i64,_>("policy_revision")!=policy {Some(ErrorCode::TicketStale)}
+                        if identity.is_some_and(|identity| identity.user.revision != binding.user.revision) {Some(ErrorCode::LoginSessionRevoked)}
+                        else if ticket.get::<String,_>("gateway_id")!=self.gateway_id.as_ref() || ticket.get::<i64,_>("auth_revision")!=binding.user.revision || ticket.get::<i64,_>("asset_revision")!=binding.asset.revision || ticket.get::<i64,_>("account_revision")!=binding.account_revision || ticket.get::<i64,_>("policy_revision")!=policy {Some(ErrorCode::TicketStale)}
                         else if caps.iter().any(|c|!binding.capabilities.contains(c)) {Some(ErrorCode::PermissionDenied)} else {None}
                     }
                 }
@@ -850,10 +964,10 @@ impl PgStore {
                 tx.commit().await.map_err(db)?;return Err(reason);
             }
             connection_limits(&mut tx,route.get("user_id")).await?;
-            let changed=sqlx::query("UPDATE connection_tickets SET state='consumed',consumed_at=clock_timestamp() WHERE id=$1 AND secret_hash=$2 AND state='issued' AND expires_at>clock_timestamp()")
-                .bind(id).bind(hash(secret).as_slice()).execute(&mut *tx).await.map_err(db)?;
+            let changed=sqlx::query("UPDATE connection_tickets SET state='consumed',consumed_at=clock_timestamp() WHERE id=$1 AND secret_hash=$2 AND state='issued' AND expires_at>clock_timestamp() AND transport=$3 AND protocol_version=1")
+                .bind(id).bind(hash(secret).as_slice()).bind(transport.as_str()).execute(&mut *tx).await.map_err(db)?;
             if changed.rows_affected()!=1 {return Err(ErrorCode::TicketExpired); }
-            let row=sqlx::query("UPDATE connections SET state='connecting',started_at=clock_timestamp() WHERE id=$1 AND state='pending' RETURNING *").bind(connection).fetch_one(&mut *tx).await.map_err(db)?;
+            let row=sqlx::query("UPDATE connections SET state='connecting',started_at=clock_timestamp() WHERE id=$1 AND ticket_id=$2 AND state='pending' AND transport=$3 AND protocol_version=1 RETURNING *").bind(connection).bind(id).bind(transport.as_str()).fetch_optional(&mut *tx).await.map_err(db)?.ok_or(ErrorCode::TicketInvalid)?;
             audit(&mut tx,Some(route.get("user_id")),Some(route.get("login_session_id")),"ticket.consumed","connection",Some(connection),Uuid::new_v4(),json!({})).await?;
             audit(&mut tx,Some(route.get("user_id")),Some(route.get("login_session_id")),"connection.connecting","connection",Some(connection),Uuid::new_v4(),json!({})).await?;
             tx.commit().await.map_err(db)?;connection_view(&row)
@@ -900,22 +1014,36 @@ impl PgStore {
     pub async fn authorize_connection(&self, connection: &Connection) -> StoreResult<()> {
         bounded(async {
             let mut tx = self.begin().await?;
-            let binding = self
-                .binding(
-                    &mut tx,
-                    connection.user_id.ok_or(ErrorCode::Unauthenticated)?,
-                    connection
-                        .login_session_id
-                        .ok_or(ErrorCode::Unauthenticated)?,
-                    connection.asset_id,
-                    connection.account_id,
-                )
-                .await?;
+            let user_id = connection.user_id.ok_or(ErrorCode::Unauthenticated)?;
+            let login_session_id = connection
+                .login_session_id
+                .ok_or(ErrorCode::Unauthenticated)?;
+            // Acquire policy -> identity -> target locks before the connection row.
+            self.binding(
+                &mut tx,
+                user_id,
+                login_session_id,
+                connection.asset_id,
+                connection.account_id,
+            )
+            .await?;
             let row = sqlx::query("SELECT * FROM connections WHERE id=$1 FOR UPDATE")
                 .bind(connection.id)
                 .fetch_one(&mut *tx)
                 .await
                 .map_err(db)?;
+            // The row lock may have waited across a login or grant deadline.
+            // Re-read with clock_timestamp(); identity/target locks are already held,
+            // so this does not acquire them in reverse order.
+            let binding = self
+                .binding(
+                    &mut tx,
+                    user_id,
+                    login_session_id,
+                    connection.asset_id,
+                    connection.account_id,
+                )
+                .await?;
             if !matches!(
                 row.get::<String, _>("state").as_str(),
                 "connecting" | "active"
@@ -1082,6 +1210,13 @@ fn connection_view(row: &PgRow) -> StoreResult<Connection> {
         account_id: row.get("account_id"),
         capabilities: parse_caps(row.get("capabilities"))?,
         purpose,
+        transport: match row.get::<String, _>("transport").as_str() {
+            "ssh" => TicketTransport::Ssh,
+            "websocket" => TicketTransport::Websocket,
+            _ => return Err(ErrorCode::InternalError),
+        },
+        protocol_version: u32::try_from(row.get::<i32, _>("protocol_version"))
+            .map_err(|_| ErrorCode::InternalError)?,
         state,
         created_at: row.get("created_at"),
         failure,
@@ -1277,6 +1412,6 @@ impl PgStore {
 
 impl PgStore {
     pub async fn logout_completed(&self, token: &str) -> StoreResult<bool> {
-        sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM access_tokens t JOIN login_sessions s ON s.id=t.login_session_id WHERE t.token_hash=$1 AND s.revoked_at IS NOT NULL)").bind(hash(token).as_slice()).fetch_one(&self.pool).await.map_err(db)
+        sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM access_tokens t JOIN login_sessions s ON s.id=t.login_session_id WHERE t.token_hash=$1 AND s.client_type='zeroterm' AND s.revoked_at IS NOT NULL)").bind(hash(token).as_slice()).fetch_one(&self.pool).await.map_err(db)
     }
 }

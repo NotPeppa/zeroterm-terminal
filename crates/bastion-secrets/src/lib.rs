@@ -1,4 +1,6 @@
-use anyhow::{bail, Context, Result};
+#[cfg(unix)]
+use anyhow::Context;
+use anyhow::{bail, Result};
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use rand::RngCore;
 use sha2::{Digest, Sha256};
@@ -40,6 +42,7 @@ pub fn matches_hash(expected: &[u8; 32], candidate: &str) -> bool {
 }
 
 /// Refuse symlinks and group/world accessible secrets. M0 is Unix only.
+#[cfg(unix)]
 pub fn read_secret_file(path: &Path) -> Result<Secret> {
     use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
     let meta = std::fs::symlink_metadata(path).context("cannot inspect secret file")?;
@@ -64,6 +67,11 @@ pub fn read_secret_file(path: &Path) -> Result<Secret> {
         bail!("invalid secret file length");
     }
     Ok(Secret(value))
+}
+
+#[cfg(not(unix))]
+pub fn read_secret_file(_path: &Path) -> Result<Secret> {
+    bail!("bastion secret files require a Unix host with owner-only permissions")
 }
 
 #[cfg(test)]
