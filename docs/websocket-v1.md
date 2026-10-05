@@ -1,6 +1,17 @@
-# WebSocket v1 (RFC-004 M2)
+# WebSocket v1 (RFC-004 M2–M3 candidate)
 
-M2 is one authorized PTY/shell channel per WebSocket. Exec and SFTP are not part of this wire version's implemented M2 surface. The server, never the browser, connects to the target SSH account. Capabilities and routing come exclusively from the stored ticket.
+M2 shipped one authorized PTY/shell channel per WebSocket. The M3 candidate extends the same v1 wire with independently authorized shell, exec and raw SFTP channels; availability is advertised by `/info.features`, not inferred from this document. The server, never the browser, connects to the immutable target SSH account. Production readiness remains false until the integrated required-recording, HTTPS and release acceptance gates pass.
+
+## M3 channel extensions
+
+- `open` accepts `kind:"shell"|"exec"|"sftp"`; omitted kind remains shell for old clients. IDs are nonzero u32, must not be reused in a connection, and live channels share the configured 16/connection and 64/user limits across Web/SSH.
+- Exec startup: wait for `opened`, then send `{"v":1,"type":"exec_start","channel_id":2,"command_base64":"..."}`. Standard padded base64 preserves raw command bytes, at most 65,536 decoded bytes, excluding NUL. Only `exec_start` may exceed 8,192 UTF-8 bytes, with an absolute 98,304-byte control limit. All other control messages and server control messages retain 8,192 bytes. Binary frames retain the 32,768-byte payload limit.
+- Raw SFTP startup: wait for `opened`, then send `{"v":1,"type":"sftp_open","channel_id":3}`. Browser file management uses the authenticated HTTP SFTP API on the same owned/login-bound connection, not a JavaScript SFTP codec.
+- Shell startup still requires target-acknowledged PTY/shell and, when required, successful private recording creation/activation. Every output chunk is written and ACKed before forwarding. Inputs, exec outputs and SFTP bytes are not included in shell recording.
+- A channel close/error is isolated unless the underlying target transport, ownership/policy, connection lifetime or gateway fails. stdout and stderr remain distinguishable binary kinds 2 and 3, including invalid/split UTF-8. EOF must drain pending output and exit metadata.
+- `/info` has separate `ssh_*` and `web_*` features plus `recording.required/available/format_version`; a development M1 endpoint without recording cannot impersonate a production endpoint. Unsupported strict cross-host copy remains disabled.
+
+The following authentication and legacy-shell examples remain valid; M2-only statements below describe the earlier milestone rather than removing these candidate extensions.
 
 ## Authenticate and create
 
@@ -23,7 +34,7 @@ const socket = new WebSocket(
 socket.binaryType = 'arraybuffer';
 ```
 
-The upgrade must carry the authenticated owner's **same login_session_id**, exact same-origin Origin, and `Sec-WebSocket-Protocol: bastion.v1, <ws_token>`. The selected response subprotocol is only `bastion.v1` (never echo the secret). No Authorization header, query string, or client-supplied routing is accepted. WebSocket credential/ownership rejection is deliberately uniform. Cookie login requires HTTPS except explicitly configured loopback development HTTP.
+The upgrade must carry the authenticated owner's **same login_session_id**, exact same-origin Origin, and `Sec-WebSocket-Protocol: bastion.v1, <ws_token>`. The selected response subprotocol is only `bastion.v1` (never echo the secret). No Authorization header, query string, or client-supplied routing is accepted. WebSocket credential/ownership rejection is deliberately uniform; policy store outage remains 503. Cookie login requires HTTPS except explicitly configured loopback development HTTP. The built frontend requires HTTPS even on loopback; only Vite DEV permits that HTTP exception. This milestone has no required recording and is not a production deployment.
 
 ## Text control messages
 
@@ -70,7 +81,7 @@ One WebSocket binary message contains one six-byte header followed by **0..32768
 | 2 | 4 | nonzero channel_id u32, big-endian |
 | 6 | remaining | raw data payload |
 
-Client-to-server accepts only kind 1; server-to-client accepts kinds 2 and 3. Messages shorter than 6 or longer than 32774 bytes, channel 0, unknown kind, wrong direction, and unsupported versions are rejected. Empty payloads are valid. Preserve chunk bytes, including invalid UTF-8 and split UTF-8 sequences; feed server output directly to xterm's byte input.
+Client-to-server accepts only kind 1; server-to-client accepts kinds 2 and 3. Messages shorter than 6 or longer than 32774 bytes, channel 0, unknown kind, wrong direction, and unsupported versions are rejected. Empty payloads are valid. Preserve chunk bytes, including invalid UTF-8 and split UTF-8 sequences; feed server output directly to xterm's byte input. Domain decoding failures attempt a bounded stable `error` frame before shutdown; a transport-level over-limit/invalid WebSocket frame may be rejected by the WebSocket library before domain decoding and terminate without that application error.
 
 Rust domain exports `ClientControl`, `ServerControl` (serde `type` tag), `ClientFrame::Control/ Data`, `ServerFrame::Control/ Data`, and `DataStream::Output/ Stderr`. Both frame types provide `decode_text`, `decode_binary`, `encode_text`, `encode_binary`; control types expose `validate`. `encode_text` on Data or `encode_binary` on Control returns INVALID_ARGUMENT. Limits are exported as `WEBSOCKET_VERSION`, `MAX_CONTROL_BYTES`, `MAX_DATA_BYTES`, `BINARY_HEADER_BYTES`.
 
