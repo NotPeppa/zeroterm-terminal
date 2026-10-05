@@ -1,54 +1,29 @@
 <!doctype html>
 <html lang="zh-CN">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="color-scheme" content="dark light">
-  <title>堡垒机 · 终端</title>
-</head>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="color-scheme" content="dark"><meta name="theme-color" content="#101621"><title>ZeroTerm · 工作台</title></head>
 <body>
-  <main>
-    <header><h1>堡垒机终端</h1><p>浏览器 → 堡垒机 → 授权 SSH 目标</p></header>
-    <p id="status" role="status" aria-live="polite">正在检查登录会话…</p>
-    <p id="error" role="alert" hidden></p>
-    <section id="login-panel" aria-labelledby="login-heading" hidden>
-      <h2 id="login-heading">登录</h2>
-      <form id="login-form">
-        <label for="username">用户名</label>
-        <input id="username" name="username" autocomplete="username" required maxlength="64">
-        <label for="password">密码</label>
-        <input id="password" name="password" type="password" autocomplete="current-password" required>
-        <label for="device">设备标签</label>
-        <input id="device" name="device_label" value="Web 浏览器" required maxlength="128">
-        <button id="login" type="submit">登录</button>
-      </form>
-      <p>仅使用 HttpOnly Cookie；不在浏览器持久保存令牌或目标凭据。</p>
-    </section>
-    <section id="workspace" aria-labelledby="assets-heading" hidden>
-      <div class="toolbar">
-        <p id="identity"></p>
-        <button id="refresh" type="button">主动刷新登录（仅一次）</button>
-        <button id="logout" type="button">注销</button>
-      </div>
-      <h2 id="assets-heading">授权资产</h2>
-      <p>下列能力只用于展示；每次连接仍由服务端重新授权。</p>
-      <div class="selection">
-        <div><label for="asset">资产</label><select id="asset"></select></div>
-        <div><label for="account">目标账号</label><select id="account"></select></div>
-        <button id="reload" type="button">重新读取资产</button>
-        <button id="more" type="button" hidden>加载更多资产</button>
-      </div>
-      <p id="capabilities"></p>
-      <div class="toolbar">
-        <button id="connect" type="button">连接终端</button>
-        <button id="eof" type="button" disabled>发送输入 EOF</button>
-        <button id="close" type="button" disabled>关闭连接</button>
-      </div>
-      <p id="connection">尚未建立连接</p>
-      <section aria-label="目标终端"><div id="terminal"></div></section>
-      <p class="hint">断线保留本页滚动历史；“重新连接”创建全新会话，不恢复旧通道、不重放输入。终端输出可能被服务端录制。</p>
-    </section>
-  </main>
-  <script type="module" src="/src/main.ts"></script>
-</body>
-</html>
+<a class="skip" href="#route-view">跳到主要内容</a>
+<main>
+  <header class="site-header"><a class="brand" href="#/assets">ZeroTerm <small>工作台</small></a><p id="discovery" role="status">正在读取服务端能力…</p></header>
+  <p id="development-warning" class="error" role="status" hidden></p>
+  <p id="status" role="status" aria-live="polite">正在检查登录会话…</p><p id="error" role="alert" hidden></p>
+  <section id="login-panel" class="auth-layout" aria-labelledby="login-heading" hidden>
+    <div><p class="eyebrow">授权目标访问</p><h1>连接你的<br>授权工作空间。</h1><p class="muted">浏览器只访问同源网关；目标地址与凭据由服务端管理。功能和录制状态以服务端实际发现结果为准。</p></div>
+    <div class="auth-card"><h2 id="login-heading">登录控制台</h2>
+      <form id="login-form"><label for="username">用户名</label><input id="username" name="username" autocomplete="username" required maxlength="64"><label for="password">密码</label><input id="password" name="password" type="password" autocomplete="current-password" required maxlength="1024">
+        <details><summary>高级：设备标签（可选）</summary><label for="device">设备标签</label><input id="device" name="device_label" value="Web 浏览器" maxlength="128" aria-describedby="device-help"><p id="device-help" class="muted">用于在个人设置中识别和撤销这次设备登录，不影响授权目标。留空使用“Web 浏览器”。</p></details>
+        <button id="login" type="submit" class="primary">登录</button>
+      </form><p class="muted">HttpOnly Cookie 登录；不在浏览器持久保存令牌、密码或目标凭据。</p>
+    </div>
+  </section>
+  <section id="workspace" class="workspace-shell" hidden>
+    <aside class="sidebar"><strong id="sidebar-user"></strong><nav id="navigation" aria-label="工作台导航"></nav></aside>
+    <div class="workspace-main"><header class="workspace-topbar"><h1 id="assets-heading" tabindex="-1">工作台</h1><div class="toolbar"><button id="refresh" type="button">主动刷新登录</button><button id="logout" type="button">注销</button></div></header>
+      <p id="identity" class="identity-strip"></p>
+      <section id="target-bar" aria-label="授权目标选择"><div class="target-fields"><label for="asset">授权资产<select id="asset"></select></label><label for="account">目标账号<select id="account"></select></label><div class="toolbar"><button id="reload" type="button">刷新目标</button><button id="more" type="button" hidden>更多目标</button></div></div><p id="capabilities" class="muted"></p></section>
+      <section id="route-view" class="workspace-content" tabindex="-1" aria-labelledby="assets-heading"></section>
+    </div>
+  </section>
+</main>
+<script type="module" src="/src/main.ts"></script>
+</body></html>
