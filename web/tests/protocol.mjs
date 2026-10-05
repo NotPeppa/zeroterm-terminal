@@ -1,6 +1,6 @@
 import { strict as assert } from 'node:assert';
 import test from 'node:test';
-import { CHANNEL, HEADER_BYTES, MAX_CONTROL_BYTES, MAX_PAYLOAD, advance, canSend, inputFrames, outputPayload, parseControl, requireHTTPS, streamURL } from '../src/protocol.ts';
+import { CHANNEL, HEADER_BYTES, MAX_CONTROL_BYTES, MAX_PAYLOAD, advance, canSend, inputFrames, outputPayload, parseControl, requireHTTPS, streamURL, outputFrame, commandBase64, encodeControl } from '../src/protocol.ts';
 
 test('production HTTP is rejected before transport while Vite DEV permits HTTP', () => {
   assert.throws(() => requireHTTPS('http:', false), /HTTPS_REQUIRED/);
@@ -74,4 +74,21 @@ test('backpressure and websocket URL', () => {
   assert.equal(canSend(256 * 1024 - 1, 1), true);
   assert.equal(canSend(256 * 1024, 1), false);
   assert.equal(streamURL('http://localhost:5173', 's id', true), 'ws://localhost:5173/api/v1/sessions/s%20id/stream');
+});
+
+test('multiple channels preserve stdout/stderr identities without changing shell defaults', () => {
+  const frame = new Uint8Array([1, 3, 0, 0, 0, 2, 255]);
+  const decoded = outputFrame(frame.buffer); assert.equal(decoded.channel, 2); assert.equal(decoded.kind, 3); assert.deepEqual([...decoded.payload], [255]);
+  assert.equal(parseControl('{"v":1,"type":"ready","channel_id":2}').channel_id, 2);
+  assert.throws(() => parseControl('{"v":1,"type":"ready","channel_id":0}'), /INVALID/);
+  assert.equal(new DataView([...inputFrames(new Uint8Array([255]), 5)][0].buffer).getUint32(2), 5);
+});
+
+test('exec accepts exact 64KiB raw bytes under special96KiB while ordinary controls remain8KiB', () => {
+  const bytes = new Uint8Array(64 * 1024).fill(255), command = commandBase64(bytes);
+  const text = encodeControl({ type: 'exec_start', channel_id: 9, command_base64: command });
+  assert.ok(new TextEncoder().encode(text).length > MAX_CONTROL_BYTES); assert.ok(new TextEncoder().encode(text).length < 96 * 1024);
+  assert.throws(() => commandBase64(new Uint8Array(64 * 1024 + 1).fill(1)), /INVALID_COMMAND/);
+  assert.throws(() => commandBase64(new Uint8Array([1, 0, 2])), /INVALID_COMMAND/);
+  assert.throws(() => encodeControl({ type: 'ping', note: 'a'.repeat(8192) }), /CONTROL_FRAME_TOO_LARGE/);
 });
