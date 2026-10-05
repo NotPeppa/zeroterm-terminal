@@ -1,9 +1,9 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "Bastion Web API (RFC-004 M2)",
+    "title": "Bastion Web API (RFC-004 M3 candidate)",
     "version": "1.0.0",
-    "description": "Implemented browser login, assets, one-shell WebSocket sessions and connection lifecycle. Cookie and ZeroTerm bearer login families are isolated. Other RFC-004 roadmap features are not claimed by this document. WebSocket message details: websocket-v1.md."
+    "description": "Candidate browser/ZeroTerm control plane with v1 multi-channel extensions, device sessions, authenticated files and required recording replay. Capability availability is declared by /info, never inferred from this document. Production readiness remains false until integrated release acceptance passes. Detailed incremental contracts: M3-final-contract.md and websocket-v1.md."
   },
   "servers": [{"url": "/api/v1"}],
   "security": [{"BrowserSession": []}],
@@ -51,7 +51,7 @@
     },
     "/sessions": {
       "post": {
-        "summary": "Issue one-use WebSocket session ticket", "description": "Browser cookies only; exact Origin and CSRF required. M2 accepts only capabilities=[shell]. Target route and capabilities are fixed in the stored ticket; issuance also creates a pending connection. Never automatically replay this operation.",
+        "summary": "Issue one-use WebSocket session ticket", "description": "Browser cookies only; exact Origin and CSRF required. Target route and shell/exec/sftp capabilities are fixed in the stored ticket; issuance also creates a pending connection. Never automatically replay this operation.",
         "parameters": [{"$ref": "#/components/parameters/Origin"}, {"$ref": "#/components/parameters/Csrf"}],
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/WebSessionRequest"}}}},
         "responses": {"201": {"description": "One-time secret returned only here; Cache-Control:no-store", "headers": {"Cache-Control": {"schema": {"const": "no-store"}}}, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/WebSessionResponse"}}}}, "400": {"$ref": "#/components/responses/Error"}, "401": {"$ref": "#/components/responses/Error"}, "403": {"$ref": "#/components/responses/Error"}, "429": {"$ref": "#/components/responses/Error"}, "503": {"$ref": "#/components/responses/Error"}}
@@ -67,10 +67,52 @@
     },
     "/connection-tickets": {
       "post": {
-        "security": [{"BearerSession": []}], "summary": "Existing M1 SSH integration ticket endpoint", "description": "Compatibility endpoint; a ticket cannot authenticate a WebSocket. The RFC's /integrations/zeroterm/connection-tickets naming is a roadmap alias, not claimed implemented here.",
+        "security": [{"BearerSession": []}], "summary": "Existing M1 SSH integration ticket endpoint", "description": "Compatibility endpoint; a ticket cannot authenticate a WebSocket. The formal /integrations/zeroterm/connection-tickets alias uses the same Bearer-only SSH issuance transaction.",
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/TicketRequest"}}}},
         "responses": {"201": {"description": "Single-use SSH ticket, no-store", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/TicketResponse"}}}}, "403": {"$ref": "#/components/responses/Error"}, "429": {"$ref": "#/components/responses/Error"}}
       }
+    },
+    "/integrations/zeroterm/connection-tickets": {
+      "post": {"security": [{"BearerSession": []}], "summary": "Issue a formal single-use ZeroTerm SSH ticket", "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/TicketRequest"}}}}, "responses": {"201": {"description": "Same transaction and response as the compatibility SSH ticket endpoint", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/TicketResponse"}}}}, "403": {"$ref": "#/components/responses/Error"}}}
+    },
+    "/me/sessions": {
+      "get": {"summary": "List own login devices without tokens", "responses": {"200": {"description": "items and next_cursor; each item has id, device_label, client_type, current, created_at, expires_at and revoked_at"}}}
+    },
+    "/me/sessions/{id}": {
+      "parameters": [{"$ref": "#/components/parameters/Id"}],
+      "delete": {"summary": "Revoke an owned device login and its tickets/connections", "parameters": [{"$ref": "#/components/parameters/Origin"}, {"$ref": "#/components/parameters/Csrf"}], "responses": {"204": {"description": "Device login revoked"}, "403": {"$ref": "#/components/responses/Error"}}}
+    },
+    "/recordings": {
+      "get": {"summary": "List owned or role-authorized recording metadata", "parameters": [{"$ref": "#/components/parameters/Limit"}, {"$ref": "#/components/parameters/Cursor"}], "responses": {"200": {"description": "Metadata page; no paths or key envelopes"}}}
+    },
+    "/recordings/{id}": {
+      "parameters": [{"$ref": "#/components/parameters/Id"}],
+      "get": {"summary": "Read authorized recording metadata", "responses": {"200": {"description": "id, channel_id, format_version, bytes, checksum, state, retention_until, last_written_seq and last_synced_seq"}, "404": {"$ref": "#/components/responses/Error"}}}
+    },
+    "/recordings/{id}/content": {
+      "parameters": [{"$ref": "#/components/parameters/Id"}],
+      "get": {"summary": "Stream verified decrypted recording events", "description": "No Range, public paths or key delivery. Every read is audited. A verified prefix is not complete until the reader verifies final end, clean EOF and metadata checksum/bytes. Stream errors must remain visible.", "responses": {"200": {"description": "No-store authenticated NDJSON event stream", "content": {"application/x-ndjson": {"schema": {"type": "string"}}}}, "503": {"$ref": "#/components/responses/Error"}}}
+    },
+    "/connections/{id}/channels": {
+      "parameters": [{"$ref": "#/components/parameters/Id"}],
+      "get": {"summary": "Read authorized persisted channel lifecycles", "responses": {"200": {"description": "items with channel identity, kind, state, exit metadata and optional recording id"}}}
+    },
+    "/connections/{id}/files": {
+      "parameters": [{"$ref": "#/components/parameters/Id"}, {"name": "path", "in": "query", "required": true, "schema": {"type": "string", "minLength": 1, "maxLength": 4096}}, {"name": "operation", "in": "query", "schema": {"type": "string", "enum": ["list", "stat"], "default": "list"}}],
+      "get": {"summary": "Read target SFTP metadata on an owned active connection", "description": "The connection must belong to the exact current login and have sftp capability. list returns items (at most 1024), stat returns size/permissions/mtime/kind.", "responses": {"200": {"description": "Target metadata, never local gateway files"}, "403": {"$ref": "#/components/responses/Error"}}}
+    },
+    "/connections/{id}/files/operations": {
+      "parameters": [{"$ref": "#/components/parameters/Id"}],
+      "post": {"summary": "Perform a typed target SFTP operation", "description": "JSON operation is mkdir/remove with path, or rename with path and destination. Remove is regular-file only; rename is no-overwrite. No recursive deletion or command escape, and no automatic replay on uncertain outcome.", "requestBody": {"required": true, "content": {"application/json": {"schema": {"type": "object", "required": ["operation", "path"], "properties": {"operation": {"enum": ["mkdir", "remove", "rename"]}, "path": {"type": "string"}, "destination": {"type": "string"}}}}}}, "responses": {"204": {"description": "Target operation acknowledged"}, "403": {"$ref": "#/components/responses/Error"}}}
+    },
+    "/connections/{id}/files/content": {
+      "parameters": [{"$ref": "#/components/parameters/Id"}, {"name": "path", "in": "query", "required": true, "schema": {"type": "string", "minLength": 1, "maxLength": 4096}}],
+      "get": {"summary": "Download a bounded target regular-file stream", "description": "No Range. attachment/no-store with same-origin cookies. The browser may stream directly to disk; handing off a download is not proof of completion.", "responses": {"200": {"description": "32KiB bounded SFTP chunks", "content": {"application/octet-stream": {"schema": {"type": "string", "format": "binary"}}}}}},
+      "put": {"summary": "Stream a no-overwrite target upload", "description": "Raw octet-stream is not collected as JSON. Server writes a same-directory random temporary file, closes successfully, then commits with no-overwrite rename. Cancellation never promises rollback if the target side effect is uncertain.", "parameters": [{"$ref": "#/components/parameters/Origin"}, {"$ref": "#/components/parameters/Csrf"}], "requestBody": {"required": true, "content": {"application/octet-stream": {"schema": {"type": "string", "format": "binary"}}}}, "responses": {"201": {"description": "Committed upload; JSON bytes count"}, "409": {"$ref": "#/components/responses/Error"}}}
+    },
+    "/copy-jobs": {
+      "get": {"summary": "Read owned or authorized copy job metadata", "responses": {"200": {"description": "items and next_cursor"}}},
+      "post": {"summary": "Record an authorized copy request", "description": "Candidate discovery copy_jobs=false. Standard SFTPv3 lacks required atomic no-follow, so no target copy is run and an explicit failed unsupported job is returned. No unsafe fallback.", "responses": {"201": {"description": "Failed unsupported job, not a completed transfer"}}}
     },
     "/connections": {
       "get": {"summary": "List own connections; admin/auditor may list globally", "parameters": [{"$ref": "#/components/parameters/Limit"}, {"$ref": "#/components/parameters/Cursor"}], "responses": {"200": {"description": "Connection page", "content": {"application/json": {"schema": {"type": "object", "properties": {"items": {"type": "array", "items": {"$ref": "#/components/schemas/Connection"}}, "next_cursor": {"type": ["string", "null"]}}}}}}, "401": {"$ref": "#/components/responses/Error"}}}
@@ -109,7 +151,7 @@
       "NativeLoginResponse": {"allOf": [{"$ref": "#/components/schemas/WebLoginResponse"}, {"type": "object", "required": ["access_token", "refresh_token"], "properties": {"access_token": {"$ref": "#/components/schemas/Secret"}, "refresh_token": {"$ref": "#/components/schemas/Secret"}}}]},
       "Asset": {"type": "object", "required": ["id", "name", "accounts"], "properties": {"id": {"type": "string", "format": "uuid"}, "name": {"type": "string"}, "tags": {"type": "array", "items": {"type": "string"}}, "revision": {"type": "integer", "minimum": 1}, "accounts": {"type": "array", "items": {"type": "object", "required": ["id", "username", "capabilities"], "properties": {"id": {"type": "string", "format": "uuid"}, "username": {"type": "string"}, "capabilities": {"type": "array", "items": {"$ref": "#/components/schemas/Capability"}}}}}}},
       "TicketRequest": {"type": "object", "additionalProperties": false, "required": ["asset_id", "account_id", "capabilities", "purpose"], "properties": {"asset_id": {"type": "string", "format": "uuid"}, "account_id": {"type": "string", "format": "uuid"}, "capabilities": {"type": "array", "minItems": 1, "maxItems": 3, "items": {"$ref": "#/components/schemas/Capability"}}, "purpose": {"$ref": "#/components/schemas/Purpose"}}},
-      "WebSessionRequest": {"allOf": [{"$ref": "#/components/schemas/TicketRequest"}, {"type": "object", "properties": {"capabilities": {"const": ["shell"]}}}]},
+      "WebSessionRequest": {"$ref": "#/components/schemas/TicketRequest"},
       "WebSessionResponse": {"type": "object", "required": ["protocol_version", "session_id", "ws_token", "connection_id", "expires_at", "capabilities"], "properties": {"protocol_version": {"const": 1}, "session_id": {"type": "string", "format": "uuid"}, "ws_token": {"$ref": "#/components/schemas/Secret"}, "connection_id": {"type": "string", "format": "uuid"}, "expires_at": {"type": "string", "format": "date-time"}, "capabilities": {"type": "array", "items": {"$ref": "#/components/schemas/Capability"}}}},
       "TicketResponse": {"type": "object", "required": ["protocol_version", "ticket_id", "ticket_secret", "connection_id", "expires_at", "gateway", "capabilities"], "properties": {"protocol_version": {"const": 1}, "ticket_id": {"type": "string", "format": "uuid"}, "ticket_secret": {"$ref": "#/components/schemas/Secret"}, "connection_id": {"type": "string", "format": "uuid"}, "expires_at": {"type": "string", "format": "date-time"}, "capabilities": {"type": "array", "items": {"$ref": "#/components/schemas/Capability"}}, "gateway": {"type": "object", "properties": {"id": {"type": "string"}, "host": {"type": "string"}, "port": {"type": "integer", "minimum": 1, "maximum": 65535}, "username": {"type": "string", "pattern": "^zt1:"}}}}},
       "Connection": {"type": "object", "required": ["id", "ticket_id", "asset_id", "account_id", "capabilities", "purpose", "transport", "protocol_version", "state", "created_at"], "properties": {"id": {"type": "string", "format": "uuid"}, "ticket_id": {"type": "string", "format": "uuid"}, "user_id": {"type": "string", "format": "uuid"}, "login_session_id": {"type": "string", "format": "uuid"}, "asset_id": {"type": "string", "format": "uuid"}, "account_id": {"type": "string", "format": "uuid"}, "capabilities": {"type": "array", "items": {"$ref": "#/components/schemas/Capability"}}, "purpose": {"$ref": "#/components/schemas/Purpose"}, "transport": {"$ref": "#/components/schemas/TicketTransport"}, "protocol_version": {"const": 1}, "state": {"type": "string", "enum": ["pending", "connecting", "active", "closing", "closed", "failed", "expired", "revoked", "interrupted"]}, "created_at": {"type": "string", "format": "date-time"}, "failure": {"oneOf": [{"type": "null"}, {"type": "object", "required": ["code"], "properties": {"code": {"$ref": "#/components/schemas/ErrorCode"}}}]}}},
