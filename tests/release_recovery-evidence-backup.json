@@ -1,0 +1,108 @@
+[
+  {
+    "time": "2026-10-05T14:45:57Z",
+    "phase": "identity",
+    "status": "observed",
+    "uid": 1000,
+    "root": "/var/tmp/bastion-release-recovery-d213aad8bec948238ce1195f4dd2223a/retry-errors"
+  },
+  {
+    "time": "2026-10-05T14:45:59Z",
+    "phase": "binary",
+    "status": "observed",
+    "binary_sha256": "56eb2a9492587ed58d347024827771421e38a90cc715502000306200f14fca70",
+    "source_manifest_sha256": "6ade90109b5e459399304ba6340367324e8f939677300c5a22581e3b232d307b"
+  },
+  {
+    "time": "2026-10-05T14:46:16Z",
+    "phase": "required-recording",
+    "status": "pass",
+    "production_ready": false,
+    "required": true,
+    "available": true
+  },
+  {
+    "time": "2026-10-05T14:46:16Z",
+    "phase": "recording-directory-mode",
+    "status": "pass",
+    "mode": "0755",
+    "service_start_rejected": true
+  },
+  {
+    "time": "2026-10-05T14:46:16Z",
+    "phase": "low-free-space-preflight",
+    "status": "pass",
+    "free_bytes": 78605926400,
+    "required_bytes": 79679668224,
+    "service_start_rejected": true,
+    "disk_fill": false
+  },
+  {
+    "time": "2026-10-05T14:46:16Z",
+    "phase": "recording-complete-replay",
+    "status": "pass",
+    "state": "complete",
+    "encrypted_sha256": "ce71db4a498bfa9d6d83645c0b2eb4d57c6456efd49c89c67c0dffefd02892ee",
+    "encrypted_bytes": 614,
+    "replay_bytes": 343
+  },
+  {
+    "time": "2026-10-05T14:46:26Z",
+    "phase": "backup-restore",
+    "status": "pass",
+    "counts": {
+      "credential_count": 2,
+      "recording_count": 1,
+      "host_key_count": 2,
+      "kek_versions": [
+        1
+      ]
+    },
+    "host_key_sha256": "d6512a07684afec2edf1b128c30dbe3e291d9d9af3f0ec92e7cf5021f14c5a20",
+    "credential_authentication": true,
+    "replay_identical": true,
+    "restored_live_login_families": 0,
+    "restored_pending_tickets": 0,
+    "old_bearer_rejected": true
+  },
+  {
+    "time": "2026-10-05T14:46:34Z",
+    "phase": "kek-rewrap",
+    "status": "pass",
+    "credential_ciphertext_and_nonce_unchanged": true,
+    "recording_nonce_prefix_unchanged": true,
+    "file_hash_unchanged": true,
+    "new_key_only_decrypt_and_replay": true
+  },
+  {
+    "time": "2026-10-05T14:46:34Z",
+    "phase": "missing-in-use-kek",
+    "status": "pass",
+    "startup_rejected": true
+  },
+  {
+    "time": "2026-10-05T14:46:38Z",
+    "phase": "recording-aead-corruption",
+    "status": "pass",
+    "clean_eof": false,
+    "state": "corrupt",
+    "complete": false
+  },
+  {
+    "time": "2026-10-05T14:46:39Z",
+    "phase": "failure",
+    "status": "fail",
+    "exception": "TypeError",
+    "safe_message": "subprocess or transport failure",
+    "locations": [
+      "release_recovery_cases.py:246"
+    ]
+  },
+  {
+    "time": "2026-10-05T14:46:39Z",
+    "phase": "cleanup",
+    "status": "observed",
+    "elapsed_seconds": 0.234,
+    "owned_children_still_running": 0
+  }
+]

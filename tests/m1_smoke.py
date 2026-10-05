@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Isolated PostgreSQL + real OpenSSH M1 integration. No user database is touched."""
 import contextlib
+import argparse
 import getpass
 import hashlib
 import json
@@ -47,7 +48,7 @@ def database(pg, root, db_port):
     finally:
         subprocess.run([str(pg / "pg_ctl"), "-D", str(data), "-m", "immediate", "-w", "stop"], check=True, stdout=subprocess.DEVNULL)
 
-def run():
+def run(browser_control_dir=None):
     pg = Path(os.environ.get("BASTION_PG_BIN", "/opt/homebrew/opt/postgresql@17/bin"))
     if not (pg / "postgres").exists():
         binary = shutil.which("postgres")
@@ -68,6 +69,7 @@ def run():
         config.write_text(f'''server_id = "m1-test"
 gateway_id = "main"
 api_listen = "127.0.0.1:{api_port}"
+public_origin = "http://127.0.0.1:{api_port}"
 ssh_listen = "127.0.0.1:{gateway_port}"
 database_url_file = "{url_file}"
 ssh_host_key_file = "{local}/ssh_host_ed25519_key"
@@ -204,7 +206,7 @@ LogLevel VERBOSE
                     account = request(base, f"/admin/accounts/{account_id}/credential", credential, a, method="PUT", revision=account["revision"])
                     assert live.poll() is None
                     assert ssh(pending, "true").returncode != 0
-                    assert request(base, f'/connections/{pending["connection_id"]}', token=token)["failure"]["code"] == "TICKET_STALE"
+                    assert request(base, f'/connections/{pending["connection_id"]}', token=token)["failure"]["code"] == "SESSION_TICKET_STALE"
                     refreshed = request(base, "/auth/refresh", {"refresh_token":operator["refresh_token"]})
                     assert refreshed["refresh_token"] != operator["refresh_token"]
                     request(base, "/auth/refresh", {"refresh_token":operator["refresh_token"]}, expected=401)
@@ -251,11 +253,38 @@ LogLevel VERBOSE
                 assert grant["expires_at"] is None
                 # Run the transaction race checks against this same temporary database.
                 fixture = root / "fixture.json"
-                fixture.write_text(json.dumps({"database_url_file":str(url_file),"server_id":"m1-test","gateway_id":"main","username":"admin","password":PASSWORD,"asset_id":asset_id,"account_id":account_id,"operator_id":op["id"]}))
+                fixture.write_text(json.dumps({"database_url_file":str(url_file),"server_id":"m1-test","gateway_id":"main","username":"admin","password":PASSWORD,"asset_id":asset_id,"account_id":account_id,"operator_id":op["id"],"api_url":base}))
                 fixture.chmod(0o600)
                 test_env = os.environ.copy()
                 test_env["BASTION_M1_FIXTURE"] = str(fixture)
+                test_env["BASTION_M1_GATEWAY_LOG"] = str(root / "gateway.log")
                 subprocess.run(["cargo", "test", "--locked", "-p", "bastion-server", "--test", "postgres", "--", "--ignored", "--nocapture"], cwd=ROOT, env=test_env, check=True)
+                subprocess.run(["cargo", "test", "--locked", "-p", "bastion-store", "--test", "web_sessions", "--", "--ignored", "--nocapture"], cwd=ROOT, env=test_env, check=True)
+                subprocess.run(["cargo", "test", "--locked", "-p", "bastion-server", "--test", "websocket", "--", "--ignored", "--nocapture"], cwd=ROOT, env=test_env, check=True)
+                if browser_control_dir is not None:
+                    control = browser_control_dir.resolve()
+                    control.mkdir(mode=0o700, parents=True, exist_ok=True)
+                    if (control / "ready.json").exists() or (control / "stop").exists():
+                        raise RuntimeError("browser control directory must be fresh")
+                    browser_admin = login("admin")
+                    request(base, "/admin/grants", {"user_id":op["id"],"asset_id":asset_id,"account_id":account_id,"capabilities":["shell"]}, browser_admin["access_token"], expected=201)
+                    front_port = port()
+                    vite_config = ROOT / "web" / (".acceptance-vite-" + str(api_port) + ".mjs")
+                    try:
+                        with vite_config.open("x") as config_output:
+                            config_output.write("export default " + json.dumps({"root":str(ROOT / "web"),"server":{"host":"127.0.0.1","port":front_port,"strictPort":True,"proxy":{"/api":{"target":base,"ws":True}}}}))
+                        with process(["node", str(ROOT / "web/node_modules/vite/bin/vite.js"), "--config", str(vite_config)], root / "vite.log") as vite:
+                            wait_port(front_port, vite, root / "vite.log")
+                            (control / "ready.json").write_text(json.dumps({"browser_port":api_port,"remote_frontend_port":front_port,"api_port":api_port,"fixture_root":str(root),"asset_id":asset_id,"account_id":account_id}))
+                            print("BROWSER_READY: isolated fixture active; username=operator; test password defined by PASSWORD constant", flush=True)
+                            deadline = time.monotonic() + 1800
+                            while not (control / "stop").exists() and time.monotonic() < deadline:
+                                if any(p.poll() is not None for p in (vite, gateway, sshd)):
+                                    raise RuntimeError("browser fixture process exited unexpectedly")
+                                time.sleep(1)
+                    finally:
+                        vite_config.unlink(missing_ok=True)
+                        (control / "ready.json").unlink(missing_ok=True)
             # Restart cannot resurrect consumed tickets; recovery marks in-flight history interrupted.
             sql("UPDATE connections SET state='active' WHERE id='" + issued["connection_id"] + "'")
             with process([str(server), "serve-m1", "--config", str(config)], root / "restart.log") as gateway:
@@ -264,4 +293,7 @@ LogLevel VERBOSE
                 assert ssh(issued, "true").returncode != 0
     print("M1 PostgreSQL + OpenSSH integration passed")
 
-if __name__ == "__main__": run()
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--browser-control-dir", type=Path, help="after backend checks, hold the isolated Vite/PG/sshd fixture until a stop file or 30-minute deadline")
+    run(parser.parse_args().browser_control_dir)

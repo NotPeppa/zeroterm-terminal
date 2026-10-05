@@ -1,0 +1,138 @@
+[
+  {
+    "time": "2026-10-05T14:58:27Z",
+    "phase": "identity",
+    "status": "observed",
+    "uid": 1000,
+    "root": "/var/tmp/bastion-release-recovery-d213aad8bec948238ce1195f4dd2223a/runtime-only",
+    "scope": "runtime-only"
+  },
+  {
+    "time": "2026-10-05T14:58:31Z",
+    "phase": "binary",
+    "status": "observed",
+    "binary_sha256": "56eb2a9492587ed58d347024827771421e38a90cc715502000306200f14fca70",
+    "source_manifest_sha256": "not-supplied"
+  },
+  {
+    "time": "2026-10-05T14:58:48Z",
+    "phase": "required-recording",
+    "status": "pass",
+    "production_ready": false,
+    "required": true,
+    "available": true
+  },
+  {
+    "time": "2026-10-05T14:58:48Z",
+    "phase": "recording-directory-mode",
+    "status": "pass",
+    "mode": "0755",
+    "service_start_rejected": true
+  },
+  {
+    "time": "2026-10-05T14:58:48Z",
+    "phase": "low-free-space-preflight",
+    "status": "pass",
+    "free_bytes": 72927256576,
+    "required_bytes": 74000998400,
+    "service_start_rejected": true,
+    "disk_fill": false
+  },
+  {
+    "time": "2026-10-05T14:58:56Z",
+    "phase": "required-shell-recording-permission-loss",
+    "status": "pass",
+    "shell_denied": true,
+    "streaming_channels": 0
+  },
+  {
+    "time": "2026-10-05T14:58:56Z",
+    "phase": "active-shell-device-revoke",
+    "status": "pass",
+    "close_seconds": 0.025,
+    "exit_code": 255
+  },
+  {
+    "time": "2026-10-05T14:59:01Z",
+    "phase": "sigkill-restart-recovery",
+    "status": "pass",
+    "connection_state": "interrupted",
+    "unused_ticket_revoked": true,
+    "old_host_key_unchanged": true
+  },
+  {
+    "time": "2026-10-05T14:59:02Z",
+    "phase": "database-fast-stop-active-shell",
+    "status": "pass",
+    "close_seconds": 0.619,
+    "exit_code": 255,
+    "grace_target_seconds": 5,
+    "fixture_deadline_seconds": 7
+  },
+  {
+    "time": "2026-10-05T14:59:08Z",
+    "phase": "summary",
+    "status": "pass",
+    "scope": "runtime-only",
+    "production_ready": false,
+    "backup_and_complete_replay_not_claimed": true
+  },
+  {
+    "time": "2026-10-05T14:59:08Z",
+    "phase": "cleanup",
+    "status": "observed",
+    "elapsed_seconds": 0.012,
+    "owned_children_still_running": 0,
+    "postgres_pid_files_remaining": 0,
+    "stops": [
+      {
+        "pid": 632904,
+        "requested_sigkill": false,
+        "deadline_sigkill": false,
+        "elapsed_seconds": 0.001
+      },
+      {
+        "pid": 632906,
+        "requested_sigkill": false,
+        "deadline_sigkill": false,
+        "elapsed_seconds": 0.003
+      },
+      {
+        "pid": 632907,
+        "requested_sigkill": false,
+        "deadline_sigkill": false,
+        "elapsed_seconds": 0.018
+      },
+      {
+        "pid": 632918,
+        "requested_sigkill": false,
+        "deadline_sigkill": false,
+        "elapsed_seconds": 0.008
+      },
+      {
+        "pid": 632941,
+        "requested_sigkill": true,
+        "deadline_sigkill": false,
+        "elapsed_seconds": 0.007
+      },
+      {
+        "pid": 632969,
+        "already_exited": true
+      },
+      {
+        "pid": 632987,
+        "already_exited": true
+      },
+      {
+        "pid": 632996,
+        "requested_sigkill": false,
+        "deadline_sigkill": false,
+        "elapsed_seconds": 6.035
+      },
+      {
+        "pid": 633010,
+        "already_exited": true
+      }
+    ]
+  }
+]

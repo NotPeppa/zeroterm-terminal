@@ -1,0 +1,27 @@
+{
+  "method": "empirical nearest rank: ceil(n*p)-1 zero-based; original raw result.json retained without rewriting its lower-order statistics",
+  "echo_ms": {
+    "count": 7490,
+    "p50": 10.799858999904245,
+    "p95": 15.94972499999858,
+    "max": 163.86973199999193
+  },
+  "pulse_ms": {
+    "count": 7565,
+    "p50": 45.80345199996373,
+    "p95": 50.60899099987,
+    "max": 127.85566000000108
+  },
+  "revoke_under_load_ms": {
+    "count": 5,
+    "p50": 29.33157299999948,
+    "p95": 38.78679900000134,
+    "max": 38.78679900000134
+  },
+  "revoke_after_hold_ms": {
+    "count": 5,
+    "p50": 26.183850000146776,
+    "p95": 28.469721000175923,
+    "max": 28.469721000175923
+  }
+}

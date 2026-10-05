@@ -1,0 +1,9 @@
+{
+  "active_connections": 0,
+  "active_channels": 0,
+  "active_recordings": 0,
+  "recording_states": {
+    "complete": 70,
+    "partial": 10
+  }
+}

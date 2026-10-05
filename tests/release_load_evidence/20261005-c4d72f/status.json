@@ -1,0 +1,9 @@
+{
+  "state": "completed",
+  "preflight": false,
+  "finished_at": 1791215710.1621704,
+  "run_id": "da6e9697f8a165be",
+  "binary_sha256": "00f76a8569ebca55d16d5968faf020a311b8fd74a0f65ce9b7f5b90d6ef6fb48",
+  "result": "result.json",
+  "resources": "resources.jsonl"
+}

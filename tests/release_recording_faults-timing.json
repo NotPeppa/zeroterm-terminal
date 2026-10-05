@@ -1,0 +1,17 @@
+{
+  "source": "existing protected gateway log; only constant label and timestamp extracted",
+  "gateway_pid": 724533,
+  "recording_actor_source_sha256": "b631437000a8d857ad96d6d6197a315211b468345039ba6758f6c10b4e932110",
+  "known_timing_labels": [
+    {
+      "label": "recording IO exceeded ACK deadline",
+      "timestamp": "2026-10-05T18:45:52.066955Z"
+    }
+  ],
+  "io_start_timestamp_available": false,
+  "client_close_initiation_timestamp_available": false,
+  "external_marker_send_to_client_close_seconds": 5.005028,
+  "strict_additional_external_five_second_assertion": "fail",
+  "fixture_exit_code": 1,
+  "rfc_initiation_deadline_violation_inferred": false
+}

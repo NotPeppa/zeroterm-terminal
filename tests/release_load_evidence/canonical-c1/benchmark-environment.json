@@ -1,0 +1,33 @@
+{
+  "timestamp": 1791223437.2681,
+  "kernel": "6.12.107+deb13-cloud-amd64",
+  "machine": "x86_64",
+  "logical_cpus": 4,
+  "affinity_cpus": 4,
+  "cpu_models": [
+    "Intel Xeon Processor (Skylake, IBRS)"
+  ],
+  "mem_total_bytes": 8333946880,
+  "sshd_version": "OpenSSH_10.0p2 Debian-7+deb13u4, OpenSSL 3.5.7 9 Jun 2026",
+  "test_topology": "all benchmark legs are loopback on y189, no external WAN baseline",
+  "target_conf_sanitized": [
+    "ListenAddress 127.0.0.1",
+    "Port 41805",
+    "UsePAM no",
+    "PasswordAuthentication no",
+    "PubkeyAuthentication yes",
+    "Subsystem sftp internal-sftp",
+    "AllowUsers bastion-acceptance"
+  ],
+  "target_port": 41805,
+  "gateway_pid": 689927,
+  "main_load_pid": 689868,
+  "matched_direct_pid": 711581,
+  "matched_http_client_pid": 712074,
+  "cpu_quota": null,
+  "shared_host_load_average": [
+    1.71533203125,
+    2.66845703125,
+    2.01171875
+  ]
+}

@@ -1,0 +1,252 @@
+[
+  {
+    "time": "2026-10-05T17:17:45Z",
+    "phase": "identity",
+    "status": "observed",
+    "uid": 1000,
+    "root": "/var/tmp/bastion-release-recovery-8da992077b2c464a9591085a3ffed75b",
+    "scope": "full"
+  },
+  {
+    "time": "2026-10-05T17:17:45Z",
+    "phase": "canonical-input",
+    "status": "verified",
+    "canonical_archive_sha256": "bd7248cd95214007b7bb3e4f31387c6070788a80d947cd75df7b7459f32035f9",
+    "added_runner_sha256": {
+      "tests/release_recovery.py": "f51a8faeda061ce3168cba6ec056bc6c0c6f71fd0e14c1cced277980beaf147a",
+      "tests/release_recovery_cases.py": "8290d8442a2ed7698ffbfb01a62e382aa2c2bb661da6b4394e3dc447886a0039"
+    },
+    "fresh_target": "/var/tmp/bastion-release-recovery-8da992077b2c464a9591085a3ffed75b/source-candidate/target"
+  },
+  {
+    "time": "2026-10-05T17:20:27Z",
+    "phase": "binary",
+    "status": "observed",
+    "binary_sha256": "2a1e4d68a0706265b57c5d3e646a411c763522ddd26a23bdfa36cb77badbef99",
+    "source_manifest_sha256": "a6c87dc7f3b4259c950363699dc69f392a35ad06420f7e924251d9c2cf397628"
+  },
+  {
+    "time": "2026-10-05T17:20:44Z",
+    "phase": "required-recording",
+    "status": "pass",
+    "production_ready": false,
+    "required": true,
+    "available": true
+  },
+  {
+    "time": "2026-10-05T17:20:44Z",
+    "phase": "recording-directory-mode",
+    "status": "pass",
+    "mode": "0755",
+    "service_start_rejected": true
+  },
+  {
+    "time": "2026-10-05T17:20:44Z",
+    "phase": "low-free-space-preflight",
+    "status": "pass",
+    "free_bytes": 72337846272,
+    "required_bytes": 73411588096,
+    "service_start_rejected": true,
+    "disk_fill": false
+  },
+  {
+    "time": "2026-10-05T17:20:45Z",
+    "phase": "recording-complete-replay",
+    "status": "pass",
+    "state": "complete",
+    "encrypted_sha256": "d67d6ab76a3a4f23c52aef724f3cd49662332979576f69a07fa3fce29c8cc614",
+    "encrypted_bytes": 614,
+    "replay_bytes": 343
+  },
+  {
+    "time": "2026-10-05T17:20:55Z",
+    "phase": "backup-restore",
+    "status": "pass",
+    "counts": {
+      "credential_count": 2,
+      "recording_count": 1,
+      "host_key_count": 2,
+      "kek_versions": [
+        1
+      ]
+    },
+    "host_key_sha256": "4b4eb02dba3ae987598766816891533ead8851c716a12a49464311161bd46d38",
+    "private_host_key_unchanged": true,
+    "credential_authentication": true,
+    "replay_identical": true,
+    "restored_live_login_families": 0,
+    "restored_pending_tickets": 0,
+    "old_bearer_rejected": true,
+    "old_native_ticket_rejected": true
+  },
+  {
+    "time": "2026-10-05T17:21:03Z",
+    "phase": "kek-rewrap",
+    "status": "pass",
+    "credential_ciphertext_and_nonce_unchanged": true,
+    "recording_nonce_prefix_unchanged": true,
+    "file_hash_unchanged": true,
+    "new_key_only_decrypt_and_replay": true
+  },
+  {
+    "time": "2026-10-05T17:21:03Z",
+    "phase": "missing-in-use-kek",
+    "status": "pass",
+    "startup_rejected": true
+  },
+  {
+    "time": "2026-10-05T17:21:09Z",
+    "phase": "recording-aead-corruption",
+    "status": "pass",
+    "clean_eof": false,
+    "state": "corrupt",
+    "complete": false
+  },
+  {
+    "time": "2026-10-05T17:21:09Z",
+    "phase": "recording-truncation",
+    "status": "pass",
+    "http_status": 503,
+    "safe_code": "RECORDING_UNAVAILABLE",
+    "state": "corrupt"
+  },
+  {
+    "time": "2026-10-05T17:21:17Z",
+    "phase": "required-shell-recording-permission-loss",
+    "status": "pass",
+    "shell_denied": true,
+    "streaming_channels": 0
+  },
+  {
+    "time": "2026-10-05T17:21:18Z",
+    "phase": "active-shell-device-revoke",
+    "status": "pass",
+    "close_seconds": 0.029,
+    "exit_code": 255
+  },
+  {
+    "time": "2026-10-05T17:21:24Z",
+    "phase": "sigkill-restart-recovery",
+    "status": "pass",
+    "connection_state": "interrupted",
+    "unused_ticket_revoked": true,
+    "old_host_key_unchanged": true
+  },
+  {
+    "time": "2026-10-05T17:21:25Z",
+    "phase": "database-fast-stop-active-shell",
+    "status": "pass",
+    "close_seconds": 0.671,
+    "exit_code": 255,
+    "grace_target_seconds": 5,
+    "fixture_deadline_seconds": 7
+  },
+  {
+    "time": "2026-10-05T17:21:31Z",
+    "phase": "write-blocking-and-disk-full",
+    "status": "not-tested",
+    "reason": "no safe bounded dedicated filesystem fixture; no host disk fill or fake production bypass"
+  },
+  {
+    "time": "2026-10-05T17:21:31Z",
+    "phase": "summary",
+    "status": "pass",
+    "production_ready": false,
+    "remote_ports": [
+      33893,
+      35081,
+      36921,
+      39797,
+      42109,
+      42685,
+      46329,
+      47753,
+      51777,
+      53133,
+      54759,
+      55185
+    ]
+  },
+  {
+    "time": "2026-10-05T17:21:31Z",
+    "phase": "cleanup",
+    "status": "observed",
+    "elapsed_seconds": 0.128,
+    "owned_children_still_running": 0,
+    "postgres_pid_files_remaining": 0,
+    "stops": [
+      {
+        "pid": 681789,
+        "requested_sigkill": false,
+        "deadline_sigkill": false,
+        "elapsed_seconds": 0.003
+      },
+      {
+        "pid": 681791,
+        "requested_sigkill": false,
+        "deadline_sigkill": false,
+        "elapsed_seconds": 0.004
+      },
+      {
+        "pid": 681792,
+        "requested_sigkill": false,
+        "deadline_sigkill": false,
+        "elapsed_seconds": 0.016
+      },
+      {
+        "pid": 681893,
+        "requested_sigkill": false,
+        "deadline_sigkill": false,
+        "elapsed_seconds": 0.003
+      },
+      {
+        "pid": 682351,
+        "requested_sigkill": false,
+        "deadline_sigkill": false,
+        "elapsed_seconds": 0.016
+      },
+      {
+        "pid": 682465,
+        "requested_sigkill": false,
+        "deadline_sigkill": false,
+        "elapsed_seconds": 0.003
+      },
+      {
+        "pid": 682742,
+        "requested_sigkill": false,
+        "deadline_sigkill": false,
+        "elapsed_seconds": 0.019
+      },
+      {
+        "pid": 683004,
+        "requested_sigkill": false,
+        "deadline_sigkill": false,
+        "elapsed_seconds": 0.011
+      },
+      {
+        "pid": 683208,
+        "requested_sigkill": true,
+        "deadline_sigkill": false,
+        "elapsed_seconds": 0.007
+      },
+      {
+        "pid": 683432,
+        "already_exited": true
+      },
+      {
+        "pid": 683529,
+        "already_exited": true
+      },
+      {
+        "pid": 683543,
+        "requested_sigkill": false,
+        "deadline_sigkill": false,
+        "elapsed_seconds": 6.041
+      },
+      {
+        "pid": 683637,
+        "already_exited": true
+      }
+    ]
+  }
+]

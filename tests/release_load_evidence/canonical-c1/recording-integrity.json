@@ -1,0 +1,13 @@
+{
+  "recordings_total": 80,
+  "complete_recordings": 70,
+  "all_complete_sha256_size_checkpoint_match": true,
+  "mismatches": [],
+  "files": 80,
+  "all_files_0600_uid1000": true,
+  "directory_0700": true,
+  "no_symlinks": true,
+  "all_magic_ZTREC001": true,
+  "verification_db_port": 59231,
+  "scope": "own stopped snapshot read-only SQL; no gateway restart; PostgreSQL5432 untouched"
+}

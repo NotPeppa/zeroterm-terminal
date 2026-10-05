@@ -1,0 +1,85 @@
+{
+  "samples": 736,
+  "first_timestamp": 1791212029.742808,
+  "last_timestamp": 1791215708.1100307,
+  "processes": {
+    "gateway": {
+      "rss_first_bytes": 34168832,
+      "rss_last_bytes": 39907328,
+      "rss_peak_bytes": 116236288,
+      "fd_first": 15,
+      "fd_last": 26,
+      "fd_peak": 254,
+      "cpu_percent_mean": 32.1891817130867,
+      "cpu_percent_p95": 63.74102518498885,
+      "cpu_percent_max": 196.56640060780535
+    },
+    "load-client": {
+      "rss_first_bytes": 82227200,
+      "rss_last_bytes": 4439068672,
+      "rss_peak_bytes": 4480249856,
+      "fd_first": 22,
+      "fd_last": 21,
+      "fd_peak": 103,
+      "cpu_percent_mean": 2.4161099783541644,
+      "cpu_percent_p95": 3.3970678032651422,
+      "cpu_percent_max": 70.94383960800326
+    },
+    "tls-proxy": {
+      "rss_first_bytes": 33226752,
+      "rss_last_bytes": 60186624,
+      "rss_peak_bytes": 60186624,
+      "fd_first": 8,
+      "fd_last": 7,
+      "fd_peak": 163,
+      "cpu_percent_mean": 1.3913750232642659,
+      "cpu_percent_p95": 3.1966147478923146,
+      "cpu_percent_max": 33.77787449246033
+    },
+    "target-A": {
+      "rss_first_bytes": 7675904,
+      "rss_last_bytes": 7417856,
+      "rss_peak_bytes": 7675904,
+      "fd_first": 7,
+      "fd_last": 7,
+      "fd_peak": 8,
+      "cpu_percent_mean": 0.0027154970812272345,
+      "cpu_percent_p95": 0.0,
+      "cpu_percent_max": 0.3998335672795502
+    },
+    "target-B": {
+      "rss_first_bytes": 7667712,
+      "rss_last_bytes": 7417856,
+      "rss_peak_bytes": 7667712,
+      "fd_first": 7,
+      "fd_last": 7,
+      "fd_peak": 7,
+      "cpu_percent_mean": 0.0,
+      "cpu_percent_p95": 0.0,
+      "cpu_percent_max": 0
+    }
+  },
+  "disk_free_min_bytes": 68691406848,
+  "disk_free_first_bytes": 72988278784,
+  "disk_free_last_bytes": 77395349504,
+  "host_mem_available_min_bytes": 1167958016,
+  "recording_files_final": 80,
+  "recording_bytes_final": 7692806,
+  "owned_pids_alive": {
+    "target-A": false,
+    "target-B": false,
+    "gateway": false,
+    "tls-proxy": false
+  },
+  "main_runner_alive": false,
+  "load_client_alive": false,
+  "owned_ports_accepting": {
+    "db": false,
+    "A": false,
+    "B": false,
+    "api": false,
+    "gateway": false,
+    "tls": false,
+    "metrics": false
+  }
+}

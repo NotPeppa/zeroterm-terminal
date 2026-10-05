@@ -1,0 +1,8 @@
+{
+  "recording_files": 80,
+  "all_recording_files_0600": true,
+  "recording_directory_0700": true,
+  "no_recording_symlinks": true,
+  "all_headers_magic": true,
+  "owned_processes_containing_fixture_path": []
+}
