@@ -14,3 +14,32 @@ jobs:
       - run: cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
       - run: cargo test --locked --workspace --all-features
       - run: cargo test --locked -p bastion-server --test cli
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npm test
+      - run: npm run build
+  integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Prepare isolated PostgreSQL and OpenSSH fixture tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y openssh-server postgresql
+          sudo mkdir -p /run/sshd
+          echo "BASTION_PG_BIN=$(pg_config --bindir)" >> "$GITHUB_ENV"
+      - run: python3 tests/m1_smoke.py

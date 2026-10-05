@@ -3,3 +3,5 @@
 *.log
 .DS_Store
 /.dsh-permission-recovery/
+__pycache__/
+*.pyc
