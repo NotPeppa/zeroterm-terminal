@@ -109,7 +109,7 @@ pub struct WebSessionResponse {
     pub capabilities: Vec<Capability>,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ConnectionState {
     Pending,
@@ -289,6 +289,204 @@ pub struct LoginResponse {
     pub login_session_id: Uuid,
     pub access_expires_at: DateTime<Utc>,
     pub refresh_expires_at: DateTime<Utc>,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ChannelKind {
+    #[default]
+    Shell,
+    Exec,
+    Sftp,
+}
+impl ChannelKind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Shell => "shell",
+            Self::Exec => "exec",
+            Self::Sftp => "sftp",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ChannelState {
+    Allocated,
+    Configuring,
+    Starting,
+    Streaming,
+    Draining,
+    Closed,
+    Failed,
+}
+impl ChannelState {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Allocated => "allocated",
+            Self::Configuring => "configuring",
+            Self::Starting => "starting",
+            Self::Streaming => "streaming",
+            Self::Draining => "draining",
+            Self::Closed => "closed",
+            Self::Failed => "failed",
+        }
+    }
+    pub fn permits(self, next: Self) -> bool {
+        use ChannelState::*;
+        matches!(
+            (self, next),
+            (Allocated, Configuring | Starting | Closed | Failed)
+                | (Configuring, Starting | Closed | Failed)
+                | (Starting, Streaming | Draining | Closed | Failed)
+                | (Streaming, Draining | Closed | Failed)
+                | (Draining, Closed | Failed)
+        )
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RecordingState {
+    Preparing,
+    Active,
+    Complete,
+    Partial,
+    Failed,
+    Corrupt,
+    Missing,
+    Expired,
+}
+impl RecordingState {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Preparing => "preparing",
+            Self::Active => "active",
+            Self::Complete => "complete",
+            Self::Partial => "partial",
+            Self::Failed => "failed",
+            Self::Corrupt => "corrupt",
+            Self::Missing => "missing",
+            Self::Expired => "expired",
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct ChannelView {
+    pub id: Uuid,
+    pub connection_id: Uuid,
+    pub upstream_channel_id: u32,
+    pub kind: ChannelKind,
+    pub state: ChannelState,
+    pub created_at: DateTime<Utc>,
+    pub started_at: Option<DateTime<Utc>>,
+    pub ended_at: Option<DateTime<Utc>>,
+    pub exit_code: Option<u32>,
+    pub exit_signal: Option<String>,
+    pub recording_id: Option<Uuid>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct RecordingView {
+    pub id: Uuid,
+    pub channel_id: Uuid,
+    pub format_version: u32,
+    pub bytes: i64,
+    pub checksum: Option<String>,
+    pub state: RecordingState,
+    pub retention_until: DateTime<Utc>,
+    pub last_written_seq: i64,
+    pub last_synced_seq: i64,
+}
+
+// Internal create material, never a public request/response or log payload.
+#[derive(Clone)]
+pub struct RecordingCreate {
+    pub id: Uuid,
+    pub relative_path: String,
+    pub format_version: u32,
+    pub retention_until: DateTime<Utc>,
+    pub wrapped_dek: Vec<u8>,
+    pub wrap_nonce: Vec<u8>,
+    pub key_version: i64,
+    pub nonce_prefix: Vec<u8>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CopyJobState {
+    Queued,
+    Running,
+    Completed,
+    Failed,
+    Cancelled,
+    Interrupted,
+}
+impl CopyJobState {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Queued => "queued",
+            Self::Running => "running",
+            Self::Completed => "completed",
+            Self::Failed => "failed",
+            Self::Cancelled => "cancelled",
+            Self::Interrupted => "interrupted",
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct CopyJobView {
+    pub id: Uuid,
+    pub user_id: Uuid,
+    pub source_asset_id: Uuid,
+    pub source_account_id: Uuid,
+    pub source_path: String,
+    pub destination_asset_id: Uuid,
+    pub destination_account_id: Uuid,
+    pub destination_path: String,
+    pub state: CopyJobState,
+    pub bytes_total: Option<i64>,
+    pub bytes_copied: i64,
+    pub failure_code: Option<ErrorCode>,
+    pub created_at: DateTime<Utc>,
+    pub started_at: Option<DateTime<Utc>>,
+    pub ended_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct DeviceSessionView {
+    pub id: Uuid,
+    pub device_label: String,
+    pub client_type: String,
+    pub current: bool,
+    pub created_at: DateTime<Utc>,
+    pub expires_at: DateTime<Utc>,
+    pub revoked_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CopyJobCreate {
+    pub source_asset_id: Uuid,
+    pub source_account_id: Uuid,
+    pub source_path: String,
+    pub destination_asset_id: Uuid,
+    pub destination_account_id: Uuid,
+    pub destination_path: String,
+    pub bytes_total: Option<i64>,
+}
+
+#[cfg(test)]
+mod new_contract_tests {
+    use super::*;
+
+    #[test]
+    fn channel_state_cannot_reopen() {
+        assert!(!ChannelState::Closed.permits(ChannelState::Streaming));
+        assert!(ChannelState::Starting.permits(ChannelState::Streaming));
+    }
 }
 
 #[cfg(test)]

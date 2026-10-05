@@ -1,15 +1,15 @@
+#[path = "../../../tests/pg_fixture.rs"]
+mod pg_fixture;
 use bastion_domain::{
     Capability, ConnectionState, ErrorCode, GatewayAddress, Purpose, TicketRequest,
 };
-use bastion_secrets::{read_secret_file, verify_password};
-use bastion_store::PgStore;
+use bastion_secrets::verify_password;
 use serde::Deserialize;
-use std::{path::PathBuf, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 use uuid::Uuid;
 
 #[derive(Deserialize)]
 struct Fixture {
-    database_url_file: PathBuf,
     server_id: String,
     gateway_id: String,
     username: String,
@@ -22,23 +22,26 @@ struct Fixture {
 #[tokio::test]
 #[ignore = "run through tests/m1_smoke.py against its isolated PostgreSQL fixture"]
 async fn transaction_races_and_revocation() {
-    let file = std::env::var("BASTION_M1_FIXTURE").expect("fixture path is required");
-    let contents = read_secret_file(&PathBuf::from(file)).unwrap();
-    let fixture: Fixture = serde_json::from_str(contents.expose()).unwrap();
-    let url = read_secret_file(&fixture.database_url_file).unwrap();
-    let store = PgStore::connect(url.expose(), &fixture.server_id, &fixture.gateway_id)
-        .await
-        .unwrap();
+    let (fixture, url) = pg_fixture::load::<Fixture>();
+    let store =
+        bastion_store::PgStore::connect(url.expose(), &fixture.server_id, &fixture.gateway_id)
+            .await
+            .unwrap();
+    pg_fixture::probe(&store).await;
     let (user, phc) = store
         .login_candidate(&fixture.username)
         .await
         .unwrap()
         .unwrap();
     assert!(verify_password(&fixture.password, &phc));
-    let login = store
+    let login_started = std::time::Instant::now();
+    let login_result = store
         .login(&user, &phc, "transaction tests", Uuid::new_v4())
-        .await
-        .unwrap();
+        .await;
+    if login_result.is_err() {
+        pg_fixture::failure(&store, "login", login_started.elapsed()).await;
+    }
+    let login = login_result.unwrap();
     let actor = store.authenticate(&login.access_token).await.unwrap();
     let grant = store
         .create_grant(
@@ -65,7 +68,12 @@ async fn transaction_races_and_revocation() {
         purpose: Purpose::Terminal,
     };
     let issue = || store.issue_ticket(&actor, request.clone(), gateway.clone(), Uuid::new_v4());
-    let ticket = issue().await.unwrap();
+    let issue_started = std::time::Instant::now();
+    let issue_result = issue().await;
+    if issue_result.is_err() {
+        pg_fixture::failure(&store, "issue_ticket", issue_started.elapsed()).await;
+    }
+    let ticket = issue_result.unwrap();
     assert!(matches!(
         store.consume_ticket(ticket.ticket_id, "wrong secret").await,
         Err(ErrorCode::TicketInvalid)

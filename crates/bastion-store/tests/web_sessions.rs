@@ -1,16 +1,16 @@
 //! Real PostgreSQL checks. Reuses the isolated fixture created by tests/m1_smoke.py.
 //! Run on Unix with BASTION_M1_FIXTURE set: cargo test -p bastion-store --test web_sessions -- --ignored.
+#[path = "../../../tests/pg_fixture.rs"]
+mod pg_fixture;
 use bastion_domain::*;
-use bastion_secrets::read_secret_file;
 use bastion_store::PgStore;
 use serde::Deserialize;
 use sqlx::Row;
-use std::{path::PathBuf, time::Duration};
+use std::time::Duration;
 use uuid::Uuid;
 
 #[derive(Deserialize)]
 struct Fixture {
-    database_url_file: PathBuf,
     server_id: String,
     gateway_id: String,
     username: String,
@@ -21,14 +21,12 @@ struct Fixture {
 #[tokio::test]
 #[ignore = "requires isolated real PostgreSQL and BASTION_M1_FIXTURE; no database is bundled"]
 async fn web_transport_owner_replay_expiry_and_login_domains() {
-    let fixture_file = std::env::var("BASTION_M1_FIXTURE").expect("isolated fixture path required");
-    let contents = read_secret_file(&PathBuf::from(fixture_file)).unwrap();
-    let fixture: Fixture = serde_json::from_str(contents.expose()).unwrap();
-    let url = read_secret_file(&fixture.database_url_file).unwrap();
+    let (fixture, url) = pg_fixture::load::<Fixture>();
     let store = PgStore::connect(url.expose(), &fixture.server_id, &fixture.gateway_id)
         .await
         .unwrap();
     store.migrate().await.unwrap();
+    pg_fixture::probe(&store).await;
     let (admin, phc) = store
         .login_candidate(&fixture.username)
         .await
@@ -113,7 +111,12 @@ async fn web_transport_owner_replay_expiry_and_login_domains() {
         username: String::new(),
     };
     let issue = || store.issue_web_session(&identity, request.clone(), Uuid::new_v4());
-    let session = issue().await.unwrap();
+    let issue_started = std::time::Instant::now();
+    let issue_result = issue().await;
+    if issue_result.is_err() {
+        pg_fixture::failure(&store, "issue_web_session", issue_started.elapsed()).await;
+    }
+    let session = issue_result.unwrap();
     assert!(matches!(
         store
             .consume_ticket(session.session_id, &session.ws_token)

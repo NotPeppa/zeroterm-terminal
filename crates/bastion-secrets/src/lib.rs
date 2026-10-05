@@ -9,8 +9,15 @@ use subtle::ConstantTimeEq;
 use zeroize::Zeroizing;
 mod credentials;
 mod passwords;
+pub mod recording;
 pub use credentials::{CipherContext, Credential, Envelope, KeyRing};
 pub use passwords::{hash_password, verify_password};
+pub use recording::{
+    RecordingAck, RecordingContext, RecordingEnvelope, RecordingError, RecordingHeader,
+    RecordingKey, RecordingReader, RecordingWriter, VerifiedChunk, MAX_CHUNK_CIPHERTEXT,
+    MAX_CHUNK_PLAINTEXT, MAX_HEADER_LENGTH, MAX_OUTPUT_BYTES, RECORDING_FORMAT_VERSION,
+    RECORDING_MAGIC,
+};
 
 pub struct Secret(Zeroizing<String>);
 impl Secret {
