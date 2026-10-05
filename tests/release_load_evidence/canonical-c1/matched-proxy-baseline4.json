@@ -1,0 +1,78 @@
+{
+  "stage": "completed",
+  "started_at": "2026-10-05T18:01:37.763Z",
+  "finished_at": "2026-10-05T18:02:33.172Z",
+  "concurrency": 4,
+  "chunk_bytes": 32768,
+  "source_archive_sha256": "bd7248cd95214007b7bb3e4f31387c6070788a80d947cd75df7b7459f32035f9",
+  "binary_sha256": "7adf52e700576d7973e23d6fb37ab57bb97206ac971dae0af1caf0d64ec4627d",
+  "files": [
+    {
+      "upload_started_ms": 606.231367,
+      "upload_finished_ms": 29108.396953,
+      "download_started_ms": 29108.396953,
+      "download_finished_ms": 55566.540093,
+      "index": 0,
+      "bytes": 1073741824,
+      "sha256": "b5a6cdd3ed2155fbe2f1ca27c9fd537d78e724e2823f99cc44fe6d26ab14dfc6",
+      "upload_seconds": 28.502165586,
+      "download_seconds": 26.458143140000004,
+      "upload_bytes_per_second": 37672289.1725607,
+      "download_bytes_per_second": 40582659.8759568
+    },
+    {
+      "upload_started_ms": 595.988008,
+      "upload_finished_ms": 29607.055243,
+      "download_started_ms": 29607.055243,
+      "download_finished_ms": 55603.621308,
+      "index": 1,
+      "bytes": 1073741824,
+      "sha256": "fbdb28a997eeb959bbba7acff5d82b1484c3d3a456d90c78ba31150993e60144",
+      "upload_seconds": 29.011067235,
+      "download_seconds": 25.996566065000003,
+      "upload_bytes_per_second": 37011455.50083725,
+      "download_bytes_per_second": 41303217.56016894
+    },
+    {
+      "upload_started_ms": 617.874907,
+      "upload_finished_ms": 29048.919362,
+      "download_started_ms": 29048.919362,
+      "download_finished_ms": 55107.186549,
+      "index": 2,
+      "bytes": 1073741824,
+      "sha256": "fb6bbd7d57e365876fe156a03480a837ad5b5b2ad92943644403b783309b794c",
+      "upload_seconds": 28.431044455,
+      "download_seconds": 26.058267187,
+      "upload_bytes_per_second": 37766527.5610783,
+      "download_bytes_per_second": 41205419.23584507
+    },
+    {
+      "upload_started_ms": 629.176277,
+      "upload_finished_ms": 28980.127724,
+      "download_started_ms": 28980.127724,
+      "download_finished_ms": 55000.51185,
+      "index": 3,
+      "bytes": 1073741824,
+      "sha256": "d8dd72d37dd7a4276265a3897020106de54f41aaa3b99a3314ae22ede6cf65dd",
+      "upload_seconds": 28.350951447000003,
+      "download_seconds": 26.020384126,
+      "upload_bytes_per_second": 37873220.09306391,
+      "download_bytes_per_second": 41265410.17997883
+    }
+  ],
+  "upload": {
+    "total_bytes": 4294967296,
+    "first_started_monotonic_ms": 595.988008,
+    "last_finished_monotonic_ms": 29607.055243,
+    "wall_seconds": 29.011067235,
+    "bytes_per_second": 148045822.003349
+  },
+  "download": {
+    "total_bytes": 4294967296,
+    "first_started_monotonic_ms": 28980.127724,
+    "last_finished_monotonic_ms": 55603.621308,
+    "wall_seconds": 26.623493584,
+    "bytes_per_second": 161322453.1351948
+  },
+  "method": "total bytes divided by first-start to last-finish wallclock, not sum of per-flow rates"
+}

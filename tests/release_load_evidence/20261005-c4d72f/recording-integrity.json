@@ -1,0 +1,8 @@
+{
+  "recordings_total": 80,
+  "complete_recordings": 70,
+  "all_complete_sha256_size_checkpoint_match": true,
+  "mismatches": [],
+  "verification_db_port": 56849,
+  "verification_scope": "own stopped fixture snapshot; read-only SQL; no gateway restarted"
+}

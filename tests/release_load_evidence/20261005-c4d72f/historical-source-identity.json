@@ -1,0 +1,8 @@
+{
+  "source_path": "/var/tmp/bastion-release-load-20261005-c4d72f/source",
+  "source_tree_sha256": "1fe3966a16c43db90985afd53f0dae35ff22b30bf23eb196eaa0981d694254ad",
+  "source_tree_method": "sorted path,SHA256 pairs for crates/vendor/Cargo.toml/Cargo.lock; archive hash unavailable for old clone",
+  "files": 142,
+  "binary_sha256": "00f76a8569ebca55d16d5968faf020a311b8fd74a0f65ce9b7f5b90d6ef6fb48",
+  "canonical": false
+}

@@ -1,0 +1,108 @@
+{
+  "stage": "completed",
+  "concurrency": 4,
+  "chunk_bytes": 32768,
+  "target_port": 41805,
+  "source_archive_sha256": "bd7248cd95214007b7bb3e4f31387c6070788a80d947cd75df7b7459f32035f9",
+  "hashes": [
+    {
+      "index": 0,
+      "bytes": 1073741824,
+      "expected_sha256": "b5a6cdd3ed2155fbe2f1ca27c9fd537d78e724e2823f99cc44fe6d26ab14dfc6",
+      "source_sha256": "b5a6cdd3ed2155fbe2f1ca27c9fd537d78e724e2823f99cc44fe6d26ab14dfc6",
+      "remote_sha256": "b5a6cdd3ed2155fbe2f1ca27c9fd537d78e724e2823f99cc44fe6d26ab14dfc6",
+      "download_sha256": "b5a6cdd3ed2155fbe2f1ca27c9fd537d78e724e2823f99cc44fe6d26ab14dfc6"
+    },
+    {
+      "index": 1,
+      "bytes": 1073741824,
+      "expected_sha256": "fbdb28a997eeb959bbba7acff5d82b1484c3d3a456d90c78ba31150993e60144",
+      "source_sha256": "fbdb28a997eeb959bbba7acff5d82b1484c3d3a456d90c78ba31150993e60144",
+      "remote_sha256": "fbdb28a997eeb959bbba7acff5d82b1484c3d3a456d90c78ba31150993e60144",
+      "download_sha256": "fbdb28a997eeb959bbba7acff5d82b1484c3d3a456d90c78ba31150993e60144"
+    },
+    {
+      "index": 2,
+      "bytes": 1073741824,
+      "expected_sha256": "fb6bbd7d57e365876fe156a03480a837ad5b5b2ad92943644403b783309b794c",
+      "source_sha256": "fb6bbd7d57e365876fe156a03480a837ad5b5b2ad92943644403b783309b794c",
+      "remote_sha256": "fb6bbd7d57e365876fe156a03480a837ad5b5b2ad92943644403b783309b794c",
+      "download_sha256": "fb6bbd7d57e365876fe156a03480a837ad5b5b2ad92943644403b783309b794c"
+    },
+    {
+      "index": 3,
+      "bytes": 1073741824,
+      "expected_sha256": "d8dd72d37dd7a4276265a3897020106de54f41aaa3b99a3314ae22ede6cf65dd",
+      "source_sha256": "d8dd72d37dd7a4276265a3897020106de54f41aaa3b99a3314ae22ede6cf65dd",
+      "remote_sha256": "d8dd72d37dd7a4276265a3897020106de54f41aaa3b99a3314ae22ede6cf65dd",
+      "download_sha256": "d8dd72d37dd7a4276265a3897020106de54f41aaa3b99a3314ae22ede6cf65dd"
+    }
+  ],
+  "upload": {
+    "flows": [
+      {
+        "index": 0,
+        "bytes": 1073741824,
+        "first_started_monotonic_ns": 331453824621889,
+        "last_finished_monotonic_ns": 331466761360684
+      },
+      {
+        "index": 1,
+        "bytes": 1073741824,
+        "first_started_monotonic_ns": 331453824428042,
+        "last_finished_monotonic_ns": 331466152315523
+      },
+      {
+        "index": 2,
+        "bytes": 1073741824,
+        "first_started_monotonic_ns": 331453824530177,
+        "last_finished_monotonic_ns": 331465645538074
+      },
+      {
+        "index": 3,
+        "bytes": 1073741824,
+        "first_started_monotonic_ns": 331453825369788,
+        "last_finished_monotonic_ns": 331466383626213
+      }
+    ],
+    "total_bytes": 4294967296,
+    "first_started_monotonic_ns": 331453824428042,
+    "last_finished_monotonic_ns": 331466761360684,
+    "wall_seconds": 12.936932642,
+    "bytes_per_second": 331992707.6110999
+  },
+  "download": {
+    "flows": [
+      {
+        "index": 0,
+        "bytes": 1073741824,
+        "first_started_monotonic_ns": 331466761611930,
+        "last_finished_monotonic_ns": 331479558941647
+      },
+      {
+        "index": 1,
+        "bytes": 1073741824,
+        "first_started_monotonic_ns": 331466152623113,
+        "last_finished_monotonic_ns": 331478906634964
+      },
+      {
+        "index": 2,
+        "bytes": 1073741824,
+        "first_started_monotonic_ns": 331465645925094,
+        "last_finished_monotonic_ns": 331477732254619
+      },
+      {
+        "index": 3,
+        "bytes": 1073741824,
+        "first_started_monotonic_ns": 331466384604068,
+        "last_finished_monotonic_ns": 331479058091708
+      }
+    ],
+    "total_bytes": 4294967296,
+    "first_started_monotonic_ns": 331465645925094,
+    "last_finished_monotonic_ns": 331479558941647,
+    "wall_seconds": 13.913016553,
+    "bytes_per_second": 308701371.8152945
+  },
+  "method": "total bytes divided by first-start to last-finish wallclock, default native OpenSSH request pipelining"
+}

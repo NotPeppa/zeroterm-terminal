@@ -1,0 +1,59 @@
+{
+  "samples": 731,
+  "disk_free_min_bytes": 55518728192,
+  "host_available_min_bytes": 4409872384,
+  "recording_files_final": 80,
+  "recording_bytes_final": 8096039,
+  "processes": {
+    "gateway": {
+      "rss_first": 21643264,
+      "rss_last": 32751616,
+      "rss_peak": 46538752,
+      "fd_first": 70,
+      "fd_last": 32,
+      "fd_peak": 255,
+      "cpu_mean": 10.326397467870045,
+      "cpu_p95": 13.587129192389455,
+      "cpu_max": 87.84881498273012
+    },
+    "load-client": {
+      "rss_first": 91111424,
+      "rss_last": 200433664,
+      "rss_peak": 231706624,
+      "fd_first": 39,
+      "fd_last": 21,
+      "fd_peak": 103,
+      "cpu_mean": 1.5050840663458471,
+      "cpu_p95": 2.1986586638729064,
+      "cpu_max": 81.09343581315522
+    },
+    "tls-proxy": {
+      "rss_first": 34828288,
+      "rss_last": 62144512,
+      "rss_peak": 62144512,
+      "fd_first": 43,
+      "fd_last": 7,
+      "fd_peak": 163,
+      "cpu_mean": 1.8574238669017447,
+      "cpu_p95": 2.597971397934795,
+      "cpu_max": 56.94031012140639
+    }
+  },
+  "owned_ports_open": {
+    "db": false,
+    "A": false,
+    "B": false,
+    "api": false,
+    "gateway": false,
+    "tls": false,
+    "metrics": false
+  },
+  "owned_pids_alive": {
+    "target-A": false,
+    "target-B": false,
+    "gateway": false,
+    "tls-proxy": false
+  },
+  "runner_alive": false,
+  "client_alive": false
+}

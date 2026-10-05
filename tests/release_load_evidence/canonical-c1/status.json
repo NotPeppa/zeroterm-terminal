@@ -1,0 +1,16 @@
+{
+  "state": "completed",
+  "preflight": false,
+  "finished_at": 1791225448.2712176,
+  "run_id": "f273ca8bf1b03864",
+  "binary_sha256": "7adf52e700576d7973e23d6fb37ab57bb97206ac971dae0af1caf0d64ec4627d",
+  "source_path": "/var/tmp/bastion-release-load-20261005-c4d72f/source-candidate",
+  "build_profile": "release",
+  "runner_sha256": {
+    "release_load.py": "c9f05ca2c16823e95dfe575ab93677bed2a0209387a3d930e080ff3ef0bd632e",
+    "release_load.mjs": "13accd58f5c6abf94701d5089568e2a0c6935ddf1a760f043b3c6df88a57dc94"
+  },
+  "source_archive_sha256": "bd7248cd95214007b7bb3e4f31387c6070788a80d947cd75df7b7459f32035f9",
+  "result": "result.json",
+  "resources": "resources.jsonl"
+}

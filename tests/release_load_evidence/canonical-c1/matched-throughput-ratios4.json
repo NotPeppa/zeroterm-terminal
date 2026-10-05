@@ -1,0 +1,96 @@
+{
+  "concurrency": 4,
+  "chunk_bytes": 32768,
+  "method": "each direction total 4GiB /first-start to last-finish wallclock; same four source files/target/account under same70-shell hold",
+  "ratios": {
+    "upload": 0.44593094549766915,
+    "download": 0.5225841796120004
+  },
+  "direct": {
+    "upload": {
+      "flows": [
+        {
+          "index": 0,
+          "bytes": 1073741824,
+          "first_started_monotonic_ns": 331453824621889,
+          "last_finished_monotonic_ns": 331466761360684
+        },
+        {
+          "index": 1,
+          "bytes": 1073741824,
+          "first_started_monotonic_ns": 331453824428042,
+          "last_finished_monotonic_ns": 331466152315523
+        },
+        {
+          "index": 2,
+          "bytes": 1073741824,
+          "first_started_monotonic_ns": 331453824530177,
+          "last_finished_monotonic_ns": 331465645538074
+        },
+        {
+          "index": 3,
+          "bytes": 1073741824,
+          "first_started_monotonic_ns": 331453825369788,
+          "last_finished_monotonic_ns": 331466383626213
+        }
+      ],
+      "total_bytes": 4294967296,
+      "first_started_monotonic_ns": 331453824428042,
+      "last_finished_monotonic_ns": 331466761360684,
+      "wall_seconds": 12.936932642,
+      "bytes_per_second": 331992707.6110999
+    },
+    "download": {
+      "flows": [
+        {
+          "index": 0,
+          "bytes": 1073741824,
+          "first_started_monotonic_ns": 331466761611930,
+          "last_finished_monotonic_ns": 331479558941647
+        },
+        {
+          "index": 1,
+          "bytes": 1073741824,
+          "first_started_monotonic_ns": 331466152623113,
+          "last_finished_monotonic_ns": 331478906634964
+        },
+        {
+          "index": 2,
+          "bytes": 1073741824,
+          "first_started_monotonic_ns": 331465645925094,
+          "last_finished_monotonic_ns": 331477732254619
+        },
+        {
+          "index": 3,
+          "bytes": 1073741824,
+          "first_started_monotonic_ns": 331466384604068,
+          "last_finished_monotonic_ns": 331479058091708
+        }
+      ],
+      "total_bytes": 4294967296,
+      "first_started_monotonic_ns": 331465645925094,
+      "last_finished_monotonic_ns": 331479558941647,
+      "wall_seconds": 13.913016553,
+      "bytes_per_second": 308701371.8152945
+    }
+  },
+  "proxy": {
+    "upload": {
+      "total_bytes": 4294967296,
+      "first_started_monotonic_ms": 595.988008,
+      "last_finished_monotonic_ms": 29607.055243,
+      "wall_seconds": 29.011067235,
+      "bytes_per_second": 148045822.003349
+    },
+    "download": {
+      "total_bytes": 4294967296,
+      "first_started_monotonic_ms": 28980.127724,
+      "last_finished_monotonic_ms": 55603.621308,
+      "wall_seconds": 26.623493584,
+      "bytes_per_second": 161322453.1351948
+    }
+  },
+  "client_rss_peak": 217673728,
+  "gateway_rss_peak": 44539904,
+  "throughput_target_met": false
+}

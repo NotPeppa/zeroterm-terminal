@@ -1,0 +1,85 @@
+[
+  {
+    "time": "2026-10-05T14:51:12Z",
+    "phase": "identity",
+    "status": "observed",
+    "uid": 1000,
+    "root": "/var/tmp/bastion-release-recovery-d213aad8bec948238ce1195f4dd2223a/final-scope"
+  },
+  {
+    "time": "2026-10-05T14:51:13Z",
+    "phase": "binary",
+    "status": "observed",
+    "binary_sha256": "56eb2a9492587ed58d347024827771421e38a90cc715502000306200f14fca70",
+    "source_manifest_sha256": "670239f1a608d090d47376e47e9e724c5e6d16bb40e59ac601fe4f3404ab8465"
+  },
+  {
+    "time": "2026-10-05T14:51:33Z",
+    "phase": "required-recording",
+    "status": "pass",
+    "production_ready": false,
+    "required": true,
+    "available": true
+  },
+  {
+    "time": "2026-10-05T14:51:33Z",
+    "phase": "recording-directory-mode",
+    "status": "pass",
+    "mode": "0755",
+    "service_start_rejected": true
+  },
+  {
+    "time": "2026-10-05T14:51:33Z",
+    "phase": "low-free-space-preflight",
+    "status": "pass",
+    "free_bytes": 78192353280,
+    "required_bytes": 79266095104,
+    "service_start_rejected": true,
+    "disk_fill": false
+  },
+  {
+    "time": "2026-10-05T14:51:40Z",
+    "phase": "failure",
+    "status": "fail",
+    "exception": "AssertionError",
+    "safe_message": "recording not complete after shell completion",
+    "locations": [
+      "release_recovery_cases.py:148",
+      "release_recovery_cases.py:103"
+    ]
+  },
+  {
+    "time": "2026-10-05T14:51:40Z",
+    "phase": "cleanup",
+    "status": "observed",
+    "elapsed_seconds": 0.159,
+    "owned_children_still_running": 0,
+    "postgres_pid_files_remaining": 0,
+    "stops": [
+      {
+        "pid": 624355,
+        "requested_sigkill": false,
+        "deadline_sigkill": false,
+        "elapsed_seconds": 0.003
+      },
+      {
+        "pid": 624361,
+        "requested_sigkill": false,
+        "deadline_sigkill": false,
+        "elapsed_seconds": 0.003
+      },
+      {
+        "pid": 624374,
+        "requested_sigkill": false,
+        "deadline_sigkill": false,
+        "elapsed_seconds": 0.04
+      },
+      {
+        "pid": 624564,
+        "requested_sigkill": false,
+        "deadline_sigkill": false,
+        "elapsed_seconds": 0.003
+      }
+    ]
+  }
+]

@@ -1,0 +1,31 @@
+{
+  "timestamp": 1791223493.0775642,
+  "scope": "ICMP127.0.0.1 loopback only; not external WAN and not paired per-keystroke network decomposition",
+  "exit_code": 0,
+  "samples_ms": [
+    0.027,
+    0.03,
+    0.032,
+    0.032,
+    0.034,
+    0.035,
+    0.035,
+    0.036,
+    0.038,
+    0.039,
+    0.039,
+    0.042,
+    0.043,
+    0.045,
+    0.047,
+    0.048,
+    0.056,
+    0.06,
+    0.064,
+    0.116
+  ],
+  "count": 20,
+  "p50": 0.039,
+  "p95": 0.064,
+  "max": 0.116
+}

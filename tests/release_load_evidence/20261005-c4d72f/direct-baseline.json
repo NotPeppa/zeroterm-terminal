@@ -1,0 +1,13 @@
+{
+  "upload": {
+    "seconds": 4.690947973052971,
+    "bytes": 1073741824,
+    "bytes_per_second": 228896553.5682941
+  },
+  "download": {
+    "seconds": 5.139063043985516,
+    "bytes": 1073741824,
+    "bytes_per_second": 208937274.1314489
+  },
+  "sha256_equal": true
+}

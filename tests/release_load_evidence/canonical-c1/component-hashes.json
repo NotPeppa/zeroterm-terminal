@@ -1,0 +1,24 @@
+{
+  "source_archive_sha256": "bd7248cd95214007b7bb3e4f31387c6070788a80d947cd75df7b7459f32035f9",
+  "scope": "frozen source for currently running Web hour, native ShellRecordingClose postfix not exercised; all API Rust sources included to avoid guessed handler paths",
+  "components": {
+    "crates/bastion-gateway/src/protocol.rs": "f3559f9782b423419ca9ab0feb9964d35369ca8b7b78be99d82629a5a79052d5",
+    "crates/bastion-gateway/src/protocol/web.rs": "056095233943677d0d62abb5983a2c27e304c526b3753213ccaf9bab3527c342",
+    "crates/bastion-gateway/src/protocol/files.rs": "fd73b384c1c12f0c75f008a9d22c540df969631acd15a236f9a8e66079623ef4",
+    "crates/bastion-gateway/src/protocol/runtime.rs": "48b73d4423bad427d2d8eba90b782a8b324ea3e32bb167d5da5902e744449135",
+    "crates/bastion-gateway/src/protocol/recording.rs": "93188e7727937d95120238a2a617d2e99e26473e65bcbbb0a74da25424b031ad",
+    "crates/bastion-server/src/control.rs": "ecf4a295b515e05ec125007648dadabd608a590325e0e7856169c26eb35305d9",
+    "crates/bastion-server/src/production.rs": "2cf693bb0dc48233f690090ebc42af7aeaed51949bbd9f43838857473ec5b882",
+    "crates/bastion-api/src/lib.rs": "b5c90b2f464ec4f48cb5e7c9e2fac1654bf88fafbd1c08cbe2e1b078d0030b6f",
+    "crates/bastion-api/src/prototype.rs": "5841fc2f3fc2e76149605e74488766f7a373f5cda25949384c4e8739ec1f506b",
+    "crates/bastion-api/src/control.rs": "0ed66d2af372788dad7fcd730306fb74bbbb5c2651090398016a4815bb86cf29",
+    "crates/bastion-api/src/control/files.rs": "1f3ab14f84d364ccd7d7526f00e938cba4af79809d959111b6e8e16f1e78b4ef",
+    "crates/bastion-api/src/control/recordings.rs": "74b5c9de7ddfb6cdb65c0914f171195caf94b5fd74563138a527f04ee331475d",
+    "crates/bastion-api/src/control/tests.rs": "64ec98e09cca38ad3fb606a1f4d69a0d86be7bc9a3939f82017a82a198e4d1e3",
+    "crates/bastion-api/src/control/browser.rs": "6af6f20c64e216ef2208d4fc7cbb3c01233438f03ea9b1ec6cdb28ee8c0241a9"
+  },
+  "missing_paths": [
+    "crates/bastion-api/src/files.rs",
+    "crates/bastion-api/src/ws.rs"
+  ]
+}

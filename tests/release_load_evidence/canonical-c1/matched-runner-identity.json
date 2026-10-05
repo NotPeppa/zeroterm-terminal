@@ -1,0 +1,5 @@
+{
+  "base_hour_library_sha256": "13accd58f5c6abf94701d5089568e2a0c6935ddf1a760f043b3c6df88a57dc94",
+  "matched_library_sha256": "4acc8cb91553ec8e92ff8d5ee2a0ddd4d86b8bd4929a12cbf5e4d0e25f19e117",
+  "only_changes": "export existing transfer and retain original monotonic start/end values; no transfer behavior changes"
+}
