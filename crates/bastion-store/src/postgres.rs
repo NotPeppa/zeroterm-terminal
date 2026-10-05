@@ -20,6 +20,22 @@ pub(super) fn db(error: sqlx::Error) -> ErrorCode {
             return ErrorCode::InvalidArgument;
         }
     }
+    let error_kind = match &error {
+        sqlx::Error::Database(detail) => {
+            tracing::warn!(
+                sqlstate = detail.code().as_deref().unwrap_or("unknown"),
+                "policy database query failed"
+            );
+            "database"
+        }
+        sqlx::Error::PoolTimedOut => "pool_timeout",
+        sqlx::Error::PoolClosed => "pool_closed",
+        sqlx::Error::Io(_) => "io",
+        sqlx::Error::Tls(_) => "tls",
+        sqlx::Error::RowNotFound => "row_not_found",
+        _ => "other",
+    };
+    tracing::warn!(error_kind, "policy database operation failed");
     ErrorCode::PolicyStoreUnavailable
 }
 pub async fn bounded<T>(
@@ -27,7 +43,10 @@ pub async fn bounded<T>(
 ) -> StoreResult<T> {
     tokio::time::timeout(Duration::from_secs(2), future)
         .await
-        .unwrap_or(Err(ErrorCode::PolicyStoreUnavailable))
+        .unwrap_or_else(|_| {
+            tracing::warn!(budget_ms = 2000, "policy transaction total budget elapsed");
+            Err(ErrorCode::PolicyStoreUnavailable)
+        })
 }
 #[derive(Clone)]
 pub struct PgStore {
@@ -96,7 +115,7 @@ impl PgStore {
         }
         Ok(connection)
     }
-    async fn begin(&self) -> StoreResult<Transaction<'_, Postgres>> {
+    pub(super) async fn begin(&self) -> StoreResult<Transaction<'_, Postgres>> {
         let mut tx = self.pool.begin().await.map_err(db)?;
         sqlx::query("SELECT policy_revision FROM server_settings WHERE singleton FOR UPDATE")
             .fetch_one(&mut *tx)
@@ -219,7 +238,7 @@ impl PgStore {
             .bind(hash(secret).as_slice()).bind(client_type).fetch_optional(&self.pool).await.map_err(db)?.ok_or(ErrorCode::Unauthenticated)?;
         identity_from_row(&row)
     }
-    async fn actor(
+    pub(super) async fn actor(
         &self,
         tx: &mut Transaction<'_, Postgres>,
         identity: &Identity,
@@ -314,6 +333,7 @@ pub struct AssetView {
     pub tags: Vec<String>,
     pub enabled: bool,
     pub revision: i64,
+    pub routing_revision: i64,
 }
 #[derive(Clone, Serialize)]
 pub struct AccountView {
@@ -514,9 +534,11 @@ impl PgStore {
     ) -> StoreResult<AssetView> {
         bounded(async {
             let mut tx=self.begin().await?;self.actor(&mut tx,actor,true).await?;
-            let row=sqlx::query("UPDATE assets SET name=COALESCE($3,name),host=COALESCE($4,host),port=COALESCE($5,port),enabled=COALESCE($6,enabled),tags=COALESCE($7,tags),config_revision=config_revision+1 WHERE id=$1 AND config_revision=$2 RETURNING *")
-                .bind(id).bind(revision).bind(name).bind(host).bind(port.map(i32::from)).bind(enabled).bind(tags).fetch_optional(&mut *tx).await.map_err(db)?.ok_or(ErrorCode::RevisionConflict)?;
-            invalidate_asset(&mut tx,id).await?;
+            let before=sqlx::query("SELECT host,port,enabled FROM assets WHERE id=$1 FOR UPDATE").bind(id).fetch_optional(&mut *tx).await.map_err(db)?.ok_or(ErrorCode::ResourceNotFound)?;
+            let route_changed=host.is_some_and(|v|v!=before.get::<String,_>("host")) || port.is_some_and(|v|i32::from(v)!=before.get::<i32,_>("port")) || enabled.is_some_and(|v|v!=before.get::<bool,_>("enabled"));
+            let row=sqlx::query("UPDATE assets SET name=COALESCE($3,name),host=COALESCE($4,host),port=COALESCE($5,port),enabled=COALESCE($6,enabled),tags=COALESCE($7,tags),config_revision=config_revision+1,routing_revision=routing_revision+CASE WHEN $8 THEN 1 ELSE 0 END WHERE id=$1 AND config_revision=$2 RETURNING *")
+                .bind(id).bind(revision).bind(name).bind(host).bind(port.map(i32::from)).bind(enabled).bind(tags).bind(route_changed).fetch_optional(&mut *tx).await.map_err(db)?.ok_or(ErrorCode::RevisionConflict)?;
+            if route_changed {invalidate_asset(&mut tx,id).await?;}
             audit(&mut tx,Some(actor.user.id),Some(actor.login_session_id),"asset.updated","asset",Some(id),request_id,json!({"host":host,"port":port,"enabled":enabled})).await?;
             tx.commit().await.map_err(db)?;Ok(asset_view(&row))
         }).await
@@ -605,7 +627,7 @@ impl PgStore {
             sqlx::query("SELECT id FROM assets WHERE id=$1 FOR UPDATE").bind(asset).fetch_optional(&mut *tx).await.map_err(db)?.ok_or(ErrorCode::ResourceNotFound)?;
             let row=sqlx::query("INSERT INTO asset_host_keys(id,asset_id,algorithm,public_key,fingerprint,state,approved_by) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(asset_id,public_key) DO UPDATE SET state=CASE WHEN EXCLUDED.state='approved' THEN 'approved' ELSE asset_host_keys.state END,approved_by=CASE WHEN EXCLUDED.state='approved' THEN EXCLUDED.approved_by ELSE asset_host_keys.approved_by END,revision=asset_host_keys.revision+CASE WHEN EXCLUDED.state='approved' THEN 1 ELSE 0 END RETURNING *")
                 .bind(Uuid::new_v4()).bind(asset).bind(algorithm).bind(public_key).bind(fingerprint).bind(if approved{"approved"}else{"candidate"}).bind(if approved{Some(actor.user.id)}else{None}).fetch_one(&mut *tx).await.map_err(db)?;
-            if approved { sqlx::query("UPDATE assets SET config_revision=config_revision+1 WHERE id=$1").bind(asset).execute(&mut *tx).await.map_err(db)?; }
+            if approved { sqlx::query("UPDATE assets SET config_revision=config_revision+1,routing_revision=routing_revision+1 WHERE id=$1").bind(asset).execute(&mut *tx).await.map_err(db)?; }
             audit(&mut tx,Some(actor.user.id),Some(actor.login_session_id),if approved{"host_key.approved"}else{"host_key.scanned"},"asset",Some(asset),request_id,json!({"fingerprint":fingerprint})).await?;
             tx.commit().await.map_err(db)?;Ok(host_key_view(&row))
         }).await
@@ -634,7 +656,7 @@ impl PgStore {
             let mut tx=self.begin().await?;self.actor(&mut tx,actor,true).await?;
             let changed=sqlx::query("UPDATE asset_host_keys SET state='revoked',revision=revision+1 WHERE id=$1 AND asset_id=$2 AND revision=$3").bind(id).bind(asset).bind(revision).execute(&mut *tx).await.map_err(db)?;
             if changed.rows_affected()!=1 {return Err(ErrorCode::RevisionConflict); }
-            sqlx::query("UPDATE assets SET config_revision=config_revision+1 WHERE id=$1").bind(asset).execute(&mut *tx).await.map_err(db)?;
+            sqlx::query("UPDATE assets SET config_revision=config_revision+1,routing_revision=routing_revision+1 WHERE id=$1").bind(asset).execute(&mut *tx).await.map_err(db)?;
             invalidate_asset(&mut tx,asset).await?;
             audit(&mut tx,Some(actor.user.id),Some(actor.login_session_id),"host_key.revoked","asset",Some(asset),request_id,json!({"key_id":id})).await?;
             tx.commit().await.map_err(db)
@@ -721,6 +743,7 @@ fn asset_view(row: &PgRow) -> AssetView {
         tags: row.get("tags"),
         enabled: row.get("enabled"),
         revision: row.get("config_revision"),
+        routing_revision: row.get("routing_revision"),
     }
 }
 fn account_view(row: &PgRow) -> AccountView {
@@ -790,15 +813,15 @@ async fn invalidate_asset(tx: &mut Transaction<'_, Postgres>, asset: Uuid) -> St
     Ok(())
 }
 
-struct Binding {
-    user: UserView,
-    asset: AssetView,
-    account_revision: i64,
-    username: String,
-    capabilities: Vec<Capability>,
+pub(super) struct Binding {
+    pub(super) user: UserView,
+    pub(super) asset: AssetView,
+    pub(super) account_revision: i64,
+    pub(super) username: String,
+    pub(super) capabilities: Vec<Capability>,
 }
 impl PgStore {
-    async fn binding(
+    pub(super) async fn binding(
         &self,
         tx: &mut Transaction<'_, Postgres>,
         user: Uuid,
@@ -876,10 +899,10 @@ impl PgStore {
             connection_limits(&mut tx,identity.user.id).await?;
             let policy:i64=sqlx::query_scalar("SELECT policy_revision FROM server_settings WHERE singleton").fetch_one(&mut *tx).await.map_err(db)?;
             let ticket=Uuid::new_v4();let connection=Uuid::new_v4();let secret=Secret::random();
-            let expiry:DateTime<Utc>=sqlx::query_scalar("INSERT INTO connection_tickets(id,secret_hash,connection_id,user_id,login_session_id,asset_id,account_id,capabilities,purpose,gateway_id,auth_revision,asset_revision,account_revision,policy_revision,state,expires_at,transport,protocol_version) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'issued',clock_timestamp()+interval '30 seconds',$15,1) RETURNING expires_at")
-                .bind(ticket).bind(secret.hash().as_slice()).bind(connection).bind(identity.user.id).bind(identity.login_session_id).bind(request.asset_id).bind(request.account_id).bind(cap_strings(&request.capabilities)).bind(request.purpose.as_str()).bind(self.gateway_id.as_ref()).bind(binding.user.revision).bind(binding.asset.revision).bind(binding.account_revision).bind(policy).bind(transport.as_str()).fetch_one(&mut *tx).await.map_err(db)?;
-            sqlx::query("INSERT INTO connections(id,ticket_id,user_id,login_session_id,asset_id,account_id,capabilities,purpose,state,gateway_id,auth_revision,asset_revision,target_host,target_port,target_username,user_snapshot,asset_snapshot,transport,protocol_version) VALUES($1,$2,$3,$4,$5,$6,$7,$8,'pending',$9,$10,$11,$12,$13,$14,$15,$16,$17,1)")
-                .bind(connection).bind(ticket).bind(identity.user.id).bind(identity.login_session_id).bind(request.asset_id).bind(request.account_id).bind(cap_strings(&request.capabilities)).bind(request.purpose.as_str()).bind(self.gateway_id.as_ref()).bind(binding.user.revision).bind(binding.asset.revision).bind(&binding.asset.host).bind(binding.asset.port).bind(&binding.username).bind(&binding.user.username).bind(&binding.asset.name).bind(transport.as_str()).execute(&mut *tx).await.map_err(db)?;
+            let expiry:DateTime<Utc>=sqlx::query_scalar("INSERT INTO connection_tickets(id,secret_hash,connection_id,user_id,login_session_id,asset_id,account_id,capabilities,purpose,gateway_id,auth_revision,asset_revision,account_revision,policy_revision,state,expires_at,transport,protocol_version,routing_revision) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'issued',clock_timestamp()+interval '30 seconds',$15,1,$16) RETURNING expires_at")
+                .bind(ticket).bind(secret.hash().as_slice()).bind(connection).bind(identity.user.id).bind(identity.login_session_id).bind(request.asset_id).bind(request.account_id).bind(cap_strings(&request.capabilities)).bind(request.purpose.as_str()).bind(self.gateway_id.as_ref()).bind(binding.user.revision).bind(binding.asset.revision).bind(binding.account_revision).bind(policy).bind(transport.as_str()).bind(binding.asset.routing_revision).fetch_one(&mut *tx).await.map_err(db)?;
+            sqlx::query("INSERT INTO connections(id,ticket_id,user_id,login_session_id,asset_id,account_id,capabilities,purpose,state,gateway_id,auth_revision,asset_revision,target_host,target_port,target_username,user_snapshot,asset_snapshot,transport,protocol_version,account_revision,policy_revision,routing_revision) VALUES($1,$2,$3,$4,$5,$6,$7,$8,'pending',$9,$10,$11,$12,$13,$14,$15,$16,$17,1,$18,$19,$20)")
+                .bind(connection).bind(ticket).bind(identity.user.id).bind(identity.login_session_id).bind(request.asset_id).bind(request.account_id).bind(cap_strings(&request.capabilities)).bind(request.purpose.as_str()).bind(self.gateway_id.as_ref()).bind(binding.user.revision).bind(binding.asset.revision).bind(&binding.asset.host).bind(binding.asset.port).bind(&binding.username).bind(&binding.user.username).bind(&binding.asset.name).bind(transport.as_str()).bind(binding.account_revision).bind(policy).bind(binding.asset.routing_revision).execute(&mut *tx).await.map_err(db)?;
             audit(&mut tx,Some(identity.user.id),Some(identity.login_session_id),"ticket.issued","connection",Some(connection),request_id,json!({"asset_id":request.asset_id,"account_id":request.account_id,"capabilities":request.capabilities,"transport":transport,"protocol_version":1})).await?;
             tx.commit().await.map_err(db)?;
             Ok(WebSessionResponse {protocol_version:1,session_id:ticket,ws_token:secret.expose().into(),connection_id:connection,expires_at:expiry,capabilities:request.capabilities})
@@ -951,7 +974,7 @@ impl PgStore {
                         let policy:i64=sqlx::query_scalar("SELECT policy_revision FROM server_settings WHERE singleton").fetch_one(&mut *tx).await.map_err(db)?;
                         let caps=parse_caps(ticket.get("capabilities"))?;
                         if identity.is_some_and(|identity| identity.user.revision != binding.user.revision) {Some(ErrorCode::LoginSessionRevoked)}
-                        else if ticket.get::<String,_>("gateway_id")!=self.gateway_id.as_ref() || ticket.get::<i64,_>("auth_revision")!=binding.user.revision || ticket.get::<i64,_>("asset_revision")!=binding.asset.revision || ticket.get::<i64,_>("account_revision")!=binding.account_revision || ticket.get::<i64,_>("policy_revision")!=policy {Some(ErrorCode::TicketStale)}
+                        else if ticket.get::<String,_>("gateway_id")!=self.gateway_id.as_ref() || ticket.get::<i64,_>("auth_revision")!=binding.user.revision || ticket.get::<i64,_>("routing_revision")!=binding.asset.routing_revision || ticket.get::<i64,_>("account_revision")!=binding.account_revision || ticket.get::<i64,_>("policy_revision")!=policy {Some(ErrorCode::TicketStale)}
                         else if caps.iter().any(|c|!binding.capabilities.contains(c)) {Some(ErrorCode::PermissionDenied)} else {None}
                     }
                 }
@@ -1048,7 +1071,7 @@ impl PgStore {
                 row.get::<String, _>("state").as_str(),
                 "connecting" | "active"
             ) || row.get::<i64, _>("auth_revision") != binding.user.revision
-                || row.get::<i64, _>("asset_revision") != binding.asset.revision
+                || row.get::<i64, _>("routing_revision") != binding.asset.routing_revision
                 || row.get::<String, _>("target_username") != binding.username
                 || connection
                     .capabilities
@@ -1101,6 +1124,8 @@ impl PgStore {
             let mut tx=self.begin().await?;
             let rows=sqlx::query("UPDATE connections SET state='interrupted',ended_at=clock_timestamp() WHERE gateway_id=$1 AND state IN ('connecting','active','closing') RETURNING *").bind(self.gateway_id.as_ref()).fetch_all(&mut *tx).await.map_err(db)?;
             for row in rows {let connection=connection_view(&row)?;audit(&mut tx,connection.user_id,connection.login_session_id,"connection.interrupted","connection",Some(connection.id),Uuid::new_v4(),json!({"reason":"gateway_restart"})).await?;}
+            super::maintenance::recover_dependents(&mut tx,self.gateway_id.as_ref()).await?;
+            sqlx::query("UPDATE copy_jobs SET state='interrupted',ended_at=clock_timestamp() WHERE gateway_id=$1 AND state IN ('queued','running')").bind(self.gateway_id.as_ref()).execute(&mut *tx).await.map_err(db)?;
             sqlx::query("UPDATE connection_tickets SET state='revoked' WHERE gateway_id=$1 AND state='issued'").bind(self.gateway_id.as_ref()).execute(&mut *tx).await.map_err(db)?;
             sqlx::query("UPDATE connections SET state='revoked',ended_at=clock_timestamp() WHERE gateway_id=$1 AND state='pending'").bind(self.gateway_id.as_ref()).execute(&mut *tx).await.map_err(db)?;
             tx.commit().await.map_err(db)
@@ -1152,7 +1177,7 @@ impl PgStore {
         }).await
     }
 }
-async fn expire_tickets(tx: &mut Transaction<'_, Postgres>) -> StoreResult<()> {
+pub(super) async fn expire_tickets(tx: &mut Transaction<'_, Postgres>) -> StoreResult<()> {
     sqlx::query("UPDATE connection_tickets SET state='expired' WHERE state='issued' AND expires_at<=clock_timestamp()").execute(&mut **tx).await.map_err(db)?;
     sqlx::query("UPDATE connections c SET state='expired',ended_at=clock_timestamp() FROM connection_tickets t WHERE c.ticket_id=t.id AND c.state='pending' AND t.state='expired'").execute(&mut **tx).await.map_err(db)?;
     Ok(())
@@ -1178,7 +1203,7 @@ fn code_string(code: ErrorCode) -> String {
         .unwrap()
         .to_owned()
 }
-fn connection_view(row: &PgRow) -> StoreResult<Connection> {
+pub(super) fn connection_view(row: &PgRow) -> StoreResult<Connection> {
     let state = match row.get::<String, _>("state").as_str() {
         "pending" => ConnectionState::Pending,
         "connecting" => ConnectionState::Connecting,
@@ -1297,7 +1322,7 @@ async fn insert_tokens_with_id(
     sqlx::query_scalar("INSERT INTO access_tokens(token_hash,login_session_id,expires_at) VALUES($1,$2,LEAST(clock_timestamp()+interval '10 minutes',$3)) RETURNING expires_at").bind(access.hash().as_slice()).bind(session).bind(expiry).fetch_one(&mut **tx).await.map_err(db)
 }
 #[allow(clippy::too_many_arguments)]
-async fn audit(
+pub(super) async fn audit(
     tx: &mut Transaction<'_, Postgres>,
     actor: Option<Uuid>,
     session: Option<Uuid>,
@@ -1311,7 +1336,10 @@ async fn audit(
         .bind(Uuid::new_v4()).bind(actor).bind(session).bind(action).bind(kind).bind(resource).bind(request_id).bind(payload).execute(&mut **tx).await.map_err(db)?;
     Ok(())
 }
-async fn revoke_session(tx: &mut Transaction<'_, Postgres>, id: Uuid) -> StoreResult<()> {
+pub(super) async fn revoke_session(
+    tx: &mut Transaction<'_, Postgres>,
+    id: Uuid,
+) -> StoreResult<()> {
     sqlx::query(
         "UPDATE login_sessions SET revoked_at=COALESCE(revoked_at,clock_timestamp()) WHERE id=$1",
     )

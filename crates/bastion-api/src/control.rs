@@ -1,5 +1,10 @@
 mod browser;
+mod files;
+mod recordings;
+#[cfg(test)]
+mod tests;
 use browser::BrowserLogin;
+pub use recordings::{remove_recording_file, verify_recording_file};
 
 use axum::{
     extract::{ConnectInfo, DefaultBodyLimit, Path, Query, State},
@@ -32,7 +37,13 @@ pub struct ControlApi {
     pub gateway: GatewayAddress,
     pub gateway_public_key: String,
     pub network: Arc<bastion_gateway::NetworkPolicy>,
-    pub browser: Option<browser::BrowserConfig>,
+    browser: Option<browser::BrowserConfig>,
+    recording_required: bool,
+    recording_available: bool,
+    recording_directory: Option<std::path::PathBuf>,
+    file_max_bytes: u64,
+    backend: Option<Arc<dyn bastion_gateway::GatewayBackend>>,
+    shutdown: tokio_util::sync::CancellationToken,
     dummy_phc: String,
     password_work: Arc<Semaphore>,
     rate: Mutex<HashMap<String, (Instant, u32)>>,
@@ -52,6 +63,12 @@ impl ControlApi {
             gateway_public_key,
             network,
             browser: None,
+            recording_required: false,
+            recording_available: false,
+            recording_directory: None,
+            file_max_bytes: 1024 * 1024 * 1024,
+            backend: None,
+            shutdown: tokio_util::sync::CancellationToken::new(),
             dummy_phc: hash_password(Secret::random().expose())?,
             password_work: Arc::new(Semaphore::new(4)),
             rate: Mutex::new(HashMap::new()),
@@ -63,8 +80,35 @@ impl ControlApi {
         backend: Arc<dyn bastion_gateway::GatewayBackend>,
         shutdown: tokio_util::sync::CancellationToken,
     ) -> anyhow::Result<Self> {
+        self.shutdown = shutdown.clone();
+        self.backend = Some(backend.clone());
         self.browser = Some(browser::BrowserConfig::new(origin, backend, shutdown)?);
         Ok(self)
+    }
+    pub fn with_service_state(
+        mut self,
+        shutdown: tokio_util::sync::CancellationToken,
+        recording_required: bool,
+        recording_available: bool,
+    ) -> Self {
+        self.shutdown = shutdown;
+        self.recording_required = recording_required;
+        self.recording_available = recording_available;
+        self
+    }
+    pub fn with_recordings(mut self, directory: std::path::PathBuf) -> Self {
+        self.recording_directory = Some(directory);
+        self.recording_available = true;
+        self
+    }
+    pub fn with_backend(
+        mut self,
+        backend: Arc<dyn bastion_gateway::GatewayBackend>,
+        file_max_bytes: u64,
+    ) -> Self {
+        self.backend = Some(backend);
+        self.file_max_bytes = file_max_bytes;
+        self
     }
     fn hit(&self, key: String, limit: u32) -> bool {
         let mut buckets = self.rate.lock().expect("rate map poisoned");
@@ -146,6 +190,7 @@ struct RequestContext {
     ip: IpAddr,
 }
 type ApiResult<T> = Result<T, ApiError>;
+#[derive(Debug)]
 struct ApiError(ErrorCode);
 impl From<ErrorCode> for ApiError {
     fn from(code: ErrorCode) -> Self {
@@ -239,16 +284,37 @@ pub fn control_router(state: Arc<ControlApi>) -> Router {
     let protected = Router::new()
         .merge(admin)
         .route("/me", get(me))
+        .route("/me/sessions", get(device_sessions))
+        .route("/me/sessions/{id}", axum::routing::delete(revoke_device))
         .route("/me/password", post(change_password))
         .route("/auth/logout", post(logout))
         .route("/auth/logout-all", post(logout_all))
         .route("/assets", get(assets))
         .route("/assets/{id}", get(asset))
         .route("/connection-tickets", post(issue_ticket))
+        .route(
+            "/integrations/zeroterm/connection-tickets",
+            post(issue_ticket),
+        )
         .route("/sessions", post(browser::issue_session))
         .route("/sessions/{id}/stream", get(browser::stream))
         .route("/connections", get(connections))
         .route("/connections/{id}", get(connection))
+        .route("/connections/{id}/channels", get(channels))
+        .route("/connections/{id}/files", get(files::metadata))
+        .route("/connections/{id}/files/operations", post(files::operate))
+        .route(
+            "/connections/{id}/files/content",
+            get(files::download)
+                .put(files::upload)
+                .layer(DefaultBodyLimit::disable()),
+        )
+        .route("/recordings", get(recordings::list))
+        .route("/recordings/{id}", get(recordings::metadata))
+        .route("/recordings/{id}/content", get(recordings::content))
+        .route("/copy-jobs", get(files::jobs).post(files::create_job))
+        .route("/copy-jobs/{id}", get(files::job))
+        .route("/copy-jobs/{id}/cancel", post(files::cancel_job))
         .route("/connections/{id}/disconnect", post(disconnect))
         .route("/audit-events", get(audit_events))
         .layer(middleware::from_fn_with_state(state.clone(), authenticate));
@@ -270,16 +336,26 @@ pub fn control_router(state: Arc<ControlApi>) -> Router {
 }
 async fn context(mut request: axum::extract::Request, next: Next) -> Response {
     let id = Uuid::new_v4();
+    // Upload and replay handlers stream outside the JSON request deadline. Their own
+    // bounded I/O and authorization deadlines apply; DB calls retain the 2s budget.
+    let streamed = request.method() == axum::http::Method::PUT
+        && request.uri().path().ends_with("/files/content")
+        || request.method() == axum::http::Method::GET
+            && request.uri().path().contains("/recordings/")
+            && request.uri().path().ends_with("/content");
     let ip = request
         .extensions()
         .get::<ConnectInfo<SocketAddr>>()
         .map(|ConnectInfo(addr)| addr.ip())
         .unwrap_or_else(|| "127.0.0.1".parse().unwrap());
     request.extensions_mut().insert(RequestContext { id, ip });
-    let mut response = match tokio::time::timeout(Duration::from_secs(15), next.run(request)).await
-    {
-        Ok(response) => response,
-        Err(_) => ApiError(ErrorCode::PolicyStoreUnavailable).into_response(),
+    let mut response = if streamed {
+        next.run(request).await
+    } else {
+        match tokio::time::timeout(Duration::from_secs(15), next.run(request)).await {
+            Ok(response) => response,
+            Err(_) => ApiError(ErrorCode::PolicyStoreUnavailable).into_response(),
+        }
     };
     if response.status().is_client_error() || response.status().is_server_error() {
         let (parts, body) = response.into_parts();
@@ -374,10 +450,35 @@ fn input<T>(value: Result<Json<T>, axum::extract::rejection::JsonRejection>) -> 
 
 async fn info(State(state): State<Arc<ControlApi>>) -> Json<Value> {
     Json(
-        json!({"server_id":state.store.server_id,"protocol_version":1,"minimum_client_protocol_version":1,"mode":"m1_integration","production_ready":false,"output_recording":"not_implemented","gateway":{"id":state.gateway.id,"host":state.gateway.host,"port":state.gateway.port,"public_key":state.gateway_public_key}}),
+        json!({"server_id":state.store.server_id,"protocol_version":1,"websocket_protocol_version":1,"ssh_protocol_version":1,"minimum_client_protocol_version":1,"production_ready":false,
+            "recording":{"required":state.recording_required,"format_version":1,"available":state.recording_available},
+            "features":{"ssh_terminal":state.backend.is_some() && (!state.recording_required || state.recording_available),"ssh_exec":state.backend.is_some(),"ssh_sftp":state.backend.is_some(),"web_terminal":state.browser.is_some() && (!state.recording_required || state.recording_available),"web_exec":state.browser.is_some() && state.backend.is_some(),"web_sftp":state.browser.is_some() && state.backend.is_some(),"recording_replay":state.recording_available,"copy_jobs":false,"device_sessions":true},
+            "gateway":{"id":state.gateway.id,"host":state.gateway.host,"port":state.gateway.port,"public_key":state.gateway_public_key}}),
     )
 }
 async fn readiness(State(state): State<Arc<ControlApi>>) -> ApiResult<&'static str> {
+    if state.shutdown.is_cancelled() || state.recording_required && !state.recording_available {
+        return Err(ApiError(ErrorCode::RecordingUnavailable));
+    }
+    if state.recording_required {
+        let recording = state
+            .backend
+            .as_ref()
+            .and_then(|backend| backend.recording_config())
+            .ok_or(ApiError(ErrorCode::RecordingUnavailable))?;
+        tokio::time::timeout(
+            Duration::from_secs(2),
+            tokio::task::spawn_blocking(move || {
+                bastion_gateway::check_recording_directory(
+                    &recording.directory,
+                    recording.min_free_bytes,
+                )
+            }),
+        )
+        .await
+        .map_err(|_| ApiError(ErrorCode::RecordingUnavailable))?
+        .map_err(|_| ApiError(ErrorCode::RecordingUnavailable))??;
+    }
     state.store.check_identity().await?;
     Ok("ok")
 }
@@ -451,6 +552,9 @@ async fn logout(
     Extension(ctx): Extension<RequestContext>,
 ) -> ApiResult<Response> {
     state.store.logout(&identity, false, ctx.id).await?;
+    if let Some(backend) = &state.backend {
+        backend.registry().revoke_login(identity.login_session_id);
+    }
     let mut response = StatusCode::NO_CONTENT.into_response();
     browser::clear_cookies(&state, &mut response);
     Ok(response)
@@ -461,6 +565,9 @@ async fn logout_all(
     Extension(ctx): Extension<RequestContext>,
 ) -> ApiResult<Response> {
     state.store.logout(&identity, true, ctx.id).await?;
+    if let Some(backend) = &state.backend {
+        backend.registry().revoke_user(identity.user.id);
+    }
     let mut response = StatusCode::NO_CONTENT.into_response();
     browser::clear_cookies(&state, &mut response);
     Ok(response)
@@ -1079,8 +1186,14 @@ async fn issue_ticket(
     State(state): State<Arc<ControlApi>>,
     Extension(identity): Extension<Identity>,
     Extension(ctx): Extension<RequestContext>,
+    headers: HeaderMap,
     body: Result<Json<TicketRequest>, axum::extract::rejection::JsonRejection>,
 ) -> ApiResult<(StatusCode, Json<TicketResponse>)> {
+    // Native tickets never accept browser Cookie authentication, even on the alias.
+    browser::require_bearer(&headers)?;
+    if state.shutdown.is_cancelled() {
+        return Err(ApiError(ErrorCode::PolicyStoreUnavailable));
+    }
     Ok((
         StatusCode::CREATED,
         Json(
@@ -1108,6 +1221,9 @@ async fn disconnect(
         .store
         .request_disconnect(&identity, id(&value)?, ctx.id)
         .await?;
+    if let Some(backend) = &state.backend {
+        backend.registry().revoke_connection(id(&value)?);
+    }
     Ok(StatusCode::ACCEPTED)
 }
 async fn audit_events(
@@ -1232,5 +1348,47 @@ async fn update_grant(
                 ctx.id,
             )
             .await?,
+    ))
+}
+
+async fn device_sessions(
+    State(state): State<Arc<ControlApi>>,
+    Extension(identity): Extension<Identity>,
+    Query(page): Query<PageRequest>,
+) -> ApiResult<Json<Value>> {
+    Ok(Json(
+        state
+            .store
+            .list_page(&identity, Collection::DeviceSessions, page)
+            .await?,
+    ))
+}
+async fn revoke_device(
+    State(state): State<Arc<ControlApi>>,
+    Extension(identity): Extension<Identity>,
+    Extension(ctx): Extension<RequestContext>,
+    Path(value): Path<String>,
+) -> ApiResult<Response> {
+    let device = id(&value)?;
+    state
+        .store
+        .revoke_device_session(&identity, device, ctx.id)
+        .await?;
+    if let Some(backend) = &state.backend {
+        backend.registry().revoke_login(device);
+    }
+    let mut response = StatusCode::NO_CONTENT.into_response();
+    if device == identity.login_session_id {
+        browser::clear_cookies(&state, &mut response);
+    }
+    Ok(response)
+}
+async fn channels(
+    State(state): State<Arc<ControlApi>>,
+    Extension(identity): Extension<Identity>,
+    Path(value): Path<String>,
+) -> ApiResult<Json<Value>> {
+    Ok(Json(
+        json!({"items":state.store.channel_queries(&identity, id(&value)?).await?}),
     ))
 }

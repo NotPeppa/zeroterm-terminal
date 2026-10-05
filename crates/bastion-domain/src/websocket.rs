@@ -1,16 +1,30 @@
-use crate::ErrorCode;
+use crate::{ChannelKind, ErrorCode};
+use base64::{engine::general_purpose::STANDARD, Engine};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 pub const WEBSOCKET_VERSION: u8 = 1;
 pub const MAX_DATA_BYTES: usize = 32_768;
 pub const MAX_CONTROL_BYTES: usize = 8_192;
+pub const MAX_EXEC_CONTROL_BYTES: usize = 96 * 1024;
+pub const MAX_EXEC_COMMAND_BYTES: usize = 65_536;
 pub const BINARY_HEADER_BYTES: usize = 6;
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ClientControl {
     Open {
+        v: u8,
+        channel_id: u32,
+        #[serde(default)]
+        kind: ChannelKind,
+    },
+    ExecStart {
+        v: u8,
+        channel_id: u32,
+        command_base64: String,
+    },
+    SftpOpen {
         v: u8,
         channel_id: u32,
     },
@@ -127,16 +141,54 @@ fn dimensions(cols: u32, rows: u32) -> Result<(), ErrorCode> {
         Err(ErrorCode::InvalidArgument)
     }
 }
+impl std::fmt::Debug for ClientControl {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // Command bytes can contain secrets. Never render control payloads in logs.
+        f.write_str(match self {
+            Self::Open { .. } => "Open",
+            Self::ExecStart { .. } => "ExecStart([REDACTED])",
+            Self::SftpOpen { .. } => "SftpOpen",
+            Self::Pty { .. } => "Pty",
+            Self::Shell { .. } => "Shell",
+            Self::Resize { .. } => "Resize",
+            Self::Eof { .. } => "Eof",
+            Self::Close { .. } => "Close",
+            Self::Ping { .. } => "Ping",
+        })
+    }
+}
+pub fn decode_exec_command(command_base64: &str) -> Result<Vec<u8>, ErrorCode> {
+    if command_base64.len() > MAX_EXEC_COMMAND_BYTES.div_ceil(3) * 4 {
+        return Err(ErrorCode::InvalidArgument);
+    }
+    let command = STANDARD
+        .decode(command_base64)
+        .map_err(|_| ErrorCode::InvalidArgument)?;
+    if command.len() > MAX_EXEC_COMMAND_BYTES || command.contains(&0) {
+        return Err(ErrorCode::InvalidArgument);
+    }
+    Ok(command)
+}
 impl ClientControl {
     pub fn validate(&self) -> Result<(), ErrorCode> {
         match self {
             Self::Ping { v } => version(*v),
-            Self::Open { v, channel_id }
+            Self::Open { v, channel_id, .. }
+            | Self::SftpOpen { v, channel_id }
             | Self::Shell { v, channel_id }
             | Self::Eof { v, channel_id }
             | Self::Close { v, channel_id } => {
                 version(*v)?;
                 channel(*channel_id)
+            }
+            Self::ExecStart {
+                v,
+                channel_id,
+                command_base64,
+            } => {
+                version(*v)?;
+                channel(*channel_id)?;
+                decode_exec_command(command_base64).map(|_| ())
             }
             Self::Pty {
                 v,
@@ -223,7 +275,23 @@ fn encode_control(control: &impl Serialize) -> Result<String, ErrorCode> {
 }
 impl ClientFrame {
     pub fn decode_text(text: &str) -> Result<Self, ErrorCode> {
-        let control: ClientControl = decode_control(text)?;
+        if text.len() > MAX_EXEC_CONTROL_BYTES {
+            return Err(ErrorCode::InvalidArgument);
+        }
+        if text.len() > MAX_CONTROL_BYTES {
+            #[derive(Deserialize)]
+            struct Envelope<'a> {
+                #[serde(rename = "type", borrow)]
+                kind: &'a str,
+            }
+            let envelope: Envelope<'_> =
+                serde_json::from_str(text).map_err(|_| ErrorCode::InvalidArgument)?;
+            if envelope.kind != "exec_start" {
+                return Err(ErrorCode::InvalidArgument);
+            }
+        }
+        let control: ClientControl =
+            serde_json::from_str(text).map_err(|_| ErrorCode::InvalidArgument)?;
         control.validate()?;
         Ok(Self::Control(control))
     }
@@ -247,7 +315,17 @@ impl ClientFrame {
         match self {
             Self::Control(control) => {
                 control.validate()?;
-                encode_control(control)
+                let text =
+                    serde_json::to_string(control).map_err(|_| ErrorCode::InvalidArgument)?;
+                let limit = if matches!(control, ClientControl::ExecStart { .. }) {
+                    MAX_EXEC_CONTROL_BYTES
+                } else {
+                    MAX_CONTROL_BYTES
+                };
+                if text.len() > limit {
+                    return Err(ErrorCode::InvalidArgument);
+                }
+                Ok(text)
             }
             Self::Data { .. } => Err(ErrorCode::InvalidArgument),
         }
@@ -323,6 +401,42 @@ mod tests {
             assert_eq!(ServerFrame::decode_binary(&bytes).unwrap(), output);
             assert!(ClientFrame::decode_binary(&bytes).is_err());
         }
+    }
+    #[test]
+    fn exec_commands_are_bounded_raw_bytes_and_redacted() {
+        let legacy = ClientFrame::decode_text(r#"{"v":1,"type":"open","channel_id":1}"#).unwrap();
+        assert!(matches!(
+            legacy,
+            ClientFrame::Control(ClientControl::Open {
+                kind: ChannelKind::Shell,
+                ..
+            })
+        ));
+        let raw = vec![0xff; MAX_EXEC_COMMAND_BYTES];
+        let encoded = STANDARD.encode(&raw);
+        assert_eq!(decode_exec_command(&encoded).unwrap(), raw);
+        let control = ClientControl::ExecStart {
+            v: 1,
+            channel_id: 1,
+            command_base64: encoded.clone(),
+        };
+        assert!(!format!("{control:?}").contains(&encoded));
+        let frame = ClientFrame::Control(control);
+        let text = frame.encode_text().unwrap();
+        assert!(text.len() > MAX_CONTROL_BYTES);
+        assert_eq!(ClientFrame::decode_text(&text).unwrap(), frame);
+        assert!(
+            decode_exec_command(&STANDARD.encode(vec![b'x'; MAX_EXEC_COMMAND_BYTES + 1])).is_err()
+        );
+        assert!(decode_exec_command(&STANDARD.encode(b"x\0y")).is_err());
+        assert!(decode_exec_command("!!!").is_err());
+        let ordinary = format!(
+            r#"{{"v":1,"type":"ping","padding":"{}"}}"#,
+            "x".repeat(MAX_CONTROL_BYTES)
+        );
+        assert!(ClientFrame::decode_text(&ordinary).is_err());
+        assert!(ClientFrame::decode_text(&" ".repeat(MAX_EXEC_CONTROL_BYTES + 1)).is_err());
+        assert!(ClientFrame::decode_text(r#"{"v":1,"type":"sftp_open","channel_id":1}"#).is_ok());
     }
     #[test]
     fn malformed_binary_is_rejected() {

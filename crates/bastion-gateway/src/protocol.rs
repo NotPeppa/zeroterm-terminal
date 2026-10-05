@@ -25,14 +25,95 @@ use tokio::{
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
+mod files;
+mod lifecycle;
+#[cfg(all(test, unix))]
+mod native_close_tests;
+mod recording;
+mod runtime;
 mod web;
+pub use files::{
+    copy_regular_file, DirectoryEntry, FileMetadata, SftpDownload, SftpSession, SftpUpload,
+};
+use lifecycle::ChannelLifecycle;
+pub use recording::{check_recording_directory, RecordingConfig, ShellRecording};
+use runtime::{authorize, ChannelLease, STALL_TIMEOUT};
+pub use runtime::{ConnectionSession, RuntimeLimits, RuntimeRegistry};
 pub use web::run_web_session;
 const START_TIMEOUT: Duration = Duration::from_secs(10);
 const TARGET_TIMEOUT: Duration = Duration::from_secs(30);
 const EMPTY_TIMEOUT: Duration = Duration::from_secs(10);
 
+#[allow(clippy::too_many_arguments)]
 #[async_trait]
 pub trait GatewayBackend: Send + Sync {
+    fn registry(&self) -> Arc<RuntimeRegistry> {
+        RuntimeRegistry::global()
+    }
+    fn recording_config(&self) -> Option<RecordingConfig> {
+        None
+    }
+    fn allows_unrecorded_shell(&self) -> bool {
+        false
+    }
+    async fn begin_shell(
+        &self,
+        _connection: &Connection,
+        _upstream_channel_id: u32,
+        _recording: bastion_domain::RecordingCreate,
+    ) -> Result<Uuid, ErrorCode> {
+        Err(ErrorCode::RecordingUnavailable)
+    }
+    async fn activate_shell(
+        &self,
+        _connection: &Connection,
+        _channel_id: Uuid,
+        _recording_id: Uuid,
+    ) -> Result<(), ErrorCode> {
+        Err(ErrorCode::RecordingUnavailable)
+    }
+    async fn checkpoint_recording(
+        &self,
+        _id: Uuid,
+        _written: i64,
+        _synced: i64,
+        _bytes: i64,
+    ) -> Result<(), ErrorCode> {
+        Err(ErrorCode::RecordingUnavailable)
+    }
+    async fn finish_shell(
+        &self,
+        _channel_id: Uuid,
+        _recording_id: Uuid,
+        _state: bastion_domain::RecordingState,
+        _bytes: i64,
+        _checksum: Option<String>,
+        _exit_code: Option<u32>,
+        _exit_signal: Option<String>,
+        _failure: Option<ErrorCode>,
+    ) -> Result<(), ErrorCode> {
+        Err(ErrorCode::RecordingUnavailable)
+    }
+    async fn begin_channel(
+        &self,
+        _connection: &Connection,
+        _upstream_channel_id: u32,
+        _kind: bastion_domain::ChannelKind,
+    ) -> Result<Uuid, ErrorCode> {
+        Err(ErrorCode::InternalError)
+    }
+    async fn mark_streaming(&self, _channel_id: Uuid) -> Result<(), ErrorCode> {
+        Err(ErrorCode::InternalError)
+    }
+    async fn finish_channel(
+        &self,
+        _channel_id: Uuid,
+        _exit_code: Option<u32>,
+        _exit_signal: Option<String>,
+        _failure: Option<ErrorCode>,
+    ) -> Result<(), ErrorCode> {
+        Err(ErrorCode::InternalError)
+    }
     async fn consume(&self, id: Uuid, secret: &str) -> Result<(Connection, Target), ErrorCode>;
     async fn authorize(&self, connection: &Connection) -> Result<(), ErrorCode>;
     async fn transition(
@@ -164,6 +245,7 @@ impl client::Handler for TargetClient {
 }
 type TargetHandle = Arc<client::Handle<TargetClient>>;
 type TargetResult = Result<TargetHandle, ErrorCode>;
+type SessionResult = Result<Arc<ConnectionSession>, ErrorCode>;
 
 /// Authenticate only, using exactly the gateway's address and host-key checks.
 /// No command or subsystem is executed for an administrator's probe.
@@ -308,8 +390,8 @@ struct GatewayHandler {
     stop: CancellationToken,
     authenticated: watch::Sender<bool>,
     connection: Option<Connection>,
-    target_ready_sender: Option<watch::Sender<Option<TargetResult>>>,
-    ready: Option<watch::Receiver<Option<TargetResult>>>,
+    target_ready_sender: Option<watch::Sender<Option<SessionResult>>>,
+    ready: Option<watch::Receiver<Option<SessionResult>>>,
     init: Option<JoinHandle<()>>,
     channels: HashMap<ChannelId, JoinHandle<()>>,
 }
@@ -325,7 +407,11 @@ impl Drop for GatewayHandler {
                 tokio::spawn(async move {
                     let _ = timeout(
                         Duration::from_secs(2),
-                        target.disconnect(Disconnect::ByApplication, "upstream closed", "en"),
+                        target.target.disconnect(
+                            Disconnect::ByApplication,
+                            "upstream closed",
+                            "en",
+                        ),
                     )
                     .await;
                 });
@@ -390,16 +476,13 @@ impl server::Handler for GatewayHandler {
         let id = self.connection.as_ref().unwrap().id;
         let upstream = session.handle();
         self.init = Some(tokio::spawn(async move {
-            let result = tokio::select! {
-                _ = stop.cancelled() => return,
-                result = timeout(TARGET_TIMEOUT, async {
-                    backend.authorize(&connection).await?;
-                    let target_handle=connect_target(&target).await?;
-                    backend.authorize(&connection).await?;
-                    backend.transition(id,ConnectionState::Active,None).await?;
-                    Ok(target_handle)
-                }) => result.unwrap_or(Err(ErrorCode::TargetTimeout)),
-            };
+            let result = ConnectionSession::connect(
+                connection,
+                (*target).clone(),
+                backend.clone(),
+                stop.clone(),
+            )
+            .await;
             if let Err(code) = &result {
                 let _ = backend
                     .transition(id, ConnectionState::Failed, Some(*code))
@@ -407,46 +490,13 @@ impl server::Handler for GatewayHandler {
             }
             let failed = result.is_err();
             tx.send_replace(Some(result.clone()));
-            if failed {
-                let _ = upstream
-                    .disconnect(
-                        Disconnect::ByApplication,
-                        "target initialization failed".into(),
-                        "en".into(),
-                    )
-                    .await;
-                return;
+            if !failed {
+                stop.cancelled().await;
             }
-            let target_handle = result.unwrap();
-            // A target transport closing must also end the upstream connection.
-            let mut next_policy = tokio::time::Instant::now();
-            let mut db_failure: Option<tokio::time::Instant> = None;
-            loop {
-                tokio::select! {
-                    _ = stop.cancelled() => break,
-                    _ = tokio::time::sleep(Duration::from_millis(200)) => {
-                        if target_handle.is_closed() { break; }
-                        if tokio::time::Instant::now()>=next_policy {
-                            let started=tokio::time::Instant::now();
-                            let budget=db_failure.map(|first|Duration::from_secs(5).saturating_sub(first.elapsed())).unwrap_or(Duration::from_secs(2));
-                            if budget.is_zero() { break; }
-                            match timeout(budget,backend.authorize(&connection)).await.unwrap_or(Err(ErrorCode::PolicyStoreUnavailable)) {
-                                Ok(())=>db_failure=None,
-                                Err(ErrorCode::PolicyStoreUnavailable)=> {db_failure.get_or_insert(started);if db_failure.unwrap().elapsed()>=Duration::from_secs(5){break;}},
-                                Err(_)=>break,
-                            }
-                            next_policy=tokio::time::Instant::now()+Duration::from_secs(2);
-                        }
-                    }
-                }
-            }
-            let _ = target_handle
-                .disconnect(Disconnect::ByApplication, "gateway connection closed", "en")
-                .await;
             let _ = upstream
                 .disconnect(
                     Disconnect::ByApplication,
-                    "target connection closed".into(),
+                    "gateway connection closed".into(),
                     "en".into(),
                 )
                 .await;
@@ -621,7 +671,9 @@ async fn connection_task(
     let _ = timeout(Duration::from_secs(2), running).await;
 }
 
-async fn wait_target(mut ready: watch::Receiver<Option<TargetResult>>) -> Result<TargetHandle> {
+async fn wait_target(
+    mut ready: watch::Receiver<Option<SessionResult>>,
+) -> Result<Arc<ConnectionSession>> {
     loop {
         if let Some(result) = ready.borrow_and_update().clone() {
             return result.map_err(Into::into);
@@ -643,7 +695,7 @@ async fn request_result(channel: &mut Channel<client::Msg>) -> Result<bool> {
 
 async fn channel_worker(
     mut upstream_channel: Channel<server::Msg>,
-    ready: watch::Receiver<Option<TargetResult>>,
+    ready: watch::Receiver<Option<SessionResult>>,
     caps: Vec<Capability>,
     upstream: server::Handle,
     stop: CancellationToken,
@@ -651,6 +703,11 @@ async fn channel_worker(
     connection: Connection,
 ) -> Result<()> {
     let id = upstream_channel.id();
+    let shared = timeout(TARGET_TIMEOUT, wait_target(ready.clone())).await??;
+    let _permit = shared.registry.channel(connection.id)?;
+    let mut recording: Option<ShellRecording> = None;
+    let mut lifecycle: Option<Arc<ChannelLifecycle>> = None;
+    let mut terminal = ("xterm".to_owned(), 80u32, 24u32);
     let mut downstream = PendingChannel(None);
     let mut configured = false;
     let mut pty = false;
@@ -721,8 +778,37 @@ async fn channel_worker(
             }
             continue;
         }
-        backend.authorize(&connection).await?;
+        authorize(backend.as_ref(), &connection).await?;
+        if matches!(&event, ChannelMsg::RequestShell { .. })
+            && !(backend.recording_config().is_none() && backend.allows_unrecorded_shell())
+        {
+            recording = Some(
+                ShellRecording::prepare(
+                    backend.clone(),
+                    &connection,
+                    u32::from(id),
+                    &terminal.0,
+                    terminal.1,
+                    terminal.2,
+                )
+                .await?,
+            );
+        }
         if starts {
+            if !matches!(&event, ChannelMsg::RequestShell { .. }) {
+                lifecycle = Some(
+                    ChannelLifecycle::begin(
+                        &shared,
+                        u32::from(id),
+                        if matches!(&event, ChannelMsg::Exec { .. }) {
+                            bastion_domain::ChannelKind::Exec
+                        } else {
+                            bastion_domain::ChannelKind::Sftp
+                        },
+                    )
+                    .await?,
+                );
+            }
             let (kind, command) = match &event {
                 ChannelMsg::RequestShell { .. } => ("shell", None),
                 ChannelMsg::Exec { command, .. } => ("exec", Some(command.as_slice())),
@@ -742,7 +828,7 @@ async fn channel_worker(
             result = timeout(Duration::from_secs(45), async {
                 if downstream.0.is_none() {
                     let target = wait_target(ready.clone()).await?;
-                    downstream.0 = Some(timeout(START_TIMEOUT, target.channel_open_session()).await??);
+                    downstream.0 = Some(timeout(START_TIMEOUT, target.target.channel_open_session()).await??);
                 }
                 let channel = downstream.0.as_mut().unwrap();
                 match &event {
@@ -770,12 +856,38 @@ async fn channel_worker(
                 .await
                 .map_err(|_| anyhow::anyhow!("upstream closed"))?;
         }
-        if accepted && matches!(event, ChannelMsg::RequestPty { .. }) {
-            pty = true;
+        if accepted {
+            shared.touch();
+            if let ChannelMsg::RequestPty {
+                term,
+                col_width,
+                row_height,
+                ..
+            } = &event
+            {
+                terminal = (term.clone(), *col_width, *row_height);
+                pty = true;
+            }
         }
         if starts && accepted {
+            if let Some(recording) = &recording {
+                recording.streaming().await?;
+            }
+            if let Some(lifecycle) = &lifecycle {
+                lifecycle.streaming().await?;
+            }
             let downstream = downstream.0.take().unwrap();
-            return bridge(upstream_channel, downstream, upstream, pty, stop).await;
+            return bridge(
+                upstream_channel,
+                downstream,
+                upstream,
+                pty,
+                stop,
+                shared,
+                recording,
+                lifecycle,
+            )
+            .await;
         }
         // Configuring channels also have an absolute deadline, never extended by env spam.
     }
@@ -801,29 +913,79 @@ impl Drop for ActiveChannel {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn bridge(
     up: Channel<server::Msg>,
     down: Channel<client::Msg>,
     upstream: server::Handle,
     pty: bool,
     stop: CancellationToken,
+    shared: Arc<ConnectionSession>,
+    recording: Option<ShellRecording>,
+    lifecycle: Option<Arc<ChannelLifecycle>>,
 ) -> Result<()> {
     let id = up.id();
     let (up_read, up_write) = up.split();
     let (down_read, down_write) = down.split();
     let down_write = Arc::new(down_write);
     let _cleanup = ActiveChannel(down_write.clone());
-    let input = input_loop(up_read, down_write, upstream.clone(), id, pty);
-    let output = output_loop(down_read, up_write, upstream.clone(), id);
+    let input = input_loop(
+        up_read,
+        down_write,
+        upstream.clone(),
+        id,
+        pty,
+        shared.clone(),
+        recording.clone(),
+    );
+    let output = output_loop(
+        down_read,
+        up_write,
+        upstream.clone(),
+        id,
+        shared,
+        recording.clone(),
+        lifecycle.clone(),
+    );
     tokio::pin!(input, output);
-    tokio::select! {
-        _ = stop.cancelled() => {},
-        result = &mut output => { result?; },
+    let normal = tokio::select! {
+        _ = stop.cancelled() => false,
+        result = &mut output => { result?; true },
         result = &mut input => {
             result?;
             // EOF half closes stdin; target output must still drain to close.
-            tokio::select! { _ = stop.cancelled() => {}, result = &mut output => { result?; } }
+            tokio::select! { _ = stop.cancelled() => false, result = &mut output => { result?; true } }
         }
+    };
+    if let Some(lifecycle) = lifecycle {
+        lifecycle
+            .finish(if normal {
+                None
+            } else {
+                Some(ErrorCode::TargetUnreachable)
+            })
+            .await?;
+    }
+    if let Some(recording) = recording {
+        recording
+            .finish(
+                if normal {
+                    "channel_closed"
+                } else {
+                    "channel_cancelled"
+                },
+                if normal {
+                    bastion_domain::RecordingState::Complete
+                } else {
+                    bastion_domain::RecordingState::Partial
+                },
+                if normal {
+                    None
+                } else {
+                    Some(ErrorCode::TargetUnreachable)
+                },
+            )
+            .await?;
     }
     Ok(())
 }
@@ -834,13 +996,27 @@ async fn input_loop(
     upstream: server::Handle,
     id: ChannelId,
     pty: bool,
+    shared: Arc<ConnectionSession>,
+    recording: Option<ShellRecording>,
 ) -> Result<()> {
     let mut eof = false;
     while let Some(event) = reader.wait().await {
         match event {
-            ChannelMsg::Data { data } if !eof => writer.data_bytes(data).await?,
+            ChannelMsg::Data { data } if !eof => {
+                timeout(
+                    shared.registry.limits().stall_timeout,
+                    writer.data_bytes(data),
+                )
+                .await??;
+                shared.touch();
+            }
             ChannelMsg::ExtendedData { data, ext } if !eof => {
-                writer.extended_data_bytes(ext, data).await?
+                timeout(
+                    shared.registry.limits().stall_timeout,
+                    writer.extended_data_bytes(ext, data),
+                )
+                .await??;
+                shared.touch();
             }
             ChannelMsg::Eof if !eof => {
                 writer.eof().await?;
@@ -861,9 +1037,15 @@ async fn input_loop(
                 && row_height > 0
                 && row_height <= 10000 =>
             {
-                writer
-                    .window_change(col_width, row_height, pix_width, pix_height)
-                    .await?;
+                if let Some(recording) = &recording {
+                    recording.resize(col_width, row_height).await?;
+                }
+                timeout(
+                    shared.registry.limits().stall_timeout,
+                    writer.window_change(col_width, row_height, pix_width, pix_height),
+                )
+                .await??;
+                shared.touch();
             }
             ChannelMsg::Signal { signal }
                 if matches!(
@@ -905,26 +1087,83 @@ async fn output_loop(
     writer: ChannelWriteHalf<server::Msg>,
     upstream: server::Handle,
     id: ChannelId,
+    shared: Arc<ConnectionSession>,
+    recording: Option<ShellRecording>,
+    lifecycle: Option<Arc<ChannelLifecycle>>,
 ) -> Result<()> {
     while let Some(event) = reader.wait().await {
+        if let Some(lifecycle) = &lifecycle {
+            match &event {
+                ChannelMsg::ExitStatus { exit_status } => lifecycle.exit(Some(*exit_status), None),
+                ChannelMsg::ExitSignal { signal_name, .. } => lifecycle.exit(
+                    None,
+                    Some(match signal_name {
+                        russh::Sig::Custom(name) => name.clone(),
+                        known => format!("{known:?}"),
+                    }),
+                ),
+                _ => {}
+            }
+        }
         match event {
-            ChannelMsg::Data { data } => writer.data_bytes(data).await?,
-            ChannelMsg::ExtendedData { data, ext } => writer.extended_data_bytes(ext, data).await?,
+            ChannelMsg::Data { data } => {
+                if let Some(recording) = &recording {
+                    recording.output(false, &data).await?;
+                }
+                timeout(
+                    shared.registry.limits().stall_timeout,
+                    writer.data_bytes(data),
+                )
+                .await??;
+                shared.touch();
+            }
+            ChannelMsg::ExtendedData { data, ext } => {
+                if let Some(recording) = &recording {
+                    if ext != 1 {
+                        anyhow::bail!("unsupported recorded stream");
+                    }
+                    recording.output(true, &data).await?;
+                }
+                timeout(
+                    shared.registry.limits().stall_timeout,
+                    writer.extended_data_bytes(ext, data),
+                )
+                .await??;
+                shared.touch();
+            }
             ChannelMsg::Eof => writer.eof().await?,
-            ChannelMsg::ExitStatus { exit_status } => writer.exit_status(exit_status).await?,
+            ChannelMsg::ExitStatus { exit_status } => {
+                if let Some(recording) = &recording {
+                    recording.exit(Some(exit_status), None).await?;
+                }
+                writer.exit_status(exit_status).await?;
+            }
             ChannelMsg::ExitSignal {
                 signal_name,
                 core_dumped,
                 error_message,
                 lang_tag,
             } => {
+                if let Some(recording) = &recording {
+                    let signal = match &signal_name {
+                        russh::Sig::Custom(name) => name.clone(),
+                        known => format!("{known:?}"),
+                    };
+                    if signal.len() > 128 || signal.chars().any(char::is_control) {
+                        anyhow::bail!("invalid exit signal");
+                    }
+                    recording.exit(None, Some(signal)).await?;
+                }
                 upstream
                     .exit_signal_request(id, signal_name, core_dumped, error_message, lang_tag)
                     .await
                     .map_err(|_| anyhow::anyhow!("upstream closed"))?;
             }
             ChannelMsg::Close => {
-                writer.close().await?;
+                // Recorded shells publish close in channel_worker only after the metadata ACK.
+                if recording.is_none() {
+                    writer.close().await?;
+                }
                 return Ok(());
             }
             _ => {}

@@ -24,28 +24,32 @@ impl BrowserConfig {
         backend: Arc<dyn GatewayBackend>,
         shutdown: CancellationToken,
     ) -> anyhow::Result<Self> {
-        let uri: Uri = origin.parse()?;
-        let scheme = uri.scheme_str().unwrap_or("");
-        let host = uri.host().unwrap_or("");
-        let loopback = host == "localhost"
-            || host
-                .trim_matches(['[', ']'])
-                .parse::<IpAddr>()
-                .is_ok_and(|ip| ip.is_loopback());
-        if uri.authority().is_none()
-            || uri.authority().is_some_and(|a| a.as_str().contains('@'))
-            || uri.path_and_query().is_some_and(|p| p.as_str() != "/")
-            || !(scheme == "https" || scheme == "http" && loopback)
-        {
-            anyhow::bail!("browser origin must be HTTPS or explicit loopback HTTP without a path");
-        }
+        let secure = validate_origin(&origin)?;
         Ok(Self {
             origin: origin.trim_end_matches('/').into(),
-            secure: scheme == "https",
+            secure,
             backend,
             shutdown,
         })
     }
+}
+fn validate_origin(origin: &str) -> anyhow::Result<bool> {
+    let uri: Uri = origin.parse()?;
+    let scheme = uri.scheme_str().unwrap_or("");
+    let host = uri.host().unwrap_or("");
+    let loopback = host == "localhost"
+        || host
+            .trim_matches(['[', ']'])
+            .parse::<IpAddr>()
+            .is_ok_and(|ip| ip.is_loopback());
+    if uri.authority().is_none()
+        || uri.authority().is_some_and(|a| a.as_str().contains('@'))
+        || uri.path_and_query().is_some_and(|p| p.as_str() != "/")
+        || !(scheme == "https" || scheme == "http" && loopback)
+    {
+        anyhow::bail!("browser origin must be HTTPS or explicit loopback HTTP without a path");
+    }
+    Ok(scheme == "https")
 }
 
 #[derive(Deserialize, Default)]
@@ -91,6 +95,18 @@ fn valid_secret(value: &str) -> bool {
         && value
             .bytes()
             .all(|c| c.is_ascii_alphanumeric() || c == b'-' || c == b'_')
+}
+pub(super) fn require_bearer(headers: &HeaderMap) -> ApiResult<()> {
+    if headers.contains_key(header::COOKIE)
+        || headers.get_all(header::AUTHORIZATION).iter().count() != 1
+        || !headers
+            .get(header::AUTHORIZATION)
+            .and_then(|v| v.to_str().ok())
+            .is_some_and(|v| v.strip_prefix("Bearer ").is_some_and(valid_secret))
+    {
+        return Err(ApiError(ErrorCode::Unauthenticated));
+    }
+    Ok(())
 }
 fn config(state: &ControlApi) -> ApiResult<&BrowserConfig> {
     state
@@ -183,10 +199,8 @@ pub async fn csrf_token(
     headers: HeaderMap,
 ) -> ApiResult<Response> {
     let browser = config(&state)?;
-    if let Some(origin) = headers.get(header::ORIGIN) {
-        if origin.to_str().ok() != Some(browser.origin.as_str()) {
-            return Err(ApiError(ErrorCode::PermissionDenied));
-        }
+    if headers.contains_key(header::ORIGIN) {
+        same_origin(&state, &headers)?;
     }
     if headers
         .get("sec-fetch-site")
@@ -212,6 +226,15 @@ pub async fn authenticate(
     mut request: axum::extract::Request,
     next: Next,
 ) -> Response {
+    if request
+        .headers()
+        .get_all(header::AUTHORIZATION)
+        .iter()
+        .count()
+        > 1
+    {
+        return ApiError(ErrorCode::Unauthenticated).into_response();
+    }
     let authorization = request.headers().get(header::AUTHORIZATION);
     let browser_token = cookie(request.headers(), ACCESS);
     let web = browser_token.is_some()
@@ -246,7 +269,13 @@ pub async fn authenticate(
     let Some(token) = token else {
         return ApiError(ErrorCode::Unauthenticated).into_response();
     };
-    if !web && request.uri().path() == "/api/v1/auth/logout" {
+    if !web
+        && request.method() == Method::POST
+        && request
+            .extensions()
+            .get::<axum::extract::OriginalUri>()
+            .is_some_and(|uri| uri.0.path() == "/api/v1/auth/logout")
+    {
         match state.store.logout_completed(&token).await {
             Ok(true) => return StatusCode::NO_CONTENT.into_response(),
             Err(code) => return ApiError(code).into_response(),
@@ -323,7 +352,12 @@ pub async fn refresh(
         Ok(result) => login_response(&state, result, web),
         Err(code) => {
             let mut response = ApiError(code).into_response();
-            if web && !matches!(code, ErrorCode::PolicyStoreUnavailable | ErrorCode::RateLimited) {
+            if web
+                && !matches!(
+                    code,
+                    ErrorCode::PolicyStoreUnavailable | ErrorCode::RateLimited
+                )
+            {
                 clear_cookies(&state, &mut response);
             }
             Ok(response)
@@ -345,10 +379,11 @@ pub async fn issue_session(
     if cookie(&headers, ACCESS).is_none() || headers.contains_key(header::AUTHORIZATION) {
         return Err(ApiError(ErrorCode::Unauthenticated));
     }
-    let request = input(body)?;
-    if request.capabilities != [Capability::Shell] || !matches!(request.purpose, Purpose::Terminal) {
-        return Err(ApiError(ErrorCode::InvalidArgument));
+    if state.shutdown.is_cancelled() {
+        return Err(ApiError(ErrorCode::PolicyStoreUnavailable));
     }
+    let mut request = input(body)?;
+    request.validate(&[Capability::Shell, Capability::Exec, Capability::Sftp])?;
     Ok((
         StatusCode::CREATED,
         Json(
@@ -453,8 +488,8 @@ pub async fn stream(
     let id = connection.id;
     Ok(upgrade
         .protocols(["bastion.v1"])
-        .max_message_size(MAX_DATA_BYTES + 6)
-        .max_frame_size(MAX_DATA_BYTES + 6)
+        .max_message_size(96 * 1024)
+        .max_frame_size(96 * 1024)
         .on_failed_upgrade(move |_| {
             tokio::spawn(async move {
                 let _ = store
@@ -479,6 +514,7 @@ async fn bridge(
     let (mut sink, mut source) = socket.split();
     let (input_tx, input_rx) = mpsc::channel(8);
     let (output_tx, mut output_rx) = mpsc::channel(8);
+    let error_tx = output_tx.clone();
     let gateway = bastion_gateway::run_web_session(
         connection,
         target,
@@ -487,7 +523,7 @@ async fn bridge(
         output_tx,
         stop.clone(),
     );
-    let read = async {
+    let mut read = Box::pin(async move {
         while let Some(message) = source.next().await {
             let frame = match message {
                 Ok(Message::Text(text)) => ClientFrame::decode_text(&text),
@@ -495,15 +531,27 @@ async fn bridge(
                 Ok(Message::Close(_)) | Err(_) => break,
                 Ok(Message::Ping(_) | Message::Pong(_)) => continue,
             };
-            let Ok(frame) = frame else {
-                break;
+            let frame = match frame {
+                Ok(frame) => frame,
+                Err(code) => {
+                    let _ = tokio::time::timeout(
+                        Duration::from_secs(1),
+                        error_tx.send(ServerFrame::Control(ServerControl::Error {
+                            v: WEBSOCKET_VERSION,
+                            channel_id: None,
+                            code,
+                        })),
+                    )
+                    .await;
+                    break;
+                }
             };
             if input_tx.send(frame).await.is_err() {
                 break;
             }
         }
-    };
-    let write = async {
+    });
+    let mut write = Box::pin(async move {
         while let Some(frame) = output_rx.recv().await {
             let message = match &frame {
                 ServerFrame::Control(_) => frame.encode_text().map(|s| Message::Text(s.into())),
@@ -517,21 +565,117 @@ async fn bridge(
             }
         }
         let _ = sink.close().await;
+    });
+    tokio::pin!(gateway);
+    let finished = tokio::select! {
+        _=&mut gateway=>0, _=&mut read=>1, _=&mut write=>2, _=stop.cancelled()=>3,
     };
-    tokio::pin!(gateway, read, write);
-    let finished = tokio::select! { _=&mut gateway=>true,_=&mut read=>false,_=&mut write=>false,_=stop.cancelled()=>false };
-    if finished {
+    // Drop the reader and its error sender before draining, so the output receiver can close.
+    drop(read);
+    if finished == 0 {
         let _ = tokio::time::timeout(Duration::from_secs(2), &mut write).await;
-    }
-    stop.cancel();
-    if !finished {
-        let _ = tokio::time::timeout(Duration::from_secs(8), &mut gateway).await;
+        stop.cancel();
+    } else {
+        stop.cancel();
+        if finished == 2 {
+            let _ = tokio::time::timeout(Duration::from_secs(8), &mut gateway).await;
+        } else {
+            let _ = tokio::time::timeout(Duration::from_secs(8), async {
+                let _ = tokio::join!(&mut gateway, &mut write);
+            })
+            .await;
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn formal_native_ticket_requires_one_bearer_and_no_cookie() {
+        let mut headers = HeaderMap::new();
+        assert!(require_bearer(&headers).is_err());
+        headers.insert(
+            header::AUTHORIZATION,
+            format!("Bearer {}", "a".repeat(43)).parse().unwrap(),
+        );
+        assert!(require_bearer(&headers).is_ok());
+        headers.append(
+            header::AUTHORIZATION,
+            format!("Bearer {}", "b".repeat(43)).parse().unwrap(),
+        );
+        assert!(require_bearer(&headers).is_err());
+        headers.remove(header::AUTHORIZATION);
+        headers.insert(
+            header::AUTHORIZATION,
+            format!("Bearer {}", "a".repeat(43)).parse().unwrap(),
+        );
+        headers.insert(header::COOKIE, "unrelated=value".parse().unwrap());
+        assert!(require_bearer(&headers).is_err());
+    }
+    #[test]
+    fn browser_origin_requires_https_or_explicit_loopback() {
+        for origin in ["https://bastion.test", "https://bastion.test:8443/"] {
+            assert!(validate_origin(origin).unwrap());
+        }
+        for origin in [
+            "http://localhost:5173",
+            "http://127.0.0.1:5173",
+            "http://[::1]:5173",
+        ] {
+            assert!(!validate_origin(origin).unwrap());
+        }
+        for origin in [
+            "http://bastion.test",
+            "https://user@bastion.test",
+            "https://bastion.test/path",
+            "https://bastion.test/?token=x",
+            "ws://127.0.0.1",
+            "//bastion.test",
+        ] {
+            assert!(validate_origin(origin).is_err(), "accepted {origin}");
+        }
+    }
+    #[test]
+    fn origin_csrf_and_cookie_security_fail_closed() {
+        let origin = "https://bastion.test";
+        let token = "a".repeat(43);
+        let mut headers = HeaderMap::new();
+        assert!(check_origin(origin, &headers).is_err());
+        headers.insert(header::ORIGIN, origin.parse().unwrap());
+        assert!(check_csrf(origin, &headers).is_err());
+        headers.insert(
+            header::COOKIE,
+            format!("bastion_csrf={token}").parse().unwrap(),
+        );
+        headers.insert(CSRF_HEADER, token.parse().unwrap());
+        assert!(check_csrf(origin, &headers).is_ok());
+        headers.insert(CSRF_HEADER, "wrong".parse().unwrap());
+        assert!(check_csrf(origin, &headers).is_err());
+        headers.insert(CSRF_HEADER, token.parse().unwrap());
+        headers.append(header::ORIGIN, origin.parse().unwrap());
+        assert!(check_csrf(origin, &headers).is_err());
+        let mut response = StatusCode::OK.into_response();
+        set_cookie(&mut response, ACCESS, &token, true, true, 60);
+        let cookie = response.headers()[header::SET_COOKIE].to_str().unwrap();
+        assert!(
+            cookie.contains("HttpOnly")
+                && cookie.contains("Secure")
+                && cookie.contains("SameSite=Strict")
+        );
+        assert!(!cookie.contains("Domain="));
+        let response = BrowserLogin {
+            username: "u".into(),
+            password: "p".into(),
+            device_label: "d".into(),
+            client_type: ClientType::Web,
+        };
+        assert!(matches!(response.client_type, ClientType::Web));
+        assert!(serde_json::from_str::<BrowserLogin>(
+            r#"{"username":"u","password":"p","device_label":"d","host":"target"}"#
+        )
+        .is_err());
+    }
     #[test]
     fn cookies_reject_duplicates_and_subprotocol_has_no_fallback() {
         let token = "a".repeat(43);

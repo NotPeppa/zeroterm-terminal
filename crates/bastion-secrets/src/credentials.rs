@@ -179,9 +179,321 @@ impl KeyRing {
         Ok(value)
     }
 }
+impl KeyRing {
+    /// Authenticate the existing credential, then rotate only its KEK envelope.
+    /// Identity, revision, ciphertext and data nonce are preserved exactly.
+    pub fn rewrap_credential_dek(
+        &self,
+        context: &CipherContext,
+        envelope: &Envelope,
+    ) -> Result<Envelope> {
+        if context.revision < 1 {
+            bail!("invalid credential context");
+        }
+        // Validation uses the existing wire/AAD contract. Credential zeroizes on drop.
+        drop(self.open(context, envelope)?);
+        let old_key = self
+            .keys
+            .get(&envelope.key_version)
+            .ok_or_else(|| anyhow::anyhow!("credential KEK version is unavailable"))?;
+        let aad = context.aad("zt-credential-wrap-v1")?;
+        let dek = Zeroizing::new(
+            XChaCha20Poly1305::new_from_slice(old_key.as_ref())
+                .expect("32-byte KEK")
+                .decrypt(
+                    envelope.wrap_nonce.as_slice().into(),
+                    Payload {
+                        msg: &envelope.wrapped_dek,
+                        aad: &aad,
+                    },
+                )
+                .map_err(|_| anyhow::anyhow!("credential integrity failure"))?,
+        );
+        let mut wrap_nonce = [0u8; 24];
+        rand::rngs::OsRng.fill_bytes(&mut wrap_nonce);
+        let wrapped_dek = XChaCha20Poly1305::new_from_slice(self.keys[&self.active].as_ref())
+            .expect("32-byte KEK")
+            .encrypt(
+                (&wrap_nonce).into(),
+                Payload {
+                    msg: &dek,
+                    aad: &aad,
+                },
+            )
+            .map_err(|_| anyhow::anyhow!("DEK wrapping failed"))?;
+        Ok(Envelope {
+            ciphertext: envelope.ciphertext.clone(),
+            nonce: envelope.nonce.clone(),
+            wrapped_dek,
+            wrap_nonce: wrap_nonce.to_vec(),
+            key_version: self.active,
+        })
+    }
+
+    pub fn new_recording_dek(
+        &self,
+        context: &crate::recording::RecordingContext,
+    ) -> Result<(
+        crate::recording::RecordingKey,
+        crate::recording::RecordingEnvelope,
+    )> {
+        let mut bytes = Zeroizing::new([0u8; 32]);
+        rand::rngs::OsRng.fill_bytes(bytes.as_mut());
+        let key = crate::recording::RecordingKey(bytes);
+        let envelope = self.wrap_recording_dek(context, &key)?;
+        Ok((key, envelope))
+    }
+
+    pub fn wrap_recording_dek(
+        &self,
+        context: &crate::recording::RecordingContext,
+        key: &crate::recording::RecordingKey,
+    ) -> Result<crate::recording::RecordingEnvelope> {
+        let mut nonce = [0u8; 24];
+        rand::rngs::OsRng.fill_bytes(&mut nonce);
+        let wrapped_dek = XChaCha20Poly1305::new_from_slice(self.keys[&self.active].as_ref())
+            .expect("32-byte KEK")
+            .encrypt(
+                (&nonce).into(),
+                Payload {
+                    msg: key.0.as_ref(),
+                    aad: &context.aad()?,
+                },
+            )
+            .map_err(|_| anyhow::Error::new(crate::recording::RecordingError::Integrity))?;
+        Ok(crate::recording::RecordingEnvelope {
+            wrapped_dek,
+            wrap_nonce: nonce.to_vec(),
+            key_version: self.active,
+        })
+    }
+
+    pub fn open_recording_dek(
+        &self,
+        context: &crate::recording::RecordingContext,
+        envelope: &crate::recording::RecordingEnvelope,
+    ) -> Result<crate::recording::RecordingKey> {
+        use crate::recording::{RecordingError, RecordingKey};
+        let kek = self
+            .keys
+            .get(&envelope.key_version)
+            .ok_or_else(|| anyhow::Error::new(RecordingError::UnknownKey(envelope.key_version)))?;
+        if envelope.wrap_nonce.len() != 24 || envelope.wrapped_dek.len() != 48 {
+            bail!(RecordingError::Invalid("malformed wrapped recording DEK"));
+        }
+        let plaintext = Zeroizing::new(
+            XChaCha20Poly1305::new_from_slice(kek.as_ref())
+                .expect("32-byte KEK")
+                .decrypt(
+                    envelope.wrap_nonce.as_slice().into(),
+                    Payload {
+                        msg: &envelope.wrapped_dek,
+                        aad: &context.aad()?,
+                    },
+                )
+                .map_err(|_| anyhow::Error::new(RecordingError::Integrity))?,
+        );
+        let mut bytes = Zeroizing::new([0u8; 32]);
+        if plaintext.len() != bytes.len() {
+            bail!(RecordingError::Invalid("recording DEK must be 32 bytes"));
+        }
+        bytes.copy_from_slice(&plaintext);
+        Ok(RecordingKey(bytes))
+    }
+
+    /// Rotate only the KEK envelope; the recording DEK, prefix and file do not change.
+    pub fn rewrap_recording_dek(
+        &self,
+        context: &crate::recording::RecordingContext,
+        envelope: &crate::recording::RecordingEnvelope,
+    ) -> Result<crate::recording::RecordingEnvelope> {
+        let key = self.open_recording_dek(context, envelope)?;
+        self.wrap_recording_dek(context, &key)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::recording::{
+        RecordingContext, RecordingEnvelope, RecordingError, RecordingHeader, RecordingReader,
+        RecordingWriter,
+    };
+
+    #[test]
+    fn credential_dek_rewrap_preserves_payload_and_authenticates_before_rotation() {
+        let old = KeyRing {
+            active: 1,
+            keys: BTreeMap::from([(1, Zeroizing::new([7; 32]))]),
+        };
+        let rotating = KeyRing {
+            active: 2,
+            keys: BTreeMap::from([(1, Zeroizing::new([7; 32])), (2, Zeroizing::new([9; 32]))]),
+        };
+        let new = KeyRing {
+            active: 2,
+            keys: BTreeMap::from([(2, Zeroizing::new([9; 32]))]),
+        };
+        for value in [
+            Credential::Password {
+                password: " SECRET unchanged ".into(),
+            },
+            Credential::PrivateKey {
+                key_pem: "PRIVATE KEY unchanged".into(),
+                passphrase: Some(" unchanged ".into()),
+            },
+        ] {
+            let context = CipherContext {
+                server_id: "server".into(),
+                credential_id: Uuid::new_v4(),
+                kind: value.kind().into(),
+                revision: 17,
+            };
+            let envelope = old.seal(&context, &value).unwrap();
+            let original = envelope.clone();
+            let rotated = rotating.rewrap_credential_dek(&context, &envelope).unwrap();
+            assert_eq!(rotated.ciphertext, envelope.ciphertext);
+            assert_eq!(rotated.nonce, envelope.nonce);
+            assert_eq!(rotated.key_version, 2);
+            assert_ne!(rotated.wrap_nonce, envelope.wrap_nonce);
+            assert_ne!(rotated.wrapped_dek, envelope.wrapped_dek);
+            let opened = new.open(&context, &rotated).unwrap();
+            let expected = Zeroizing::new(serde_json::to_vec(&value).unwrap());
+            let actual = Zeroizing::new(serde_json::to_vec(&opened).unwrap());
+            assert_eq!(*actual, *expected);
+            assert_eq!(context.revision, 17);
+            assert_eq!(original.ciphertext, envelope.ciphertext);
+            assert_eq!(original.nonce, envelope.nonce);
+            assert_eq!(original.wrapped_dek, envelope.wrapped_dek);
+            assert_eq!(original.wrap_nonce, envelope.wrap_nonce);
+            assert_eq!(original.key_version, envelope.key_version);
+            assert!(new.open(&context, &envelope).is_err());
+            assert!(old.open(&context, &rotated).is_err());
+            assert!(new.rewrap_credential_dek(&context, &envelope).is_err());
+            for field in 0..4 {
+                let mut changed = context.clone();
+                match field {
+                    0 => changed.server_id = "other".into(),
+                    1 => changed.credential_id = Uuid::new_v4(),
+                    2 => changed.kind = "other".into(),
+                    _ => changed.revision += 1,
+                }
+                assert!(rotating.rewrap_credential_dek(&changed, &envelope).is_err());
+            }
+            for field in 0..4 {
+                let mut corrupted = envelope.clone();
+                match field {
+                    0 => corrupted.ciphertext[0] ^= 1,
+                    1 => corrupted.nonce[0] ^= 1,
+                    2 => corrupted.wrapped_dek[0] ^= 1,
+                    _ => corrupted.wrap_nonce[0] ^= 1,
+                }
+                assert!(rotating
+                    .rewrap_credential_dek(&context, &corrupted)
+                    .is_err());
+            }
+            let mut changed = context.clone();
+            changed.revision = 0;
+            assert!(rotating.rewrap_credential_dek(&changed, &envelope).is_err());
+            let again = new.rewrap_credential_dek(&context, &rotated).unwrap();
+            assert_eq!(again.ciphertext, rotated.ciphertext);
+            assert_eq!(again.nonce, rotated.nonce);
+            assert_ne!(again.wrap_nonce, rotated.wrap_nonce);
+            assert!(new.open(&context, &again).is_ok());
+        }
+    }
+
+    #[test]
+    fn recording_keys_bind_server_identity_and_purpose_and_rewrap_without_file_changes() {
+        let old = KeyRing {
+            active: 1,
+            keys: BTreeMap::from([(1, Zeroizing::new([7; 32]))]),
+        };
+        let rotating = KeyRing {
+            active: 2,
+            keys: BTreeMap::from([(1, Zeroizing::new([7; 32])), (2, Zeroizing::new([9; 32]))]),
+        };
+        let new = KeyRing {
+            active: 2,
+            keys: BTreeMap::from([(2, Zeroizing::new([9; 32]))]),
+        };
+        let context = RecordingContext::new("server", Uuid::new_v4());
+        let (key, envelope) = old.new_recording_dek(&context).unwrap();
+        assert_eq!(envelope.wrapped_dek.len(), 48);
+        assert_eq!(envelope.wrap_nonce.len(), 24);
+        assert_eq!(envelope.key_version, 1);
+        assert_eq!(
+            *old.open_recording_dek(&context, &envelope).unwrap().0,
+            *key.0
+        );
+        let mut changed = context.clone();
+        changed.server_id = "other".into();
+        assert!(old.open_recording_dek(&changed, &envelope).is_err());
+        changed = context.clone();
+        changed.recording_id = Uuid::new_v4();
+        assert!(old.open_recording_dek(&changed, &envelope).is_err());
+        assert!(matches!(
+            new.open_recording_dek(&context, &envelope)
+                .unwrap_err()
+                .downcast_ref::<RecordingError>(),
+            Some(RecordingError::UnknownKey(1))
+        ));
+        for field in [0, 1] {
+            let mut corrupt = envelope.clone();
+            if field == 0 {
+                corrupt.wrapped_dek[0] ^= 1;
+            } else {
+                corrupt.wrap_nonce[0] ^= 1;
+            }
+            assert!(matches!(
+                old.open_recording_dek(&context, &corrupt)
+                    .unwrap_err()
+                    .downcast_ref::<RecordingError>(),
+                Some(RecordingError::Integrity)
+            ));
+        }
+        let mut malformed = envelope.clone();
+        malformed.wrapped_dek.pop();
+        assert!(old.open_recording_dek(&context, &malformed).is_err());
+        malformed = envelope.clone();
+        malformed.wrap_nonce.pop();
+        assert!(old.open_recording_dek(&context, &malformed).is_err());
+        let credential_context = CipherContext {
+            server_id: "server".into(),
+            credential_id: context.recording_id,
+            kind: "password".into(),
+            revision: 1,
+        };
+        let credential = old
+            .seal(
+                &credential_context,
+                &Credential::Password {
+                    password: "secret".into(),
+                },
+            )
+            .unwrap();
+        let swapped = RecordingEnvelope {
+            wrapped_dek: credential.wrapped_dek.clone(),
+            wrap_nonce: credential.wrap_nonce.clone(),
+            key_version: 1,
+        };
+        assert!(old.open_recording_dek(&context, &swapped).is_err());
+        let header = RecordingHeader::new(context.recording_id);
+        let mut writer = RecordingWriter::new(Vec::new(), header.clone(), key).unwrap();
+        writer.append_ndjson(b"{\"seq\":0,\"elapsed_us\":0,\"type\":\"meta\",\"format_version\":1,\"term\":\"xterm\",\"cols\":80,\"rows\":24}\n{\"seq\":1,\"elapsed_us\":1,\"type\":\"end\",\"reason\":\"closed\"}\n").unwrap();
+        let file = writer.finish().unwrap();
+        let before = file.clone();
+        let rewrapped = rotating.rewrap_recording_dek(&context, &envelope).unwrap();
+        assert_eq!(rewrapped.key_version, 2);
+        assert_ne!(rewrapped.wrap_nonce, envelope.wrap_nonce);
+        let key = new.open_recording_dek(&context, &rewrapped).unwrap();
+        let mut reader = RecordingReader::new(std::io::Cursor::new(&file), &header, key).unwrap();
+        assert!(reader.next_chunk().unwrap().is_some());
+        assert!(reader.next_chunk().unwrap().is_none());
+        assert_eq!(before, file);
+        assert!(new.rewrap_recording_dek(&context, &envelope).is_err());
+    }
+
     #[test]
     fn envelopes_bind_identity_revision_kind_and_detect_tampering() {
         let ring = KeyRing {

@@ -1,0 +1,37 @@
+# RFC-004 candidate service. Capability discovery intentionally keeps production_ready=false.
+server_id = "replace-with-stable-server-id"
+gateway_id = "main"
+api_listen = "127.0.0.1:8080"
+public_origin = "https://bastion.example.invalid"
+web_root = "/opt/zeroterm-bastion/web/dist"
+# Listener is independent from the advertised public SSH endpoint.
+ssh_listen = "0.0.0.0:2222"
+ssh_public_host = "bastion.example.invalid"
+ssh_public_port = 2222
+database_url_file = "/etc/zeroterm-bastion/secrets/database-url"
+ssh_host_key_file = "/etc/zeroterm-bastion/secrets/ssh_host_ed25519_key"
+active_kek_version = 1
+[kek_files]
+"1" = "/etc/zeroterm-bastion/secrets/kek-v1"
+[network]
+allow = ["10.20.0.0/16"]
+deny = ["127.0.0.0/8", "169.254.0.0/16", "::1/128", "fe80::/10"]
+[production]
+recording_directory = "/var/lib/zeroterm-bastion/recordings"
+recording_required = true
+retention_days = 30
+minimum_free_bytes = 1073741824
+metrics_listen = "127.0.0.1:9090"
+# Only this local reverse proxy may supply overwritten forwarding headers.
+trusted_proxies = ["127.0.0.1/32", "::1/128"]
+[production.limits]
+connections_global = 100
+connections_per_user = 10
+pending_connections = 20
+channels_per_connection = 16
+channels_per_user = 64
+queue_bytes = 262144
+absolute_seconds = 28800
+idle_seconds = 1800
+stalled_seconds = 30
+file_max_bytes = 1073741824

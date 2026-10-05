@@ -8,6 +8,8 @@ use clap::{Parser, Subcommand};
 use std::io::Write;
 use std::path::PathBuf;
 mod control;
+mod production;
+mod proxy;
 
 #[cfg(feature = "dev-prototype")]
 mod prototype;
@@ -23,6 +25,11 @@ struct Cli {
 }
 #[derive(Subcommand)]
 enum Command {
+    /// Run the production service behind a trusted TLS reverse proxy.
+    Serve {
+        #[arg(long)]
+        config: PathBuf,
+    },
     /// Run the authenticated M1 integration service (loopback only).
     ServeM1 {
         #[arg(long)]
@@ -56,6 +63,44 @@ enum Command {
         #[arg(long, default_value = ".local")]
         directory: PathBuf,
     },
+    /// Verify a disposable backup without migration or restoring secrets.
+    VerifyBackup {
+        #[arg(long)]
+        config: PathBuf,
+        #[arg(long)]
+        manifest: PathBuf,
+    },
+    /// Revoke restored login families and mark runtime state interrupted.
+    RecoverRestore {
+        #[arg(long)]
+        config: PathBuf,
+    },
+    /// Rewrap credential and recording DEKs under the active KEK without rewriting files.
+    RewrapKeys {
+        #[arg(long)]
+        config: PathBuf,
+    },
+    /// Expire only inactive recording files selected by database retention.
+    RetainRecordings {
+        #[arg(long)]
+        config: PathBuf,
+    },
+    /// Offline maintenance-owner conversion to registered monthly audit partitions.
+    PartitionAudit {
+        #[arg(long)]
+        config: PathBuf,
+        #[arg(long)]
+        offline: bool,
+    },
+    /// Offline maintenance-owner retention; never drop the default audit partition.
+    RetainAudit {
+        #[arg(long)]
+        config: PathBuf,
+        #[arg(long)]
+        offline: bool,
+        #[arg(long, default_value_t = 180)]
+        days: u32,
+    },
     /// Run the development-only fixed-asset gateway. Requires --features dev-prototype.
     #[cfg(feature = "dev-prototype")]
     Prototype {
@@ -71,6 +116,7 @@ async fn main() -> Result<()> {
         .with_env_filter("bastion_server=info,bastion_gateway=info")
         .init();
     match Cli::parse().command {
+        Command::Serve { config } => control::serve_production(config).await,
         Command::ServeM1 { config } => control::serve(config).await,
         Command::Migrate { config } => control::migrate(config).await,
         Command::CreateAdmin {
@@ -83,6 +129,20 @@ async fn main() -> Result<()> {
             username,
             password_stdin,
         } => control::reset_user(config, username, password_stdin).await,
+        Command::VerifyBackup { config, manifest } => {
+            control::verify_backup(config, manifest).await
+        }
+        Command::RecoverRestore { config } => control::recover_restore(config).await,
+        Command::RewrapKeys { config } => control::rewrap_keys(config).await,
+        Command::RetainRecordings { config } => control::retain_recordings(config).await,
+        Command::PartitionAudit { config, offline } => {
+            control::partition_audit(config, offline).await
+        }
+        Command::RetainAudit {
+            config,
+            offline,
+            days,
+        } => control::retain_audit(config, offline, days).await,
         Command::Init { directory } => init(directory),
         #[cfg(feature = "dev-prototype")]
         Command::Prototype { config } => prototype::serve(config).await,

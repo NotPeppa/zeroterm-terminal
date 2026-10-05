@@ -1,0 +1,31 @@
+[Unit]
+Description=ZeroTerm RFC-004 bastion
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=zeroterm-bastion
+Group=zeroterm-bastion
+WorkingDirectory=/var/lib/zeroterm-bastion
+ExecStart=/opt/zeroterm-bastion/bastion-server serve --config /etc/zeroterm-bastion/production.toml
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=12
+KillSignal=SIGTERM
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/zeroterm-bastion/recordings
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+LockPersonality=true
+LimitNOFILE=4096
+
+[Install]
+WantedBy=multi-user.target
