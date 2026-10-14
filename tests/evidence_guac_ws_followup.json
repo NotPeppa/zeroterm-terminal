@@ -1,0 +1,29 @@
+{
+  "status": "passed",
+  "exit": 0,
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "--network",
+    "container:zt-guac-v2-followup-7b819270feb1-browser-bastion-1",
+    "--memory",
+    "128m",
+    "--memory-swap",
+    "256m",
+    "--cpus",
+    "1",
+    "-v",
+    "/var/tmp/zt-guac-v2-followup-7b819270feb1/ws-fixture.json:/fixture.json:ro",
+    "-e",
+    "BASTION_GUAC_TEST_FIXTURE_FILE=/fixture.json",
+    "--entrypoint",
+    "/app/testbin/websocket-598e60f49f74d8b2",
+    "zt-guac-v2-followup-7b819270feb1:tests",
+    "--ignored",
+    "--nocapture",
+    "--test-threads=1"
+  ],
+  "production_ready": false,
+  "finished_at": "2026-10-08T15:50:48Z"
+}

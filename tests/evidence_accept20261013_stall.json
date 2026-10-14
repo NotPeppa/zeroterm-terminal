@@ -1,0 +1,220 @@
+{
+  "production_ready": false,
+  "application_image_id": "sha256:e1c5419db24e98c4d5863c7f4c71fef4ec9a395807ae881fd168edf4eccd90d2",
+  "fixture_server_id": "zt-guac-v2-accept-20261013-stall",
+  "hold_ms": 90000,
+  "modes": {
+    "stuck-write": {
+      "threads_before": 8,
+      "live_session_closed_ms": 10461,
+      "live_during_stall": {
+        "connection_state": "failed",
+        "recording_state": "active"
+      },
+      "fresh_login_during_stall_ms": 8941,
+      "health_during_stall": {
+        "status": 200,
+        "body": "ok"
+      },
+      "second_session_end_ms": 7725,
+      "second_session": {
+        "connection_state": "failed",
+        "recording_state": "preparing",
+        "frames": 0
+      },
+      "stuck_held_ms": 90007,
+      "threads_during_stall": 6,
+      "hits": [
+        "write stuck until released",
+        "write stuck until released"
+      ],
+      "live_after_release": {
+        "connection_state": "failed",
+        "recording_state": "partial"
+      },
+      "second_after_release": "failed",
+      "after_release_recording": "complete",
+      "threads_after_release": 6
+    },
+    "stuck-fsync": {
+      "threads_before": 5,
+      "live_session_closed_ms": 10459,
+      "live_during_stall": {
+        "connection_state": "failed",
+        "recording_state": "active"
+      },
+      "fresh_login_during_stall_ms": 8615,
+      "health_during_stall": {
+        "status": 200,
+        "body": "ok"
+      },
+      "second_session_end_ms": 7393,
+      "second_session": {
+        "connection_state": "failed",
+        "recording_state": "preparing",
+        "frames": 0
+      },
+      "stuck_held_ms": 90008,
+      "threads_during_stall": 7,
+      "hits": [
+        "fsync stuck until released",
+        "fsync stuck until released"
+      ],
+      "live_after_release": {
+        "connection_state": "failed",
+        "recording_state": "partial"
+      },
+      "second_after_release": "failed",
+      "after_release_recording": "complete",
+      "threads_after_release": 7
+    }
+  },
+  "status": "passed-indefinite-recording-stall",
+  "api_samples": [
+    {
+      "resource": "/connections/378c9191-6a33-46c0-89ab-353ccf8231a4",
+      "ms": 438,
+      "state": "failed"
+    },
+    {
+      "resource": "/connections/175b7d21-2371-4144-8f85-12105be2184a",
+      "ms": 440,
+      "state": "pending"
+    },
+    {
+      "resource": "/connections/175b7d21-2371-4144-8f85-12105be2184a",
+      "ms": 710,
+      "state": "pending"
+    },
+    {
+      "resource": "/connections/175b7d21-2371-4144-8f85-12105be2184a",
+      "ms": 439,
+      "state": "connecting"
+    },
+    {
+      "resource": "/connections/175b7d21-2371-4144-8f85-12105be2184a",
+      "ms": 436,
+      "state": "connecting"
+    },
+    {
+      "resource": "/connections/175b7d21-2371-4144-8f85-12105be2184a",
+      "ms": 437,
+      "state": "connecting"
+    },
+    {
+      "resource": "/connections/175b7d21-2371-4144-8f85-12105be2184a",
+      "ms": 441,
+      "state": "connecting"
+    },
+    {
+      "resource": "/connections/175b7d21-2371-4144-8f85-12105be2184a",
+      "ms": 439,
+      "state": "connecting"
+    },
+    {
+      "resource": "/connections/175b7d21-2371-4144-8f85-12105be2184a",
+      "ms": 437,
+      "state": "connecting"
+    },
+    {
+      "resource": "/connections/175b7d21-2371-4144-8f85-12105be2184a",
+      "ms": 439,
+      "state": "connecting"
+    },
+    {
+      "resource": "/connections/175b7d21-2371-4144-8f85-12105be2184a",
+      "ms": 439,
+      "state": "connecting"
+    },
+    {
+      "resource": "/connections/175b7d21-2371-4144-8f85-12105be2184a",
+      "ms": 454,
+      "state": "connecting"
+    },
+    {
+      "resource": "/connections/175b7d21-2371-4144-8f85-12105be2184a",
+      "ms": 711,
+      "state": "failed"
+    },
+    {
+      "resource": "/connections/378c9191-6a33-46c0-89ab-353ccf8231a4",
+      "ms": 438,
+      "state": "failed"
+    },
+    {
+      "resource": "/connections/175b7d21-2371-4144-8f85-12105be2184a",
+      "ms": 438,
+      "state": "failed"
+    },
+    {
+      "resource": "/connections/8a56f666-5db2-409b-bd4d-8b26a6a5e7a3",
+      "ms": 1791,
+      "state": "failed"
+    },
+    {
+      "resource": "/connections/3d345140-a8d5-472a-a302-0a7b552e2278",
+      "ms": 707,
+      "state": "pending"
+    },
+    {
+      "resource": "/connections/3d345140-a8d5-472a-a302-0a7b552e2278",
+      "ms": 441,
+      "state": "pending"
+    },
+    {
+      "resource": "/connections/3d345140-a8d5-472a-a302-0a7b552e2278",
+      "ms": 677,
+      "state": "connecting"
+    },
+    {
+      "resource": "/connections/3d345140-a8d5-472a-a302-0a7b552e2278",
+      "ms": 437,
+      "state": "connecting"
+    },
+    {
+      "resource": "/connections/3d345140-a8d5-472a-a302-0a7b552e2278",
+      "ms": 715,
+      "state": "connecting"
+    },
+    {
+      "resource": "/connections/3d345140-a8d5-472a-a302-0a7b552e2278",
+      "ms": 439,
+      "state": "connecting"
+    },
+    {
+      "resource": "/connections/3d345140-a8d5-472a-a302-0a7b552e2278",
+      "ms": 438,
+      "state": "connecting"
+    },
+    {
+      "resource": "/connections/3d345140-a8d5-472a-a302-0a7b552e2278",
+      "ms": 438,
+      "state": "connecting"
+    },
+    {
+      "resource": "/connections/3d345140-a8d5-472a-a302-0a7b552e2278",
+      "ms": 430,
+      "state": "connecting"
+    },
+    {
+      "resource": "/connections/3d345140-a8d5-472a-a302-0a7b552e2278",
+      "ms": 437,
+      "state": "connecting"
+    },
+    {
+      "resource": "/connections/3d345140-a8d5-472a-a302-0a7b552e2278",
+      "ms": 712,
+      "state": "failed"
+    },
+    {
+      "resource": "/connections/8a56f666-5db2-409b-bd4d-8b26a6a5e7a3",
+      "ms": 438,
+      "state": "failed"
+    },
+    {
+      "resource": "/connections/3d345140-a8d5-472a-a302-0a7b552e2278",
+      "ms": 711,
+      "state": "failed"
+    }
+  ]
+}

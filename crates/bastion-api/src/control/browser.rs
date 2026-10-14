@@ -1,7 +1,7 @@
 use super::*;
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::http::{Method, Uri};
-use bastion_gateway::{GatewayBackend, Target, TargetAuth, TargetEndpoint};
+use bastion_gateway::{GatewayBackend, Target};
 use bastion_secrets::matches_hash;
 use futures_util::{SinkExt, StreamExt};
 use tokio::sync::mpsc;
@@ -52,27 +52,16 @@ fn validate_origin(origin: &str) -> anyhow::Result<bool> {
     Ok(scheme == "https")
 }
 
-#[derive(Deserialize, Default)]
-#[serde(rename_all = "snake_case")]
-pub enum ClientType {
-    Web,
-    #[default]
-    Zeroterm,
-}
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct BrowserLogin {
     pub username: String,
     pub password: String,
     pub device_label: String,
-    #[serde(default)]
-    pub client_type: ClientType,
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct BrowserRefresh {
-    pub refresh_token: Option<String>,
-}
+pub struct BrowserRefresh {}
 
 fn cookie(headers: &HeaderMap, name: &str) -> Option<String> {
     let mut found = None;
@@ -95,18 +84,6 @@ fn valid_secret(value: &str) -> bool {
         && value
             .bytes()
             .all(|c| c.is_ascii_alphanumeric() || c == b'-' || c == b'_')
-}
-pub(super) fn require_bearer(headers: &HeaderMap) -> ApiResult<()> {
-    if headers.contains_key(header::COOKIE)
-        || headers.get_all(header::AUTHORIZATION).iter().count() != 1
-        || !headers
-            .get(header::AUTHORIZATION)
-            .and_then(|v| v.to_str().ok())
-            .is_some_and(|v| v.strip_prefix("Bearer ").is_some_and(valid_secret))
-    {
-        return Err(ApiError(ErrorCode::Unauthenticated));
-    }
-    Ok(())
 }
 fn config(state: &ControlApi) -> ApiResult<&BrowserConfig> {
     state
@@ -167,10 +144,7 @@ pub fn clear_cookies(state: &ControlApi, response: &mut Response) {
         }
     }
 }
-pub fn login_response(state: &ControlApi, result: LoginResponse, web: bool) -> ApiResult<Response> {
-    if !web {
-        return Ok(Json(result).into_response());
-    }
+pub fn login_response(state: &ControlApi, result: LoginResponse) -> ApiResult<Response> {
     let browser = config(state)?;
     let now = Utc::now();
     let mut response = Json(json!({"user":result.user,"login_session_id":result.login_session_id,"access_expires_at":result.access_expires_at,"refresh_expires_at":result.refresh_expires_at})).into_response();
@@ -226,96 +200,46 @@ pub async fn authenticate(
     mut request: axum::extract::Request,
     next: Next,
 ) -> Response {
-    if request
-        .headers()
-        .get_all(header::AUTHORIZATION)
-        .iter()
-        .count()
-        > 1
-    {
+    // The API has no native/Bearer branch. Ambiguous cookies fail closed.
+    if request.headers().contains_key(header::AUTHORIZATION) {
         return ApiError(ErrorCode::Unauthenticated).into_response();
     }
-    let authorization = request.headers().get(header::AUTHORIZATION);
-    let browser_token = cookie(request.headers(), ACCESS);
-    let web = browser_token.is_some()
-        || request
-            .headers()
-            .get_all(header::COOKIE)
-            .iter()
-            .any(|h| h.to_str().is_ok_and(|h| h.contains("bastion_session=")));
-    if web && authorization.is_some() {
-        return ApiError(ErrorCode::Unauthenticated).into_response();
+    if let Err(error) = config(&state) {
+        return error.into_response();
     }
-    let token = if web {
-        if !matches!(
-            *request.method(),
-            Method::GET | Method::HEAD | Method::OPTIONS
-        ) {
-            if let Err(e) = csrf(&state, request.headers()) {
-                return e.into_response();
-            }
-        }
-        if let Err(e) = config(&state) {
-            return e.into_response();
-        }
-        browser_token
-    } else {
-        authorization
-            .and_then(|v| v.to_str().ok())
-            .and_then(|v| v.strip_prefix("Bearer "))
-            .filter(|v| v.len() <= 256)
-            .map(str::to_owned)
-    };
-    let Some(token) = token else {
+    let Some(token) = cookie(request.headers(), ACCESS) else {
         return ApiError(ErrorCode::Unauthenticated).into_response();
     };
-    if !web
-        && request.method() == Method::POST
-        && request
-            .extensions()
-            .get::<axum::extract::OriginalUri>()
-            .is_some_and(|uri| uri.0.path() == "/api/v1/auth/logout")
-    {
-        match state.store.logout_completed(&token).await {
-            Ok(true) => return StatusCode::NO_CONTENT.into_response(),
-            Err(code) => return ApiError(code).into_response(),
-            Ok(false) => {}
+    if !matches!(
+        *request.method(),
+        Method::GET | Method::HEAD | Method::OPTIONS
+    ) {
+        if let Err(error) = csrf(&state, request.headers()) {
+            return error.into_response();
         }
     }
-    let identity = if web {
-        state.store.authenticate_web(&token).await
-    } else {
-        state.store.authenticate(&token).await
-    };
-    match identity {
+    match state.store.authenticate_web(&token).await {
         Ok(identity) => {
             request.extensions_mut().insert(identity);
             next.run(request).await
         }
         Err(code) => {
             let mut response = ApiError(code).into_response();
-            if web
-                && matches!(
-                    code,
-                    ErrorCode::LoginSessionRevoked | ErrorCode::UserDisabled
-                )
-            {
+            if matches!(
+                code,
+                ErrorCode::LoginSessionRevoked | ErrorCode::UserDisabled
+            ) {
                 clear_cookies(&state, &mut response);
             }
             response
         }
     }
 }
-pub fn web_login(state: &ControlApi, headers: &HeaderMap, body: &BrowserLogin) -> ApiResult<bool> {
-    let web = matches!(body.client_type, ClientType::Web);
-    if web {
-        csrf(state, headers)?;
+pub fn web_login(state: &ControlApi, headers: &HeaderMap) -> ApiResult<()> {
+    if headers.contains_key(header::AUTHORIZATION) {
+        return Err(ApiError(ErrorCode::Unauthenticated));
     }
-    // A browser must never accidentally receive the native token response.
-    if !web && (headers.contains_key(header::ORIGIN) || headers.contains_key(header::COOKIE)) {
-        return Err(ApiError(ErrorCode::PermissionDenied));
-    }
-    Ok(web)
+    csrf(state, headers)
 }
 pub async fn refresh(
     State(state): State<Arc<ControlApi>>,
@@ -323,41 +247,20 @@ pub async fn refresh(
     headers: HeaderMap,
     body: Result<Json<BrowserRefresh>, axum::extract::rejection::JsonRejection>,
 ) -> ApiResult<Response> {
-    let body = input(body)?;
-    let web = cookie(&headers, REFRESH).is_some() || headers.contains_key(header::ORIGIN);
-    if web {
-        csrf(&state, &headers)?;
-    }
+    let _ = input(body)?;
+    web_login(&state, &headers)?;
     if !state.hit(format!("refresh:{}", ctx.ip), 30) {
         return Err(ApiError(ErrorCode::RateLimited));
     }
-    let token = if web {
-        if body.refresh_token.is_some() {
-            return Err(ApiError(ErrorCode::InvalidArgument));
-        }
-        cookie(&headers, REFRESH)
-    } else {
-        body.refresh_token
-    };
-    let token = Secret::new(token.ok_or(ApiError(ErrorCode::Unauthenticated))?);
-    if token.expose().len() > 256 {
-        return Err(ApiError(ErrorCode::Unauthenticated));
-    }
-    let result = if web {
-        state.store.refresh_web(token.expose(), ctx.id).await
-    } else {
-        state.store.refresh(token.expose(), ctx.id).await
-    };
-    match result {
-        Ok(result) => login_response(&state, result, web),
+    let token = Secret::new(cookie(&headers, REFRESH).ok_or(ApiError(ErrorCode::Unauthenticated))?);
+    match state.store.refresh_web(token.expose(), ctx.id).await {
+        Ok(result) => login_response(&state, result),
         Err(code) => {
             let mut response = ApiError(code).into_response();
-            if web
-                && !matches!(
-                    code,
-                    ErrorCode::PolicyStoreUnavailable | ErrorCode::RateLimited
-                )
-            {
+            if !matches!(
+                code,
+                ErrorCode::PolicyStoreUnavailable | ErrorCode::RateLimited
+            ) {
                 clear_cookies(&state, &mut response);
             }
             Ok(response)
@@ -367,13 +270,12 @@ pub async fn refresh(
 pub fn csrf_for_me(headers: &HeaderMap) -> Option<String> {
     cookie(headers, CSRF)
 }
-
 pub async fn issue_session(
     State(state): State<Arc<ControlApi>>,
     Extension(identity): Extension<Identity>,
     Extension(ctx): Extension<RequestContext>,
     headers: HeaderMap,
-    body: Result<Json<TicketRequest>, axum::extract::rejection::JsonRejection>,
+    body: Result<Json<SessionRequest>, axum::extract::rejection::JsonRejection>,
 ) -> ApiResult<(StatusCode, Json<WebSessionResponse>)> {
     config(&state)?;
     if cookie(&headers, ACCESS).is_none() || headers.contains_key(header::AUTHORIZATION) {
@@ -382,8 +284,11 @@ pub async fn issue_session(
     if state.shutdown.is_cancelled() {
         return Err(ApiError(ErrorCode::PolicyStoreUnavailable));
     }
-    let mut request = input(body)?;
-    request.validate(&[Capability::Shell, Capability::Exec, Capability::Sftp])?;
+    if state.recording_required && !state.recording_available {
+        return Err(ApiError(ErrorCode::RecordingUnavailable));
+    }
+    let request = input(body)?;
+    request.display.validate()?;
     Ok((
         StatusCode::CREATED,
         Json(
@@ -405,7 +310,10 @@ fn ws_secret(headers: &HeaderMap) -> ApiResult<String> {
         .iter()
         .flat_map(|v| v.split(',').map(str::trim))
         .collect();
-    if protocols.len() != 2 || protocols[0] != "bastion.v1" || !valid_secret(protocols[1]) {
+    if protocols.len() != 2
+        || ![STREAM_PROTOCOL, SSH_STREAM_PROTOCOL].contains(&protocols[0])
+        || !valid_secret(protocols[1])
+    {
         return Err(ApiError(ErrorCode::Unauthenticated));
     }
     Ok(protocols[1].to_owned())
@@ -419,30 +327,35 @@ pub async fn stream(
     upgrade: WebSocketUpgrade,
 ) -> ApiResult<Response> {
     let browser = config(&state)?;
-    // Deliberately uniform rejection for all handshake credential/ownership failures.
     let reject = || ApiError(ErrorCode::Unauthenticated);
     if uri.query().is_some()
         || headers.contains_key(header::AUTHORIZATION)
         || cookie(&headers, ACCESS).is_none()
         || same_origin(&state, &headers).is_err()
+        || state.shutdown.is_cancelled()
     {
         return Err(reject());
     }
-    let session_id = Uuid::parse_str(&value).map_err(|_| reject())?;
-    let secret = Secret::new(ws_secret(&headers).map_err(|_| reject())?);
+    let secret = Secret::new(ws_secret(&headers)?);
+    let requested_protocol = headers
+        .get(header::SEC_WEBSOCKET_PROTOCOL)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.split(',').next())
+        .map(str::trim)
+        .ok_or_else(reject)?;
     let connection = state
         .store
-        .consume_web_session(session_id, secret.expose(), &identity)
+        .consume_web_session_with_stream(
+            id(&value).map_err(|_| reject())?,
+            secret.expose(),
+            &identity,
+            Some(requested_protocol),
+        )
         .await
-        .map_err(|code| {
-            if code == ErrorCode::PolicyStoreUnavailable {
-                ApiError(code)
-            } else {
-                reject()
-            }
-        })?;
-    let snapshot = match state.store.target_snapshot(&connection).await {
-        Ok(s) => s,
+        .map_err(|_| reject())?;
+    // Consumption is committed before any network work and is never undone on failure.
+    let target = match state.target(&connection).await {
+        Ok(target) => target,
         Err(code) => {
             let _ = state
                 .store
@@ -450,169 +363,142 @@ pub async fn stream(
                 .await;
             return Err(ApiError(code));
         }
-    };
-    let public_keys = match snapshot
-        .keys
-        .iter()
-        .map(|k| {
-            russh::keys::PublicKey::from_openssh(k).map_err(|_| ErrorCode::TargetHostKeyUnknown)
-        })
-        .collect::<Result<Vec<_>, _>>()
-    {
-        Ok(k) => k,
-        Err(code) => {
-            let _ = state
-                .store
-                .transition(connection.id, ConnectionState::Failed, Some(code))
-                .await;
-            return Err(ApiError(code));
-        }
-    };
-    let target = Target {
-        address: TargetEndpoint::Restricted {
-            host: snapshot.host,
-            port: snapshot.port,
-            policy: state.network.clone(),
-        },
-        username: snapshot.username,
-        public_keys,
-        auth: TargetAuth::Encrypted {
-            context: snapshot.context,
-            envelope: snapshot.credential,
-            keys: state.keys.clone(),
-        },
     };
     let backend = browser.backend.clone();
-    let stop = browser.shutdown.child_token();
-    let store = state.store.clone();
-    let id = connection.id;
+    let shutdown = browser.shutdown.clone();
+    let guacd = state.guacd.clone();
+    let failed_store = state.store.clone();
+    let connection_id = connection.id;
+    let stream_protocol = connection.target_protocol.stream_protocol();
     Ok(upgrade
-        .protocols(["bastion.v1"])
-        .max_message_size(96 * 1024)
-        .max_frame_size(96 * 1024)
+        .protocols([stream_protocol])
+        .max_message_size(MAX_DATA_BYTES)
+        .max_frame_size(MAX_DATA_BYTES)
         .on_failed_upgrade(move |_| {
             tokio::spawn(async move {
-                let _ = store
+                let _ = failed_store
                     .transition(
-                        id,
+                        connection_id,
                         ConnectionState::Failed,
                         Some(ErrorCode::AuthOrGatewayFailed),
                     )
                     .await;
             });
         })
-        .on_upgrade(move |socket| bridge(socket, connection, target, backend, stop))
-        .into_response())
+        .on_upgrade(move |socket| run_socket(socket, connection, target, backend, shutdown, guacd)))
 }
-async fn bridge(
+async fn run_socket(
     socket: WebSocket,
     connection: Connection,
     target: Target,
     backend: Arc<dyn GatewayBackend>,
-    stop: CancellationToken,
+    shutdown: CancellationToken,
+    guacd: bastion_gateway::GuacdConfig,
 ) {
+    let stop = shutdown.child_token();
+    // Queue count times maximum chunk is a hard byte bound (256 KiB per direction).
+    let capacity = (backend.registry().limits().queue_bytes / MAX_DATA_BYTES).max(1);
+    let stall_timeout = backend.registry().limits().stall_timeout;
+    let (input, incoming) = mpsc::channel::<Vec<u8>>(capacity);
+    let (outgoing, mut output) = mpsc::channel::<Vec<u8>>(capacity);
     let (mut sink, mut source) = socket.split();
-    let (input_tx, input_rx) = mpsc::channel(8);
-    let (output_tx, mut output_rx) = mpsc::channel(8);
-    let error_tx = output_tx.clone();
-    let gateway = bastion_gateway::run_web_session(
+    let read_stop = stop.clone();
+    let closing = CancellationToken::new();
+    let read_closing = closing.clone();
+    let mut read = tokio::spawn(async move {
+        loop {
+            let message = tokio::select! { _ = read_stop.cancelled() => break, value = source.next() => value };
+            match message {
+                Some(Ok(Message::Binary(data)))
+                    if !data.is_empty() && data.len() <= MAX_DATA_BYTES =>
+                {
+                    let sent = tokio::select! {
+                        _ = read_stop.cancelled() => break,
+                        value = tokio::time::timeout(stall_timeout, input.send(data.to_vec())) => value
+                    };
+                    if !matches!(sent, Ok(Ok(()))) {
+                        break;
+                    }
+                }
+                Some(Ok(Message::Ping(_) | Message::Pong(_))) => {}
+                Some(Ok(Message::Close(Some(frame)))) if frame.code == 1000 => {
+                    read_closing.cancel();
+                    return true; // Drop input sender: drain queued instructions, then validate EOF.
+                }
+                _ => break,
+            }
+        }
+        read_stop.cancel();
+        false
+    });
+    let write_stop = stop.clone();
+    let write_closing = closing.clone();
+    let mut write = tokio::spawn(async move {
+        loop {
+            let data = tokio::select! { _ = write_stop.cancelled() => break, value = output.recv() => value };
+            let Some(data) = data else {
+                break;
+            };
+            if data.len() > MAX_DATA_BYTES {
+                break;
+            }
+            if write_closing.is_cancelled() {
+                continue;
+            }
+            let sent = tokio::select! {
+                _ = write_stop.cancelled() => break,
+                value = tokio::time::timeout(stall_timeout, sink.send(Message::Binary(data.into()))) => value
+            };
+            if !matches!(sent, Ok(Ok(()))) && !write_closing.is_cancelled() {
+                break;
+            }
+        }
+        let _ = tokio::time::timeout(Duration::from_secs(2), sink.close()).await;
+        if !write_closing.is_cancelled() {
+            write_stop.cancel();
+        }
+    });
+    let gateway_stop = stop.clone();
+    let mut gateway = tokio::spawn(bastion_gateway::run_web_session(
         connection,
         target,
         backend,
-        input_rx,
-        output_tx,
-        stop.clone(),
-    );
-    let mut read = Box::pin(async move {
-        while let Some(message) = source.next().await {
-            let frame = match message {
-                Ok(Message::Text(text)) => ClientFrame::decode_text(&text),
-                Ok(Message::Binary(bytes)) => ClientFrame::decode_binary(&bytes),
-                Ok(Message::Close(_)) | Err(_) => break,
-                Ok(Message::Ping(_) | Message::Pong(_)) => continue,
-            };
-            let frame = match frame {
-                Ok(frame) => frame,
-                Err(code) => {
-                    let _ = tokio::time::timeout(
-                        Duration::from_secs(1),
-                        error_tx.send(ServerFrame::Control(ServerControl::Error {
-                            v: WEBSOCKET_VERSION,
-                            channel_id: None,
-                            code,
-                        })),
-                    )
-                    .await;
-                    break;
-                }
-            };
-            if input_tx.send(frame).await.is_err() {
-                break;
-            }
-        }
-    });
-    let mut write = Box::pin(async move {
-        while let Some(frame) = output_rx.recv().await {
-            let message = match &frame {
-                ServerFrame::Control(_) => frame.encode_text().map(|s| Message::Text(s.into())),
-                ServerFrame::Data { .. } => {
-                    frame.encode_binary().map(|b| Message::Binary(b.into()))
-                }
-            };
-            let Ok(message) = message else { break };
-            if sink.send(message).await.is_err() {
-                break;
-            }
-        }
-        let _ = sink.close().await;
-    });
-    tokio::pin!(gateway);
-    let finished = tokio::select! {
-        _=&mut gateway=>0, _=&mut read=>1, _=&mut write=>2, _=stop.cancelled()=>3,
+        incoming,
+        outgoing,
+        gateway_stop,
+        guacd,
+    ));
+    let (finished, graceful) = tokio::select! {
+        _ = shutdown.cancelled() => (0, false),
+        result = &mut read => (1, matches!(result, Ok(true))),
+        _ = &mut write => (2, false),
+        _ = &mut gateway => (3, false)
     };
-    // Drop the reader and its error sender before draining, so the output receiver can close.
-    drop(read);
-    if finished == 0 {
-        let _ = tokio::time::timeout(Duration::from_secs(2), &mut write).await;
+    if !graceful {
         stop.cancel();
-    } else {
+    }
+    if finished != 3
+        && tokio::time::timeout(Duration::from_secs(8), &mut gateway)
+            .await
+            .is_err()
+    {
         stop.cancel();
-        if finished == 2 {
-            let _ = tokio::time::timeout(Duration::from_secs(8), &mut gateway).await;
-        } else {
-            let _ = tokio::time::timeout(Duration::from_secs(8), async {
-                let _ = tokio::join!(&mut gateway, &mut write);
-            })
-            .await;
-        }
+        gateway.abort();
+        let _ = gateway.await;
+    }
+    stop.cancel();
+    if finished != 1 {
+        read.abort();
+        let _ = read.await;
+    }
+    if finished != 2 {
+        write.abort();
+        let _ = write.await;
     }
 }
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    #[test]
-    fn formal_native_ticket_requires_one_bearer_and_no_cookie() {
-        let mut headers = HeaderMap::new();
-        assert!(require_bearer(&headers).is_err());
-        headers.insert(
-            header::AUTHORIZATION,
-            format!("Bearer {}", "a".repeat(43)).parse().unwrap(),
-        );
-        assert!(require_bearer(&headers).is_ok());
-        headers.append(
-            header::AUTHORIZATION,
-            format!("Bearer {}", "b".repeat(43)).parse().unwrap(),
-        );
-        assert!(require_bearer(&headers).is_err());
-        headers.remove(header::AUTHORIZATION);
-        headers.insert(
-            header::AUTHORIZATION,
-            format!("Bearer {}", "a".repeat(43)).parse().unwrap(),
-        );
-        headers.insert(header::COOKIE, "unrelated=value".parse().unwrap());
-        assert!(require_bearer(&headers).is_err());
-    }
     #[test]
     fn browser_origin_requires_https_or_explicit_loopback() {
         for origin in ["https://bastion.test", "https://bastion.test:8443/"] {
@@ -664,13 +550,6 @@ mod tests {
                 && cookie.contains("SameSite=Strict")
         );
         assert!(!cookie.contains("Domain="));
-        let response = BrowserLogin {
-            username: "u".into(),
-            password: "p".into(),
-            device_label: "d".into(),
-            client_type: ClientType::Web,
-        };
-        assert!(matches!(response.client_type, ClientType::Web));
         assert!(serde_json::from_str::<BrowserLogin>(
             r#"{"username":"u","password":"p","device_label":"d","host":"target"}"#
         )
@@ -694,16 +573,29 @@ mod tests {
         assert!(cookie(&h, ACCESS).is_none());
         h.insert(
             header::SEC_WEBSOCKET_PROTOCOL,
-            format!("bastion.v1, {token}").parse().unwrap(),
+            format!("bastion.guac.v1, {token}").parse().unwrap(),
+        );
+        assert_eq!(ws_secret(&h).unwrap(), token);
+        h.insert(
+            header::SEC_WEBSOCKET_PROTOCOL,
+            format!("bastion.ssh.v1, {token}").parse().unwrap(),
         );
         assert_eq!(ws_secret(&h).unwrap(), token);
         for value in [
-            "bastion.v1",
-            "bastion.v2, wrong",
-            "bastion.v1, secret, extra",
+            "bastion.guac.v1",
+            "bastion.v1, wrong",
+            "bastion.guac.v1, secret, extra",
         ] {
             h.insert(header::SEC_WEBSOCKET_PROTOCOL, value.parse().unwrap());
             assert!(ws_secret(&h).is_err());
         }
+    }
+    #[test]
+    fn browser_login_rejects_native_type_and_refresh_token() {
+        assert!(serde_json::from_str::<BrowserLogin>(
+            r#"{"username":"u","password":"p","device_label":"d","client_type":"web"}"#
+        )
+        .is_err());
+        assert!(serde_json::from_str::<BrowserRefresh>(r#"{"refresh_token":"secret"}"#).is_err());
     }
 }

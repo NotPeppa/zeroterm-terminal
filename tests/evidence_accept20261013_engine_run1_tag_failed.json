@@ -1,0 +1,10 @@
+{
+  "production_ready": false,
+  "engine_image_id": "sha256:689c462e27a23670c35bb3435022627f71144f5e04210bffea3b52ba7bac6a23",
+  "live_engine_image": "sha256:689c462e27a23670c35bb3435022627f71144f5e04210bffea3b52ba7bac6a23",
+  "exit_code": 1,
+  "seconds": 225.1,
+  "status": "failed",
+  "containers_left": 0,
+  "finished_at": "2026-10-13T11:47:12Z"
+}

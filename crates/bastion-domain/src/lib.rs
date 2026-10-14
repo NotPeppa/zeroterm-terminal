@@ -1,112 +1,97 @@
-mod websocket;
-pub use websocket::*;
-
+mod guacamole;
+mod terminal;
 use chrono::{DateTime, Utc};
+pub use guacamole::*;
 use serde::{Deserialize, Serialize};
+pub use terminal::*;
 use uuid::Uuid;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum Capability {
-    Shell,
-    Exec,
-    Sftp,
-}
-impl Capability {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::Shell => "shell",
-            Self::Exec => "exec",
-            Self::Sftp => "sftp",
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum Purpose {
-    Terminal,
-    Sftp,
-    Metrics,
-    ServerTool,
-}
-impl Purpose {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::Terminal => "terminal",
-            Self::Sftp => "sftp",
-            Self::Metrics => "metrics",
-            Self::ServerTool => "server_tool",
-        }
-    }
-}
+pub const PROTOCOL_VERSION: u32 = 2;
+pub const STREAM_PROTOCOL: &str = "bastion.guac.v1";
+pub const SSH_STREAM_PROTOCOL: &str = "bastion.ssh.v1";
+pub const MAX_DATA_BYTES: usize = 32 * 1024;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum TicketTransport {
+pub enum TargetProtocol {
     Ssh,
-    Websocket,
+    Rdp,
+    Vnc,
 }
-impl TicketTransport {
+impl TargetProtocol {
+    pub fn stream_protocol(self) -> &'static str {
+        match self {
+            Self::Ssh => SSH_STREAM_PROTOCOL,
+            Self::Rdp | Self::Vnc => STREAM_PROTOCOL,
+        }
+    }
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Ssh => "ssh",
-            Self::Websocket => "websocket",
+            Self::Rdp => "rdp",
+            Self::Vnc => "vnc",
         }
     }
 }
-
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RdpSecurity {
+    #[default]
+    Nla,
+    Tls,
+}
+impl RdpSecurity {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Nla => "nla",
+            Self::Tls => "tls",
+        }
+    }
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Display {
+    pub width: u32,
+    pub height: u32,
+    pub dpi: u32,
+}
+impl Default for Display {
+    fn default() -> Self {
+        Self {
+            width: 1280,
+            height: 720,
+            dpi: 96,
+        }
+    }
+}
+impl Display {
+    pub fn validate(self) -> Result<(), ErrorCode> {
+        if (1..=3840).contains(&self.width)
+            && (1..=2160).contains(&self.height)
+            && (48..=192).contains(&self.dpi)
+        {
+            Ok(())
+        } else {
+            Err(ErrorCode::InvalidArgument)
+        }
+    }
+}
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
-pub struct TicketRequest {
+pub struct SessionRequest {
     pub asset_id: Uuid,
     pub account_id: Uuid,
-    pub capabilities: Vec<Capability>,
-    pub purpose: Purpose,
+    #[serde(default)]
+    pub display: Display,
 }
-
-impl TicketRequest {
-    pub fn validate(&mut self, allowed: &[Capability]) -> Result<(), ErrorCode> {
-        if self.capabilities.is_empty() || self.capabilities.len() > 3 {
-            return Err(ErrorCode::InvalidArgument);
-        }
-        self.capabilities.sort();
-        self.capabilities.dedup();
-        if self.capabilities.iter().any(|c| !allowed.contains(c)) {
-            return Err(ErrorCode::PermissionDenied);
-        }
-        Ok(())
-    }
-}
-
-#[derive(Clone, Debug, Serialize)]
-pub struct GatewayAddress {
-    pub id: String,
-    pub host: String,
-    pub port: u16,
-    pub username: String,
-}
-
-// Deliberately no Debug: this is the only response containing the secret.
-#[derive(Serialize)]
-pub struct TicketResponse {
-    pub protocol_version: u32,
-    pub ticket_id: Uuid,
-    pub ticket_secret: String,
-    pub connection_id: Uuid,
-    pub expires_at: DateTime<Utc>,
-    pub gateway: GatewayAddress,
-    pub capabilities: Vec<Capability>,
-}
-
 #[derive(Serialize)]
 pub struct WebSessionResponse {
-    pub protocol_version: u32,
     pub session_id: Uuid,
-    pub ws_token: String,
     pub connection_id: Uuid,
+    pub ws_token: String,
     pub expires_at: DateTime<Utc>,
-    pub capabilities: Vec<Capability>,
+    pub target_protocol: TargetProtocol,
+    pub stream_protocol: &'static str,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -122,7 +107,6 @@ pub enum ConnectionState {
     Revoked,
     Interrupted,
 }
-
 impl ConnectionState {
     pub fn is_terminal(self) -> bool {
         matches!(
@@ -137,30 +121,33 @@ impl ConnectionState {
             (Pending, Connecting | Expired | Revoked)
                 | (Connecting, Active | Failed | Closing | Interrupted)
                 | (Active, Closing | Failed | Interrupted)
-                | (Closing, Closed | Interrupted)
+                | (Closing, Closed | Failed | Interrupted)
         )
     }
 }
-
 #[derive(Clone, Debug, Serialize)]
 pub struct Connection {
     pub id: Uuid,
     pub ticket_id: Uuid,
     pub asset_id: Uuid,
     pub account_id: Uuid,
-    pub capabilities: Vec<Capability>,
-    pub purpose: Purpose,
-    pub transport: TicketTransport,
+    pub target_protocol: TargetProtocol,
+    pub display: Display,
     pub protocol_version: u32,
     pub state: ConnectionState,
     pub created_at: DateTime<Utc>,
     pub failure: Option<Failure>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub user_id: Option<Uuid>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub login_session_id: Option<Uuid>,
+    #[serde(skip)]
+    pub auth_revision: i64,
+    #[serde(skip)]
+    pub routing_revision: i64,
+    #[serde(skip)]
+    pub account_revision: i64,
+    #[serde(skip)]
+    pub credential_revision: Option<i64>,
 }
-
 #[derive(Clone, Debug, Serialize)]
 pub struct Failure {
     pub code: ErrorCode,
@@ -173,22 +160,19 @@ pub enum ErrorCode {
     InvalidArgument,
     #[error("需要登录")]
     Unauthenticated,
-    #[error("没有该资产账号或能力的权限")]
+    #[error("没有该资产账号的权限")]
     PermissionDenied,
     #[error("资源不存在")]
     ResourceNotFound,
-    #[serde(rename = "SESSION_TICKET_INVALID", alias = "TICKET_INVALID")]
+    #[serde(rename = "SESSION_TICKET_INVALID")]
     #[error("连接票据无效")]
     TicketInvalid,
-    #[serde(rename = "SESSION_TICKET_USED", alias = "TICKET_USED")]
+    #[serde(rename = "SESSION_TICKET_USED")]
     #[error("连接票据已使用")]
     TicketUsed,
-    #[serde(rename = "SESSION_TICKET_EXPIRED", alias = "TICKET_EXPIRED")]
+    #[serde(rename = "SESSION_TICKET_EXPIRED")]
     #[error("连接票据已过期")]
     TicketExpired,
-    #[serde(rename = "UNKNOWN_CAPABILITY")]
-    #[error("未知能力")]
-    UnknownCapability,
     #[error("连接数量达到上限")]
     ConnectionLimit,
     #[error("目标主机密钥不匹配")]
@@ -201,13 +185,11 @@ pub enum ErrorCode {
     TargetAuthFailed,
     #[error("内部错误")]
     InternalError,
-    #[serde(rename = "SESSION_EXPIRED", alias = "ACCESS_TOKEN_EXPIRED")]
+    #[serde(rename = "SESSION_EXPIRED")]
     #[error("访问令牌已过期")]
     AccessTokenExpired,
     #[error("客户端协议版本不支持")]
     ClientProtocolUnsupported,
-    #[error("通道权限不足")]
-    ChannelPermissionDenied,
     #[error("目标请求被拒绝")]
     TargetRequestRejected,
     #[error("录制不可用")]
@@ -218,25 +200,28 @@ pub enum ErrorCode {
     LoginSessionRevoked,
     #[error("用户已停用")]
     UserDisabled,
-    #[serde(rename = "SESSION_TICKET_STALE", alias = "TICKET_STALE")]
-    #[error("连接票据的策略或配置已变化")]
+    #[serde(rename = "SESSION_TICKET_STALE")]
+    #[error("连接票据策略或配置已变化")]
     TicketStale,
     #[error("目标地址不在允许范围")]
     TargetAddressDenied,
     #[error("目标主机密钥未核验")]
     TargetHostKeyUnknown,
+    #[error("目标证书不匹配")]
+    TargetCertificateChanged,
+    #[error("目标协议安全引擎未验证")]
+    TargetProtocolUnavailable,
     #[error("权限存储暂不可用")]
     PolicyStoreUnavailable,
     #[error("操作过于频繁")]
     RateLimited,
     #[error("更新需要 If-Match 修订号")]
     PreconditionRequired,
-    #[error("资源已经修改，请重新读取")]
+    #[error("资源已修改，请重新读取")]
     RevisionConflict,
     #[error("资源已存在")]
     ResourceConflict,
 }
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Role {
@@ -253,7 +238,6 @@ impl Role {
         }
     }
 }
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct UserView {
     pub id: Uuid,
@@ -267,8 +251,6 @@ pub struct Identity {
     pub user: UserView,
     pub login_session_id: Uuid,
 }
-
-// Authentication bodies and responses intentionally do not implement Debug.
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct LoginInput {
@@ -276,12 +258,7 @@ pub struct LoginInput {
     pub password: String,
     pub device_label: String,
 }
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RefreshInput {
-    pub refresh_token: String,
-}
-#[derive(Serialize)]
+// Internal cookie material; API must never serialize this structure directly.
 pub struct LoginResponse {
     pub user: UserView,
     pub access_token: String,
@@ -290,61 +267,6 @@ pub struct LoginResponse {
     pub access_expires_at: DateTime<Utc>,
     pub refresh_expires_at: DateTime<Utc>,
 }
-
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ChannelKind {
-    #[default]
-    Shell,
-    Exec,
-    Sftp,
-}
-impl ChannelKind {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::Shell => "shell",
-            Self::Exec => "exec",
-            Self::Sftp => "sftp",
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ChannelState {
-    Allocated,
-    Configuring,
-    Starting,
-    Streaming,
-    Draining,
-    Closed,
-    Failed,
-}
-impl ChannelState {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::Allocated => "allocated",
-            Self::Configuring => "configuring",
-            Self::Starting => "starting",
-            Self::Streaming => "streaming",
-            Self::Draining => "draining",
-            Self::Closed => "closed",
-            Self::Failed => "failed",
-        }
-    }
-    pub fn permits(self, next: Self) -> bool {
-        use ChannelState::*;
-        matches!(
-            (self, next),
-            (Allocated, Configuring | Starting | Closed | Failed)
-                | (Configuring, Starting | Closed | Failed)
-                | (Starting, Streaming | Draining | Closed | Failed)
-                | (Streaming, Draining | Closed | Failed)
-                | (Draining, Closed | Failed)
-        )
-    }
-}
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RecordingState {
@@ -371,26 +293,11 @@ impl RecordingState {
         }
     }
 }
-
-#[derive(Clone, Debug, Serialize)]
-pub struct ChannelView {
-    pub id: Uuid,
-    pub connection_id: Uuid,
-    pub upstream_channel_id: u32,
-    pub kind: ChannelKind,
-    pub state: ChannelState,
-    pub created_at: DateTime<Utc>,
-    pub started_at: Option<DateTime<Utc>>,
-    pub ended_at: Option<DateTime<Utc>>,
-    pub exit_code: Option<u32>,
-    pub exit_signal: Option<String>,
-    pub recording_id: Option<Uuid>,
-}
-
 #[derive(Clone, Debug, Serialize)]
 pub struct RecordingView {
     pub id: Uuid,
-    pub channel_id: Uuid,
+    pub connection_id: Uuid,
+    pub target_protocol: TargetProtocol,
     pub format_version: u32,
     pub bytes: i64,
     pub checksum: Option<String>,
@@ -399,8 +306,6 @@ pub struct RecordingView {
     pub last_written_seq: i64,
     pub last_synced_seq: i64,
 }
-
-// Internal create material, never a public request/response or log payload.
 #[derive(Clone)]
 pub struct RecordingCreate {
     pub id: Uuid,
@@ -412,135 +317,39 @@ pub struct RecordingCreate {
     pub key_version: i64,
     pub nonce_prefix: Vec<u8>,
 }
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum CopyJobState {
-    Queued,
-    Running,
-    Completed,
-    Failed,
-    Cancelled,
-    Interrupted,
-}
-impl CopyJobState {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::Queued => "queued",
-            Self::Running => "running",
-            Self::Completed => "completed",
-            Self::Failed => "failed",
-            Self::Cancelled => "cancelled",
-            Self::Interrupted => "interrupted",
-        }
-    }
-}
-
-#[derive(Clone, Debug, Serialize)]
-pub struct CopyJobView {
-    pub id: Uuid,
-    pub user_id: Uuid,
-    pub source_asset_id: Uuid,
-    pub source_account_id: Uuid,
-    pub source_path: String,
-    pub destination_asset_id: Uuid,
-    pub destination_account_id: Uuid,
-    pub destination_path: String,
-    pub state: CopyJobState,
-    pub bytes_total: Option<i64>,
-    pub bytes_copied: i64,
-    pub failure_code: Option<ErrorCode>,
-    pub created_at: DateTime<Utc>,
-    pub started_at: Option<DateTime<Utc>>,
-    pub ended_at: Option<DateTime<Utc>>,
-}
-
 #[derive(Clone, Debug, Serialize)]
 pub struct DeviceSessionView {
     pub id: Uuid,
     pub device_label: String,
-    pub client_type: String,
     pub current: bool,
     pub created_at: DateTime<Utc>,
     pub expires_at: DateTime<Utc>,
     pub revoked_at: Option<DateTime<Utc>>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct CopyJobCreate {
-    pub source_asset_id: Uuid,
-    pub source_account_id: Uuid,
-    pub source_path: String,
-    pub destination_asset_id: Uuid,
-    pub destination_account_id: Uuid,
-    pub destination_path: String,
-    pub bytes_total: Option<i64>,
-}
-
-#[cfg(test)]
-mod new_contract_tests {
-    use super::*;
-
-    #[test]
-    fn channel_state_cannot_reopen() {
-        assert!(!ChannelState::Closed.permits(ChannelState::Streaming));
-        assert!(ChannelState::Starting.permits(ChannelState::Streaming));
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     #[test]
-    fn terminal_states_cannot_be_reopened() {
+    fn browser_contract_rejects_legacy_and_bounds_display() {
+        let ids = serde_json::json!({"asset_id":Uuid::new_v4(),"account_id":Uuid::new_v4()});
+        let request: SessionRequest = serde_json::from_value(ids.clone()).unwrap();
+        assert_eq!(request.display, Display::default());
+        let mut legacy = ids;
+        legacy["purpose"] = "terminal".into();
+        assert!(serde_json::from_value::<SessionRequest>(legacy).is_err());
+        assert!(Display {
+            width: 3841,
+            ..Default::default()
+        }
+        .validate()
+        .is_err());
         for state in [
             ConnectionState::Closed,
             ConnectionState::Failed,
-            ConnectionState::Expired,
-            ConnectionState::Revoked,
             ConnectionState::Interrupted,
         ] {
             assert!(!state.permits(ConnectionState::Active));
-            assert!(!state.permits(ConnectionState::Connecting));
         }
-    }
-    #[test]
-    fn error_wire_names_accept_legacy_values() {
-        for (code, current, legacy) in [
-            (
-                ErrorCode::TicketInvalid,
-                "SESSION_TICKET_INVALID",
-                "TICKET_INVALID",
-            ),
-            (ErrorCode::TicketUsed, "SESSION_TICKET_USED", "TICKET_USED"),
-            (
-                ErrorCode::TicketExpired,
-                "SESSION_TICKET_EXPIRED",
-                "TICKET_EXPIRED",
-            ),
-            (
-                ErrorCode::TicketStale,
-                "SESSION_TICKET_STALE",
-                "TICKET_STALE",
-            ),
-            (
-                ErrorCode::AccessTokenExpired,
-                "SESSION_EXPIRED",
-                "ACCESS_TOKEN_EXPIRED",
-            ),
-        ] {
-            assert_eq!(serde_json::to_value(code).unwrap(), current);
-            for name in [current, legacy] {
-                assert_eq!(
-                    serde_json::from_value::<ErrorCode>(serde_json::json!(name)).unwrap(),
-                    code
-                );
-            }
-        }
-    }
-    #[test]
-    fn unknown_capabilities_are_rejected() {
-        assert!(serde_json::from_str::<Capability>("\"forward\"").is_err());
     }
 }

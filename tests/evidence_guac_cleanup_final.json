@@ -1,0 +1,12 @@
+{
+  "production_ready": false,
+  "owned_runtime_containers_removed": true,
+  "restored_pg_removed": true,
+  "owned_loop_mounts_removed": true,
+  "owned_egress_rules_removed": true,
+  "original_five_container_ids_unchanged": true,
+  "owned_builder_stopped": true,
+  "temporary_ssh_authorization_retained_for_unfinished_acceptance": true,
+  "local_forwarding_processes_stopped": true,
+  "windows_nla_deferred_by_user": true
+}

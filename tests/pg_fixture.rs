@@ -11,16 +11,24 @@ struct StdinFixture<T> {
 
 pub fn load<T: DeserializeOwned>() -> (T, Secret) {
     if std::env::var("BASTION_TEST_FIXTURE_STDIN").as_deref() == Ok("1") {
-        let mut input = String::new();
-        std::io::stdin()
-            .read_to_string(&mut input)
-            .expect("test fixture stdin required");
-        let input = Secret::new(input);
-        let envelope: StdinFixture<T> =
+        static INPUT: std::sync::OnceLock<Secret> = std::sync::OnceLock::new();
+        // One integration binary may contain multiple tests sharing the same stdin fixture.
+        let input = INPUT.get_or_init(|| {
+            let mut input = String::new();
+            std::io::stdin()
+                .read_to_string(&mut input)
+                .expect("test fixture stdin required");
+            Secret::new(input)
+        });
+        let envelope: StdinFixture<serde_json::Value> =
             serde_json::from_str(input.expose()).expect("invalid stdin test fixture");
-        return (envelope.fixture, Secret::new(envelope.database_url));
+        require_disposable(&envelope.fixture);
+        return (
+            serde_json::from_value(envelope.fixture).expect("invalid stdin fixture shape"),
+            Secret::new(envelope.database_url),
+        );
     }
-    let path = std::env::var("BASTION_M1_FIXTURE").expect("isolated fixture path required");
+    let path = std::env::var("BASTION_GUAC_STORE_FIXTURE").expect("isolated fixture path required");
     let contents = read_secret_file(&PathBuf::from(path)).expect("protected test fixture required");
     #[derive(Deserialize)]
     struct Location {
@@ -28,12 +36,24 @@ pub fn load<T: DeserializeOwned>() -> (T, Secret) {
     }
     let location: Location =
         serde_json::from_str(contents.expose()).expect("invalid test fixture location");
-    let fixture = serde_json::from_str(contents.expose()).expect("invalid test fixture");
+    let fixture: serde_json::Value =
+        serde_json::from_str(contents.expose()).expect("invalid test fixture");
+    require_disposable(&fixture);
+    let fixture = serde_json::from_value(fixture).expect("invalid test fixture shape");
     let url =
         read_secret_file(&location.database_url_file).expect("protected database URL required");
     (fixture, url)
 }
 
+fn require_disposable(fixture: &serde_json::Value) {
+    assert!(
+        fixture
+            .get("server_id")
+            .and_then(serde_json::Value::as_str)
+            .is_some_and(|id| id.starts_with("zt-guac-v2-")),
+        "only explicitly disposable zt-guac-v2- schema2 fixtures are permitted"
+    );
+}
 pub async fn probe(store: &bastion_store::PgStore) {
     if std::env::var("BASTION_TEST_DB_DIAGNOSTICS").as_deref() != Ok("1") {
         return;

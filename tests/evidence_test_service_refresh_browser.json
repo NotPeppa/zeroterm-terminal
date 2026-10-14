@@ -1,0 +1,11 @@
+{
+  "origin": "https://3.129.249.195",
+  "server_id": "zeroterm-test-guac-v2",
+  "schema_family": 2,
+  "production_ready": false,
+  "ca_and_hostname_verified": true,
+  "real_browser_login_logout": true,
+  "three_protocol_asset_form": true,
+  "old_assets_not_imported": true,
+  "browser_version": "149.0.7827.55"
+}

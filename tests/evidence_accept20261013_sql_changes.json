@@ -1,0 +1,14 @@
+{
+  "production_ready": false,
+  "fixture_server_id": "zt-guac-v2-accept-20261013-browser",
+  "group_patch_null_parent_moves_to_root": true,
+  "group_patch_absent_parent_unchanged": true,
+  "grant_list_names": {
+    "username": "accept-op-mv6hk3j5",
+    "asset_name": "ssh-password",
+    "account_label": "ssh-password"
+  },
+  "grant_page_shows_username": true,
+  "cleanup": true,
+  "status": "passed"
+}

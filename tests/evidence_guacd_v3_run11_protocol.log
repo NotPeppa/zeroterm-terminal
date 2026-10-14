@@ -1,0 +1,839 @@
+[2Kguacd-1  | guacd[1]: INFO:	Guacamole proxy daemon (guacd) version 1.6.0 started
+[2Kguacd-1  | guacd[1]: DEBUG:	Successfully bound AF_INET socket to host 0.0.0.0, port 4822
+[2Kguacd-1  | guacd[1]: INFO:	Listening on host 0.0.0.0, port 4822
+[2Kguacd-1  | guacd[1]: INFO:	Creating new client for protocol "ssh"
+[2Kguacd-1  | guacd[1]: INFO:	Connection ID is "$22ec2509-8172-474f-bfff-6c7efd703106"
+[2Kguacd-1  | guacd[8]: DEBUG:	Processing instruction: size
+[2Kguacd-1  | guacd[8]: DEBUG:	Processing instruction: audio
+[2Kguacd-1  | guacd[8]: DEBUG:	Processing instruction: video
+[2Kguacd-1  | guacd[8]: DEBUG:	Processing instruction: image
+[2Kguacd-1  | guacd[8]: DEBUG:	Parameter "scrollback" omitted. Using default value of 1000.
+[2Kguacd-1  | guacd[8]: DEBUG:	Parameter "font-name" omitted. Using default value of "monospace".
+[2Kguacd-1  | guacd[8]: DEBUG:	Parameter "font-size" omitted. Using default value of 12.
+[2Kguacd-1  | guacd[8]: DEBUG:	Parameter "color-scheme" omitted. Using default value of "".
+[2Kguacd-1  | guacd[8]: DEBUG:	Parameter "sftp-root-directory" omitted. Using default value of "/".
+[2Kguacd-1  | guacd[8]: DEBUG:	Parameter "sftp-disable-download" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[8]: DEBUG:	Parameter "sftp-disable-upload" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[8]: DEBUG:	Parameter "timeout" omitted. Using default value of 10.
+[2Kguacd-1  | guacd[8]: DEBUG:	Parameter "read-only" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[8]: DEBUG:	Parameter "typescript-name" omitted. Using default value of "typescript".
+[2Kguacd-1  | guacd[8]: DEBUG:	Parameter "create-typescript-path" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[8]: DEBUG:	Parameter "typescript-write-existing" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[8]: DEBUG:	Parameter "recording-name" omitted. Using default value of "recording".
+[2Kguacd-1  | guacd[8]: DEBUG:	Parameter "recording-exclude-output" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[8]: DEBUG:	Parameter "recording-exclude-mouse" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[8]: DEBUG:	Parameter "recording-include-keys" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[8]: DEBUG:	Parameter "create-recording-path" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[8]: DEBUG:	Parameter "recording-write-existing" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[8]: DEBUG:	Parameter "server-alive-interval" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[8]: DEBUG:	Parameter "backspace" omitted. Using default value of 127.
+[2Kguacd-1  | guacd[8]: DEBUG:	Parameter "terminal-type" omitted. Using default value of "linux".
+[2Kguacd-1  | guacd[8]: DEBUG:	Parameter "wol-send-packet" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[8]: INFO:	User "@f7139d8b-f0f5-4390-9b9c-dc3435196b29" joined connection "$22ec2509-8172-474f-bfff-6c7efd703106" (1 users now present)
+[2Kguacd-1  | guacd[8]: DEBUG:	Client is using protocol version "VERSION_1_5_0"
+[2Kguacd-1  | guacd[8]: DEBUG:	Host key match found for 172.30.61.2
+[2Kguacd-1  | guacd[8]: DEBUG:	Supported authentication methods: publickey,password
+[2Kguacd-1  | guacd[8]: INFO:	SSH connection successful.
+[2Kguacd-1  | guacd[8]: INFO:	User "@f7139d8b-f0f5-4390-9b9c-dc3435196b29" disconnected (0 users remain)
+[2Kguacd-1  | guacd[8]: INFO:	Last user of connection "$22ec2509-8172-474f-bfff-6c7efd703106" disconnected
+[2Kguacd-1  | guacd[8]: DEBUG:	Requesting termination of client...
+[2Kguacd-1  | guacd[8]: INFO:	SSH connection ended.
+[2Kguacd-1  | guacd[1]: INFO:	Creating new client for protocol "ssh"
+[2Kguacd-1  | guacd[8]: DEBUG:	Client terminated successfully.
+[2Kguacd-1  | guacd[1]: INFO:	Connection ID is "$c2bc8690-8605-4f3b-9c88-38bda2d06059"
+[2Kguacd-1  | guacd[30]: DEBUG:	Processing instruction: size
+[2Kguacd-1  | guacd[1]: INFO:	Connection "$22ec2509-8172-474f-bfff-6c7efd703106" removed.
+[2Kguacd-1  | guacd[1]: DEBUG:	Unable to request termination of client process: No such process 
+[2Kguacd-1  | guacd[1]: DEBUG:	All child processes for connection "$22ec2509-8172-474f-bfff-6c7efd703106" have been terminated.
+[2Kguacd-1  | guacd[30]: DEBUG:	Processing instruction: audio
+[2Kguacd-1  | guacd[30]: DEBUG:	Processing instruction: video
+[2Kguacd-1  | guacd[30]: DEBUG:	Processing instruction: image
+[2Kguacd-1  | guacd[30]: DEBUG:	Parameter "scrollback" omitted. Using default value of 1000.
+[2Kguacd-1  | guacd[30]: DEBUG:	Parameter "font-name" omitted. Using default value of "monospace".
+[2Kguacd-1  | guacd[30]: DEBUG:	Parameter "font-size" omitted. Using default value of 12.
+[2Kguacd-1  | guacd[30]: DEBUG:	Parameter "color-scheme" omitted. Using default value of "".
+[2Kguacd-1  | guacd[30]: DEBUG:	Parameter "sftp-root-directory" omitted. Using default value of "/".
+[2Kguacd-1  | guacd[30]: DEBUG:	Parameter "sftp-disable-download" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[30]: DEBUG:	Parameter "sftp-disable-upload" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[30]: DEBUG:	Parameter "timeout" omitted. Using default value of 10.
+[2Kguacd-1  | guacd[30]: DEBUG:	Parameter "read-only" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[30]: DEBUG:	Parameter "typescript-name" omitted. Using default value of "typescript".
+[2Kguacd-1  | guacd[30]: DEBUG:	Parameter "create-typescript-path" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[30]: DEBUG:	Parameter "typescript-write-existing" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[30]: DEBUG:	Parameter "recording-name" omitted. Using default value of "recording".
+[2Kguacd-1  | guacd[30]: DEBUG:	Parameter "recording-exclude-output" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[30]: DEBUG:	Parameter "recording-exclude-mouse" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[30]: DEBUG:	Parameter "recording-include-keys" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[30]: DEBUG:	Parameter "create-recording-path" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[30]: DEBUG:	Parameter "recording-write-existing" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[30]: DEBUG:	Parameter "server-alive-interval" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[30]: DEBUG:	Parameter "backspace" omitted. Using default value of 127.
+[2Kguacd-1  | guacd[30]: DEBUG:	Parameter "terminal-type" omitted. Using default value of "linux".
+[2Kguacd-1  | guacd[30]: DEBUG:	Parameter "wol-send-packet" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[30]: INFO:	User "@433653ec-a9b8-441d-8885-b5cb94fa1734" joined connection "$c2bc8690-8605-4f3b-9c88-38bda2d06059" (1 users now present)
+[2Kguacd-1  | guacd[30]: DEBUG:	Client is using protocol version "VERSION_1_5_0"
+[2Kguacd-1  | guacd[30]: DEBUG:	Attempting private key import (WITHOUT passphrase)
+[2Kguacd-1  | guacd[30]: INFO:	Auth key successfully imported.
+[2Kguacd-1  | guacd[30]: DEBUG:	Host key match found for 172.30.61.2
+[2Kguacd-1  | guacd[30]: DEBUG:	Supported authentication methods: publickey,password
+[2Kguacd-1  | guacd[30]: INFO:	SSH connection successful.
+[2Kguacd-1  | guacd[30]: INFO:	User "@433653ec-a9b8-441d-8885-b5cb94fa1734" disconnected (0 users remain)
+[2Kguacd-1  | guacd[30]: INFO:	Last user of connection "$c2bc8690-8605-4f3b-9c88-38bda2d06059" disconnected
+[2Kguacd-1  | guacd[30]: DEBUG:	Requesting termination of client...
+[2Kguacd-1  | guacd[30]: INFO:	SSH connection ended.
+[2Kguacd-1  | guacd[30]: DEBUG:	Client terminated successfully.
+[2Kguacd-1  | guacd[1]: INFO:	Connection "$c2bc8690-8605-4f3b-9c88-38bda2d06059" removed.
+[2Kguacd-1  | guacd[1]: DEBUG:	Unable to request termination of client process: No such process 
+[2Kguacd-1  | guacd[1]: DEBUG:	All child processes for connection "$c2bc8690-8605-4f3b-9c88-38bda2d06059" have been terminated.
+[2Kguacd-1  | guacd[1]: INFO:	Creating new client for protocol "rdp"
+[2Kguacd-1  | guacd[1]: INFO:	Connection ID is "$a15c994b-8e1e-406c-b1dc-ebdf41455e42"
+[2Kguacd-1  | guacd[52]: DEBUG:	Processing instruction: size
+[2Kguacd-1  | guacd[52]: DEBUG:	Processing instruction: audio
+[2Kguacd-1  | guacd[52]: DEBUG:	Processing instruction: video
+[2Kguacd-1  | guacd[52]: DEBUG:	Processing instruction: image
+[2Kguacd-1  | guacd[52]: DEBUG:	Parameter "console" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[52]: DEBUG:	Parameter "console-audio" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[52]: DEBUG:	Parameter "disable-auth" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[52]: INFO:	Security mode: TLS
+[2Kguacd-1  | guacd[52]: DEBUG:	Parameter "timeout" omitted. Using default value of 10.
+[2Kguacd-1  | guacd[52]: DEBUG:	User resolution is 1024x768 at 96 DPI
+[2Kguacd-1  | guacd[52]: DEBUG:	Using resolution of 1024x768 at 96 DPI
+[2Kguacd-1  | guacd[52]: DEBUG:	Parameter "force-lossless" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[52]: DEBUG:	Parameter "read-only" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[52]: DEBUG:	Parameter "client-name" omitted. Using default value of "Guacamole RDP".
+[2Kguacd-1  | guacd[52]: DEBUG:	Parameter "enable-wallpaper" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[52]: DEBUG:	Parameter "enable-theming" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[52]: DEBUG:	Parameter "enable-font-smoothing" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[52]: DEBUG:	Parameter "enable-full-window-drag" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[52]: DEBUG:	Parameter "enable-desktop-composition" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[52]: DEBUG:	Parameter "enable-menu-animations" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[52]: DEBUG:	Parameter "disable-bitmap-caching" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[52]: DEBUG:	Parameter "disable-offscreen-caching" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[52]: DEBUG:	Parameter "disable-glyph-caching" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[52]: DEBUG:	Glyph caching is currently universally disabled, regardless of the value of the "disable-glyph-caching" parameter, as glyph caching support is not considered stable by FreeRDP as of the FreeRDP 2.0.0 release. See: https://issues.apache.org/jira/browse/GUACAMOLE-1191
+[2Kguacd-1  | guacd[52]: DEBUG:	Parameter "printer-name" omitted. Using default value of "Guacamole Printer".
+[2Kguacd-1  | guacd[52]: DEBUG:	Parameter "drive-name" omitted. Using default value of "Guacamole Filesystem".
+[2Kguacd-1  | guacd[52]: DEBUG:	Parameter "drive-path" omitted. Using default value of "".
+[2Kguacd-1  | guacd[52]: DEBUG:	Parameter "create-drive-path" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[52]: DEBUG:	Parameter "disable-download" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[52]: DEBUG:	Parameter "disable-upload" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[52]: DEBUG:	Parameter "sftp-hostname" omitted. Using default value of "172.30.61.2".
+[2Kguacd-1  | guacd[52]: DEBUG:	Parameter "sftp-port" omitted. Using default value of "22".
+[2Kguacd-1  | guacd[52]: DEBUG:	Parameter "sftp-timeout" omitted. Using default value of 10.
+[2Kguacd-1  | guacd[52]: DEBUG:	Parameter "sftp-username" omitted. Using default value of "fixture".
+[2Kguacd-1  | guacd[52]: DEBUG:	Parameter "sftp-password" omitted. Using default value of "".
+[2Kguacd-1  | guacd[52]: DEBUG:	Parameter "sftp-passphrase" omitted. Using default value of "".
+[2Kguacd-1  | guacd[52]: DEBUG:	Parameter "sftp-root-directory" omitted. Using default value of "/".
+[2Kguacd-1  | guacd[52]: DEBUG:	Parameter "sftp-server-alive-interval" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[52]: DEBUG:	Parameter "sftp-disable-download" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[52]: DEBUG:	Parameter "sftp-disable-upload" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[52]: DEBUG:	Parameter "recording-name" omitted. Using default value of "recording".
+[2Kguacd-1  | guacd[52]: DEBUG:	Parameter "recording-exclude-output" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[52]: DEBUG:	Parameter "recording-exclude-mouse" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[52]: DEBUG:	Parameter "recording-exclude-touch" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[52]: DEBUG:	Parameter "recording-include-keys" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[52]: DEBUG:	Parameter "create-recording-path" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[52]: DEBUG:	Parameter "recording-write-existing" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[52]: INFO:	Resize method "Defaulting to no resize method." invalid. 
+[2Kguacd-1  | guacd[52]: DEBUG:	Parameter "disable-gfx" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[52]: DEBUG:	Parameter "color-depth" omitted. Using default value of 32.
+[2Kguacd-1  | guacd[52]: DEBUG:	Parameter "enable-touch" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[52]: DEBUG:	Parameter "enable-audio-input" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[52]: DEBUG:	Parameter "gateway-port" omitted. Using default value of 443.
+[2Kguacd-1  | guacd[52]: INFO:	No clipboard line-ending normalization specified. Defaulting to preserving the format of all line endings.
+[2Kguacd-1  | guacd[52]: DEBUG:	Parameter "wol-send-packet" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[52]: INFO:	Local system reports 2 processor(s) are available.
+[2Kguacd-1  | guacd[52]: INFO:	Graphical updates will be encoded using 2 worker thread(s).
+[2Kguacd-1  | guacd[52]: INFO:	User "@0438f5cc-eeb0-4fe0-a2eb-925ccc5a7d64" joined connection "$a15c994b-8e1e-406c-b1dc-ebdf41455e42" (1 users now present)
+[2Kguacd-1  | guacd[52]: DEBUG:	Client is using protocol version "VERSION_1_5_0"
+[2Kguacd-1  | guacd[52]: INFO:	Loading keymap "base"
+[2Kguacd-1  | guacd[52]: INFO:	Loading keymap "en-us-qwerty"
+[2Kguacd-1  | guacd[52]: DEBUG:	Local framebuffer format  PIXEL_FORMAT_BGRX32
+[2Kguacd-1  | guacd[52]: DEBUG:	Remote framebuffer format PIXEL_FORMAT_BGRA32
+[2Kguacd-1  | guacd[52]: DEBUG:	creating directory /tmp/.config/freerdp
+[2Kguacd-1  | guacd[52]: DEBUG:	creating directory [/tmp/.config/freerdp/certs]
+[2Kguacd-1  | guacd[52]: DEBUG:	created directory [/tmp/.config/freerdp/server]
+[2Kguacd-1  | guacd[52]: DEBUG:	Strict RDP leaf pin matched
+[2Kguacd-1  | guacd[52]: DEBUG:	Loading Dynamic Virtual Channel rdpgfx
+[2Kguacd-1  | guacd[1]: INFO:	Creating new client for protocol "vnc"
+[2Kguacd-1  | guacd[1]: INFO:	Connection ID is "$4e8d8514-661c-4180-ba6c-b7c98f552f1e"
+[2Kguacd-1  | guacd[73]: DEBUG:	Processing instruction: size
+[2Kguacd-1  | guacd[73]: DEBUG:	Processing instruction: audio
+[2Kguacd-1  | guacd[73]: DEBUG:	Processing instruction: video
+[2Kguacd-1  | guacd[73]: DEBUG:	Processing instruction: image
+[2Kguacd-1  | guacd[73]: INFO:	Cursor rendering: local
+[2Kguacd-1  | guacd[73]: DEBUG:	Parameter "swap-red-blue" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[73]: DEBUG:	Parameter "read-only" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[73]: DEBUG:	Parameter "disable-server-input" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[73]: DEBUG:	Parameter "disable-display-resize" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[73]: DEBUG:	Parameter "color-depth" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[73]: DEBUG:	Parameter "force-lossless" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[73]: DEBUG:	Parameter "compress-level" omitted. Using default value of -1.
+[2Kguacd-1  | guacd[73]: DEBUG:	Parameter "quality-level" omitted. Using default value of -1.
+[2Kguacd-1  | guacd[73]: DEBUG:	Parameter "dest-port" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[73]: DEBUG:	Parameter "encodings" omitted. Using default value of "zrle ultra copyrect hextile zlib corre rre raw".
+[2Kguacd-1  | guacd[73]: DEBUG:	Parameter "autoretry" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[73]: DEBUG:	Parameter "reverse-connect" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[73]: DEBUG:	Parameter "listen-timeout" omitted. Using default value of 5000.
+[2Kguacd-1  | guacd[73]: DEBUG:	Parameter "enable-audio" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[73]: DEBUG:	Parameter "sftp-hostname" omitted. Using default value of "172.30.61.2".
+[2Kguacd-1  | guacd[73]: DEBUG:	Parameter "sftp-port" omitted. Using default value of "22".
+[2Kguacd-1  | guacd[73]: DEBUG:	Parameter "sftp-timeout" omitted. Using default value of 10.
+[2Kguacd-1  | guacd[73]: DEBUG:	Parameter "sftp-username" omitted. Using default value of "".
+[2Kguacd-1  | guacd[73]: DEBUG:	Parameter "sftp-password" omitted. Using default value of "".
+[2Kguacd-1  | guacd[73]: DEBUG:	Parameter "sftp-passphrase" omitted. Using default value of "".
+[2Kguacd-1  | guacd[73]: DEBUG:	Parameter "sftp-root-directory" omitted. Using default value of "/".
+[2Kguacd-1  | guacd[73]: DEBUG:	Parameter "sftp-server-alive-interval" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[73]: DEBUG:	Parameter "sftp-disable-download" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[73]: DEBUG:	Parameter "sftp-disable-upload" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[73]: DEBUG:	Parameter "recording-name" omitted. Using default value of "recording".
+[2Kguacd-1  | guacd[73]: DEBUG:	Parameter "recording-exclude-output" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[73]: DEBUG:	Parameter "recording-exclude-mouse" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[73]: DEBUG:	Parameter "recording-include-keys" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[73]: DEBUG:	Parameter "create-recording-path" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[73]: DEBUG:	Parameter "recording-write-existing" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[73]: DEBUG:	Parameter "wol-send-packet" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[73]: INFO:	User "@63c10d2a-c722-4d2c-a7b3-8c95cbe8f7e5" joined connection "$4e8d8514-661c-4180-ba6c-b7c98f552f1e" (1 users now present)
+[2Kguacd-1  | guacd[73]: DEBUG:	Client is using protocol version "VERSION_1_5_0"
+[2Kguacd-1  | guacd[73]: INFO:	Local system reports 2 processor(s) are available.
+[2Kguacd-1  | guacd[73]: INFO:	Graphical updates will be encoded using 2 worker thread(s).
+[2Kguacd-1  | guacd[73]: DEBUG:	Screen is now initialized.
+[2Kguacd-1  | guacd[73]: DEBUG:	Sending initial screen size to VNC server.
+[2Kguacd-1  | guacd[73]: DEBUG:	Sending VNC display size for owner's display.
+[2Kguacd-1  | guacd[73]: DEBUG:	Screen size has not changed, not sending update.
+[2Kguacd-1  | guacd[1]: INFO:	Creating new client for protocol "vnc"
+[2Kguacd-1  | guacd[1]: INFO:	Connection ID is "$977cf936-df24-497f-a2d4-bc8af97320fb"
+[2Kguacd-1  | guacd[85]: DEBUG:	Processing instruction: size
+[2Kguacd-1  | guacd[85]: DEBUG:	Processing instruction: audio
+[2Kguacd-1  | guacd[85]: DEBUG:	Processing instruction: video
+[2Kguacd-1  | guacd[85]: DEBUG:	Processing instruction: image
+[2Kguacd-1  | guacd[85]: INFO:	Cursor rendering: local
+[2Kguacd-1  | guacd[85]: DEBUG:	Parameter "swap-red-blue" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[85]: DEBUG:	Parameter "read-only" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[85]: DEBUG:	Parameter "disable-server-input" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[85]: DEBUG:	Parameter "disable-display-resize" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[85]: DEBUG:	Parameter "color-depth" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[85]: DEBUG:	Parameter "force-lossless" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[85]: DEBUG:	Parameter "compress-level" omitted. Using default value of -1.
+[2Kguacd-1  | guacd[85]: DEBUG:	Parameter "quality-level" omitted. Using default value of -1.
+[2Kguacd-1  | guacd[85]: DEBUG:	Parameter "dest-port" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[85]: DEBUG:	Parameter "encodings" omitted. Using default value of "zrle ultra copyrect hextile zlib corre rre raw".
+[2Kguacd-1  | guacd[85]: DEBUG:	Parameter "autoretry" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[85]: DEBUG:	Parameter "reverse-connect" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[85]: DEBUG:	Parameter "listen-timeout" omitted. Using default value of 5000.
+[2Kguacd-1  | guacd[85]: DEBUG:	Parameter "enable-audio" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[85]: DEBUG:	Parameter "sftp-hostname" omitted. Using default value of "172.30.61.2".
+[2Kguacd-1  | guacd[85]: DEBUG:	Parameter "sftp-port" omitted. Using default value of "22".
+[2Kguacd-1  | guacd[85]: DEBUG:	Parameter "sftp-timeout" omitted. Using default value of 10.
+[2Kguacd-1  | guacd[85]: DEBUG:	Parameter "sftp-username" omitted. Using default value of "".
+[2Kguacd-1  | guacd[85]: DEBUG:	Parameter "sftp-password" omitted. Using default value of "".
+[2Kguacd-1  | guacd[85]: DEBUG:	Parameter "sftp-passphrase" omitted. Using default value of "".
+[2Kguacd-1  | guacd[85]: DEBUG:	Parameter "sftp-root-directory" omitted. Using default value of "/".
+[2Kguacd-1  | guacd[85]: DEBUG:	Parameter "sftp-server-alive-interval" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[85]: DEBUG:	Parameter "sftp-disable-download" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[85]: DEBUG:	Parameter "sftp-disable-upload" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[85]: DEBUG:	Parameter "recording-name" omitted. Using default value of "recording".
+[2Kguacd-1  | guacd[85]: DEBUG:	Parameter "recording-exclude-output" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[85]: DEBUG:	Parameter "recording-exclude-mouse" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[85]: DEBUG:	Parameter "recording-include-keys" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[85]: DEBUG:	Parameter "create-recording-path" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[85]: DEBUG:	Parameter "recording-write-existing" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[85]: DEBUG:	Parameter "wol-send-packet" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[85]: INFO:	User "@644bb724-6224-4452-8a91-472d3c87adb3" joined connection "$977cf936-df24-497f-a2d4-bc8af97320fb" (1 users now present)
+[2Kguacd-1  | guacd[85]: DEBUG:	Client is using protocol version "VERSION_1_5_0"
+[2Kguacd-1  | guacd[85]: INFO:	Local system reports 2 processor(s) are available.
+[2Kguacd-1  | guacd[85]: INFO:	Graphical updates will be encoded using 2 worker thread(s).
+[2Kguacd-1  | guacd[85]: DEBUG:	Screen is now initialized.
+[2Kguacd-1  | guacd[85]: DEBUG:	Sending initial screen size to VNC server.
+[2Kguacd-1  | guacd[85]: DEBUG:	Sending VNC display size for owner's display.
+[2Kguacd-1  | guacd[85]: DEBUG:	Screen size has not changed, not sending update.
+[2Kguacd-1  | guacd[1]: INFO:	Creating new client for protocol "rdp"
+[2Kguacd-1  | guacd[1]: INFO:	Connection ID is "$91ebcdb5-1390-48fa-8265-c4eb0f0428d9"
+[2Kguacd-1  | guacd[97]: DEBUG:	Processing instruction: size
+[2Kguacd-1  | guacd[97]: DEBUG:	Processing instruction: audio
+[2Kguacd-1  | guacd[97]: DEBUG:	Processing instruction: video
+[2Kguacd-1  | guacd[97]: DEBUG:	Processing instruction: image
+[2Kguacd-1  | guacd[97]: DEBUG:	Parameter "console" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[97]: DEBUG:	Parameter "console-audio" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[97]: DEBUG:	Parameter "disable-auth" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[97]: INFO:	Security mode: TLS
+[2Kguacd-1  | guacd[97]: DEBUG:	Parameter "timeout" omitted. Using default value of 10.
+[2Kguacd-1  | guacd[97]: DEBUG:	User resolution is 1024x768 at 96 DPI
+[2Kguacd-1  | guacd[97]: DEBUG:	Using resolution of 1024x768 at 96 DPI
+[2Kguacd-1  | guacd[97]: DEBUG:	Parameter "force-lossless" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[97]: DEBUG:	Parameter "read-only" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[97]: DEBUG:	Parameter "client-name" omitted. Using default value of "Guacamole RDP".
+[2Kguacd-1  | guacd[97]: DEBUG:	Parameter "enable-wallpaper" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[97]: DEBUG:	Parameter "enable-theming" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[97]: DEBUG:	Parameter "enable-font-smoothing" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[97]: DEBUG:	Parameter "enable-full-window-drag" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[97]: DEBUG:	Parameter "enable-desktop-composition" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[97]: DEBUG:	Parameter "enable-menu-animations" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[97]: DEBUG:	Parameter "disable-bitmap-caching" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[97]: DEBUG:	Parameter "disable-offscreen-caching" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[97]: DEBUG:	Parameter "disable-glyph-caching" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[97]: DEBUG:	Glyph caching is currently universally disabled, regardless of the value of the "disable-glyph-caching" parameter, as glyph caching support is not considered stable by FreeRDP as of the FreeRDP 2.0.0 release. See: https://issues.apache.org/jira/browse/GUACAMOLE-1191
+[2Kguacd-1  | guacd[97]: DEBUG:	Parameter "printer-name" omitted. Using default value of "Guacamole Printer".
+[2Kguacd-1  | guacd[97]: DEBUG:	Parameter "drive-name" omitted. Using default value of "Guacamole Filesystem".
+[2Kguacd-1  | guacd[97]: DEBUG:	Parameter "drive-path" omitted. Using default value of "".
+[2Kguacd-1  | guacd[97]: DEBUG:	Parameter "create-drive-path" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[97]: DEBUG:	Parameter "disable-download" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[97]: DEBUG:	Parameter "disable-upload" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[97]: DEBUG:	Parameter "sftp-hostname" omitted. Using default value of "172.30.61.2".
+[2Kguacd-1  | guacd[97]: DEBUG:	Parameter "sftp-port" omitted. Using default value of "22".
+[2Kguacd-1  | guacd[97]: DEBUG:	Parameter "sftp-timeout" omitted. Using default value of 10.
+[2Kguacd-1  | guacd[97]: DEBUG:	Parameter "sftp-username" omitted. Using default value of "badpassfixture".
+[2Kguacd-1  | guacd[97]: DEBUG:	Parameter "sftp-password" omitted. Using default value of "".
+[2Kguacd-1  | guacd[97]: DEBUG:	Parameter "sftp-passphrase" omitted. Using default value of "".
+[2Kguacd-1  | guacd[97]: DEBUG:	Parameter "sftp-root-directory" omitted. Using default value of "/".
+[2Kguacd-1  | guacd[97]: DEBUG:	Parameter "sftp-server-alive-interval" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[97]: DEBUG:	Parameter "sftp-disable-download" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[97]: DEBUG:	Parameter "sftp-disable-upload" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[97]: DEBUG:	Parameter "recording-name" omitted. Using default value of "recording".
+[2Kguacd-1  | guacd[97]: DEBUG:	Parameter "recording-exclude-output" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[97]: DEBUG:	Parameter "recording-exclude-mouse" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[97]: DEBUG:	Parameter "recording-exclude-touch" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[97]: DEBUG:	Parameter "recording-include-keys" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[97]: DEBUG:	Parameter "create-recording-path" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[97]: DEBUG:	Parameter "recording-write-existing" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[97]: INFO:	Resize method "Defaulting to no resize method." invalid. 
+[2Kguacd-1  | guacd[97]: DEBUG:	Parameter "disable-gfx" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[97]: DEBUG:	Parameter "color-depth" omitted. Using default value of 32.
+[2Kguacd-1  | guacd[97]: DEBUG:	Parameter "enable-touch" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[97]: DEBUG:	Parameter "enable-audio-input" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[97]: DEBUG:	Parameter "gateway-port" omitted. Using default value of 443.
+[2Kguacd-1  | guacd[97]: INFO:	No clipboard line-ending normalization specified. Defaulting to preserving the format of all line endings.
+[2Kguacd-1  | guacd[97]: DEBUG:	Parameter "wol-send-packet" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[97]: INFO:	User "@29b307ff-cb24-490f-b950-5f7e7efcb2c1" joined connection "$91ebcdb5-1390-48fa-8265-c4eb0f0428d9" (1 users now present)
+[2Kguacd-1  | guacd[97]: DEBUG:	Client is using protocol version "VERSION_1_5_0"
+[2Kguacd-1  | guacd[97]: INFO:	Local system reports 2 processor(s) are available.
+[2Kguacd-1  | guacd[97]: INFO:	Graphical updates will be encoded using 2 worker thread(s).
+[2Kguacd-1  | guacd[97]: INFO:	Loading keymap "base"
+[2Kguacd-1  | guacd[97]: INFO:	Loading keymap "en-us-qwerty"
+[2Kguacd-1  | guacd[97]: DEBUG:	Local framebuffer format  PIXEL_FORMAT_BGRX32
+[2Kguacd-1  | guacd[97]: DEBUG:	Remote framebuffer format PIXEL_FORMAT_BGRA32
+[2Kguacd-1  | guacd[97]: DEBUG:	Strict RDP leaf pin matched
+[2Kguacd-1  | guacd[97]: DEBUG:	Loading Dynamic Virtual Channel rdpgfx
+[2Kguacd-1  | guacd[52]: ERROR:	User is not responding.
+[2Kguacd-1  | guacd[52]: INFO:	User "@0438f5cc-eeb0-4fe0-a2eb-925ccc5a7d64" disconnected (0 users remain)
+[2Kguacd-1  | guacd[52]: INFO:	Last user of connection "$a15c994b-8e1e-406c-b1dc-ebdf41455e42" disconnected
+[2Kguacd-1  | guacd[52]: DEBUG:	Requesting termination of client...
+[2Kguacd-1  | guacd[52]: INFO:	Internal RDP client disconnected
+[2Kguacd-1  | guacd[52]: DEBUG:	Client terminated successfully.
+[2Kguacd-1  | guacd[1]: INFO:	Connection "$a15c994b-8e1e-406c-b1dc-ebdf41455e42" removed.
+[2Kguacd-1  | guacd[1]: DEBUG:	Unable to request termination of client process: No such process 
+[2Kguacd-1  | guacd[1]: DEBUG:	All child processes for connection "$a15c994b-8e1e-406c-b1dc-ebdf41455e42" have been terminated.
+[2Kguacd-1  | guacd[1]: INFO:	Creating new client for protocol "rdp"
+[2Kguacd-1  | guacd[1]: INFO:	Connection ID is "$e04cd39c-105e-4079-86ad-c2e0f1e90375"
+[2Kguacd-1  | guacd[119]: DEBUG:	Processing instruction: size
+[2Kguacd-1  | guacd[119]: DEBUG:	Processing instruction: audio
+[2Kguacd-1  | guacd[119]: DEBUG:	Processing instruction: video
+[2Kguacd-1  | guacd[119]: DEBUG:	Processing instruction: image
+[2Kguacd-1  | guacd[119]: DEBUG:	Parameter "console" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[119]: DEBUG:	Parameter "console-audio" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[119]: DEBUG:	Parameter "disable-auth" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[119]: INFO:	Security mode: TLS
+[2Kguacd-1  | guacd[119]: DEBUG:	Parameter "timeout" omitted. Using default value of 10.
+[2Kguacd-1  | guacd[119]: DEBUG:	User resolution is 1024x768 at 96 DPI
+[2Kguacd-1  | guacd[119]: DEBUG:	Using resolution of 1024x768 at 96 DPI
+[2Kguacd-1  | guacd[119]: DEBUG:	Parameter "force-lossless" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[119]: DEBUG:	Parameter "read-only" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[119]: DEBUG:	Parameter "client-name" omitted. Using default value of "Guacamole RDP".
+[2Kguacd-1  | guacd[119]: DEBUG:	Parameter "enable-wallpaper" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[119]: DEBUG:	Parameter "enable-theming" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[119]: DEBUG:	Parameter "enable-font-smoothing" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[119]: DEBUG:	Parameter "enable-full-window-drag" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[119]: DEBUG:	Parameter "enable-desktop-composition" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[119]: DEBUG:	Parameter "enable-menu-animations" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[119]: DEBUG:	Parameter "disable-bitmap-caching" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[119]: DEBUG:	Parameter "disable-offscreen-caching" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[119]: DEBUG:	Parameter "disable-glyph-caching" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[119]: DEBUG:	Glyph caching is currently universally disabled, regardless of the value of the "disable-glyph-caching" parameter, as glyph caching support is not considered stable by FreeRDP as of the FreeRDP 2.0.0 release. See: https://issues.apache.org/jira/browse/GUACAMOLE-1191
+[2Kguacd-1  | guacd[119]: DEBUG:	Parameter "printer-name" omitted. Using default value of "Guacamole Printer".
+[2Kguacd-1  | guacd[119]: DEBUG:	Parameter "drive-name" omitted. Using default value of "Guacamole Filesystem".
+[2Kguacd-1  | guacd[119]: DEBUG:	Parameter "drive-path" omitted. Using default value of "".
+[2Kguacd-1  | guacd[119]: DEBUG:	Parameter "create-drive-path" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[119]: DEBUG:	Parameter "disable-download" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[119]: DEBUG:	Parameter "disable-upload" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[119]: DEBUG:	Parameter "sftp-hostname" omitted. Using default value of "172.30.61.2".
+[2Kguacd-1  | guacd[119]: DEBUG:	Parameter "sftp-port" omitted. Using default value of "22".
+[2Kguacd-1  | guacd[119]: DEBUG:	Parameter "sftp-timeout" omitted. Using default value of 10.
+[2Kguacd-1  | guacd[119]: DEBUG:	Parameter "sftp-username" omitted. Using default value of "negative-do-not-auth".
+[2Kguacd-1  | guacd[119]: DEBUG:	Parameter "sftp-password" omitted. Using default value of "".
+[2Kguacd-1  | guacd[119]: DEBUG:	Parameter "sftp-passphrase" omitted. Using default value of "".
+[2Kguacd-1  | guacd[119]: DEBUG:	Parameter "sftp-root-directory" omitted. Using default value of "/".
+[2Kguacd-1  | guacd[119]: DEBUG:	Parameter "sftp-server-alive-interval" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[119]: DEBUG:	Parameter "sftp-disable-download" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[119]: DEBUG:	Parameter "sftp-disable-upload" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[119]: DEBUG:	Parameter "recording-name" omitted. Using default value of "recording".
+[2Kguacd-1  | guacd[119]: DEBUG:	Parameter "recording-exclude-output" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[119]: DEBUG:	Parameter "recording-exclude-mouse" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[119]: DEBUG:	Parameter "recording-exclude-touch" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[119]: DEBUG:	Parameter "recording-include-keys" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[119]: DEBUG:	Parameter "create-recording-path" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[119]: DEBUG:	Parameter "recording-write-existing" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[119]: INFO:	Resize method "Defaulting to no resize method." invalid. 
+[2Kguacd-1  | guacd[119]: DEBUG:	Parameter "disable-gfx" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[119]: DEBUG:	Parameter "color-depth" omitted. Using default value of 32.
+[2Kguacd-1  | guacd[119]: DEBUG:	Parameter "enable-touch" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[119]: DEBUG:	Parameter "enable-audio-input" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[119]: DEBUG:	Parameter "gateway-port" omitted. Using default value of 443.
+[2Kguacd-1  | guacd[119]: INFO:	No clipboard line-ending normalization specified. Defaulting to preserving the format of all line endings.
+[2Kguacd-1  | guacd[119]: DEBUG:	Parameter "wol-send-packet" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[119]: INFO:	Local system reports 2 processor(s) are available.
+[2Kguacd-1  | guacd[119]: INFO:	Graphical updates will be encoded using 2 worker thread(s).
+[2Kguacd-1  | guacd[119]: INFO:	User "@9cc9f412-ac4a-4549-b627-46be9efdfc0e" joined connection "$e04cd39c-105e-4079-86ad-c2e0f1e90375" (1 users now present)
+[2Kguacd-1  | guacd[119]: DEBUG:	Client is using protocol version "VERSION_1_5_0"
+[2Kguacd-1  | guacd[119]: INFO:	Loading keymap "base"
+[2Kguacd-1  | guacd[119]: INFO:	Loading keymap "en-us-qwerty"
+[2Kguacd-1  | guacd[119]: DEBUG:	Local framebuffer format  PIXEL_FORMAT_BGRX32
+[2Kguacd-1  | guacd[119]: DEBUG:	Remote framebuffer format PIXEL_FORMAT_BGRA32
+[2Kguacd-1  | guacd[119]: ERROR:	Strict RDP leaf pin rejected
+[2Kguacd-1  | guacd[119]: DEBUG:	certificate not trusted, aborting.
+[2Kguacd-1  | guacd[119]: DEBUG:	transport_connect_tls:freerdp_set_last_error_ex ERRCONNECT_CONNECT_CANCELLED [0x0002000B]
+[2Kguacd-1  | guacd[119]: INFO:	RDP server closed/refused connection: Connection failed (server unreachable?)
+[2Kguacd-1  | guacd[1]: INFO:	Creating new client for protocol "ssh"
+[2Kguacd-1  | guacd[1]: INFO:	Connection ID is "$54b50e60-19f5-4479-abef-6361ddabf465"
+[2Kguacd-1  | guacd[138]: DEBUG:	Processing instruction: size
+[2Kguacd-1  | guacd[138]: DEBUG:	Processing instruction: audio
+[2Kguacd-1  | guacd[138]: DEBUG:	Processing instruction: video
+[2Kguacd-1  | guacd[138]: DEBUG:	Processing instruction: image
+[2Kguacd-1  | guacd[138]: DEBUG:	Parameter "scrollback" omitted. Using default value of 1000.
+[2Kguacd-1  | guacd[138]: DEBUG:	Parameter "font-name" omitted. Using default value of "monospace".
+[2Kguacd-1  | guacd[138]: DEBUG:	Parameter "font-size" omitted. Using default value of 12.
+[2Kguacd-1  | guacd[138]: DEBUG:	Parameter "color-scheme" omitted. Using default value of "".
+[2Kguacd-1  | guacd[138]: DEBUG:	Parameter "sftp-root-directory" omitted. Using default value of "/".
+[2Kguacd-1  | guacd[138]: DEBUG:	Parameter "sftp-disable-download" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[138]: DEBUG:	Parameter "sftp-disable-upload" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[138]: DEBUG:	Parameter "timeout" omitted. Using default value of 10.
+[2Kguacd-1  | guacd[138]: DEBUG:	Parameter "read-only" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[138]: DEBUG:	Parameter "typescript-name" omitted. Using default value of "typescript".
+[2Kguacd-1  | guacd[138]: DEBUG:	Parameter "create-typescript-path" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[138]: DEBUG:	Parameter "typescript-write-existing" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[138]: DEBUG:	Parameter "recording-name" omitted. Using default value of "recording".
+[2Kguacd-1  | guacd[138]: DEBUG:	Parameter "recording-exclude-output" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[138]: DEBUG:	Parameter "recording-exclude-mouse" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[138]: DEBUG:	Parameter "recording-include-keys" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[138]: DEBUG:	Parameter "create-recording-path" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[138]: DEBUG:	Parameter "recording-write-existing" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[138]: DEBUG:	Parameter "server-alive-interval" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[138]: DEBUG:	Parameter "backspace" omitted. Using default value of 127.
+[2Kguacd-1  | guacd[138]: DEBUG:	Parameter "terminal-type" omitted. Using default value of "linux".
+[2Kguacd-1  | guacd[138]: DEBUG:	Parameter "wol-send-packet" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[138]: INFO:	User "@61bd738b-2db9-40cc-a946-af4059427046" joined connection "$54b50e60-19f5-4479-abef-6361ddabf465" (1 users now present)
+[2Kguacd-1  | guacd[138]: DEBUG:	Client is using protocol version "VERSION_1_5_0"
+[2Kguacd-1  | guacd[138]: ERROR:	Host key does not match known hosts entry for 172.30.61.2
+[2Kguacd-1  | guacd[138]: ERROR:	Host key did not match any provided known host keys. 
+[2Kguacd-1  | guacd[1]: INFO:	Creating new client for protocol "rdp"
+[2Kguacd-1  | guacd[1]: INFO:	Connection ID is "$069356c8-dc91-4084-82f6-84cf01f8e069"
+[2Kguacd-1  | guacd[154]: DEBUG:	Processing instruction: size
+[2Kguacd-1  | guacd[154]: DEBUG:	Processing instruction: audio
+[2Kguacd-1  | guacd[154]: DEBUG:	Processing instruction: video
+[2Kguacd-1  | guacd[154]: DEBUG:	Processing instruction: image
+[2Kguacd-1  | guacd[154]: DEBUG:	Parameter "console" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[154]: DEBUG:	Parameter "console-audio" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[154]: DEBUG:	Parameter "disable-auth" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[154]: INFO:	Security mode: TLS
+[2Kguacd-1  | guacd[154]: DEBUG:	Parameter "timeout" omitted. Using default value of 10.
+[2Kguacd-1  | guacd[154]: DEBUG:	User resolution is 1024x768 at 96 DPI
+[2Kguacd-1  | guacd[154]: DEBUG:	Using resolution of 1024x768 at 96 DPI
+[2Kguacd-1  | guacd[154]: DEBUG:	Parameter "force-lossless" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[154]: DEBUG:	Parameter "read-only" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[154]: DEBUG:	Parameter "client-name" omitted. Using default value of "Guacamole RDP".
+[2Kguacd-1  | guacd[154]: DEBUG:	Parameter "enable-wallpaper" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[154]: DEBUG:	Parameter "enable-theming" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[154]: DEBUG:	Parameter "enable-font-smoothing" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[154]: DEBUG:	Parameter "enable-full-window-drag" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[154]: DEBUG:	Parameter "enable-desktop-composition" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[154]: DEBUG:	Parameter "enable-menu-animations" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[154]: DEBUG:	Parameter "disable-bitmap-caching" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[154]: DEBUG:	Parameter "disable-offscreen-caching" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[154]: DEBUG:	Parameter "disable-glyph-caching" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[154]: DEBUG:	Glyph caching is currently universally disabled, regardless of the value of the "disable-glyph-caching" parameter, as glyph caching support is not considered stable by FreeRDP as of the FreeRDP 2.0.0 release. See: https://issues.apache.org/jira/browse/GUACAMOLE-1191
+[2Kguacd-1  | guacd[154]: DEBUG:	Parameter "printer-name" omitted. Using default value of "Guacamole Printer".
+[2Kguacd-1  | guacd[154]: DEBUG:	Parameter "drive-name" omitted. Using default value of "Guacamole Filesystem".
+[2Kguacd-1  | guacd[154]: DEBUG:	Parameter "drive-path" omitted. Using default value of "".
+[2Kguacd-1  | guacd[154]: DEBUG:	Parameter "create-drive-path" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[154]: DEBUG:	Parameter "disable-download" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[154]: DEBUG:	Parameter "disable-upload" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[154]: DEBUG:	Parameter "sftp-hostname" omitted. Using default value of "172.30.61.2".
+[2Kguacd-1  | guacd[154]: DEBUG:	Parameter "sftp-port" omitted. Using default value of "22".
+[2Kguacd-1  | guacd[154]: DEBUG:	Parameter "sftp-timeout" omitted. Using default value of 10.
+[2Kguacd-1  | guacd[154]: DEBUG:	Parameter "sftp-username" omitted. Using default value of "fixture".
+[2Kguacd-1  | guacd[154]: DEBUG:	Parameter "sftp-password" omitted. Using default value of "".
+[2Kguacd-1  | guacd[154]: DEBUG:	Parameter "sftp-passphrase" omitted. Using default value of "".
+[2Kguacd-1  | guacd[154]: DEBUG:	Parameter "sftp-root-directory" omitted. Using default value of "/".
+[2Kguacd-1  | guacd[154]: DEBUG:	Parameter "sftp-server-alive-interval" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[154]: DEBUG:	Parameter "sftp-disable-download" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[154]: DEBUG:	Parameter "sftp-disable-upload" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[154]: DEBUG:	Parameter "recording-name" omitted. Using default value of "recording".
+[2Kguacd-1  | guacd[154]: DEBUG:	Parameter "recording-exclude-output" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[154]: DEBUG:	Parameter "recording-exclude-mouse" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[154]: DEBUG:	Parameter "recording-exclude-touch" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[154]: DEBUG:	Parameter "recording-include-keys" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[154]: DEBUG:	Parameter "create-recording-path" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[154]: DEBUG:	Parameter "recording-write-existing" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[154]: INFO:	Resize method "Defaulting to no resize method." invalid. 
+[2Kguacd-1  | guacd[154]: DEBUG:	Parameter "disable-gfx" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[154]: DEBUG:	Parameter "color-depth" omitted. Using default value of 32.
+[2Kguacd-1  | guacd[154]: DEBUG:	Parameter "enable-touch" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[154]: DEBUG:	Parameter "enable-audio-input" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[154]: DEBUG:	Parameter "gateway-port" omitted. Using default value of 443.
+[2Kguacd-1  | guacd[154]: INFO:	No clipboard line-ending normalization specified. Defaulting to preserving the format of all line endings.
+[2Kguacd-1  | guacd[154]: DEBUG:	Parameter "wol-send-packet" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[154]: INFO:	Local system reports 2 processor(s) are available.
+[2Kguacd-1  | guacd[154]: INFO:	Graphical updates will be encoded using 2 worker thread(s).
+[2Kguacd-1  | guacd[154]: INFO:	User "@4977534b-fa8a-4e30-be44-47f6ced8a9e8" joined connection "$069356c8-dc91-4084-82f6-84cf01f8e069" (1 users now present)
+[2Kguacd-1  | guacd[154]: DEBUG:	Client is using protocol version "VERSION_1_5_0"
+[2Kguacd-1  | guacd[154]: INFO:	Loading keymap "base"
+[2Kguacd-1  | guacd[154]: INFO:	Loading keymap "en-us-qwerty"
+[2Kguacd-1  | guacd[154]: DEBUG:	Local framebuffer format  PIXEL_FORMAT_BGRX32
+[2Kguacd-1  | guacd[154]: DEBUG:	Remote framebuffer format PIXEL_FORMAT_BGRA32
+[2Kguacd-1  | guacd[154]: ERROR:	Strict RDP leaf pin rejected
+[2Kguacd-1  | guacd[154]: DEBUG:	certificate not trusted, aborting.
+[2Kguacd-1  | guacd[154]: DEBUG:	transport_connect_tls:freerdp_set_last_error_ex ERRCONNECT_CONNECT_CANCELLED [0x0002000B]
+[2Kguacd-1  | guacd[154]: INFO:	RDP server closed/refused connection: Connection failed (server unreachable?)
+[2Kguacd-1  | guacd[1]: INFO:	Creating new client for protocol "rdp"
+[2Kguacd-1  | guacd[1]: INFO:	Connection ID is "$f3c44e59-769e-4162-84f8-fe6d0d179372"
+[2Kguacd-1  | guacd[173]: DEBUG:	Processing instruction: size
+[2Kguacd-1  | guacd[173]: DEBUG:	Processing instruction: audio
+[2Kguacd-1  | guacd[173]: DEBUG:	Processing instruction: video
+[2Kguacd-1  | guacd[173]: DEBUG:	Processing instruction: image
+[2Kguacd-1  | guacd[173]: DEBUG:	Parameter "console" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[173]: DEBUG:	Parameter "console-audio" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[173]: DEBUG:	Parameter "disable-auth" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[173]: INFO:	Security mode: TLS
+[2Kguacd-1  | guacd[173]: DEBUG:	Parameter "timeout" omitted. Using default value of 10.
+[2Kguacd-1  | guacd[173]: DEBUG:	User resolution is 1024x768 at 96 DPI
+[2Kguacd-1  | guacd[173]: DEBUG:	Using resolution of 1024x768 at 96 DPI
+[2Kguacd-1  | guacd[173]: DEBUG:	Parameter "force-lossless" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[173]: DEBUG:	Parameter "read-only" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[173]: DEBUG:	Parameter "client-name" omitted. Using default value of "Guacamole RDP".
+[2Kguacd-1  | guacd[173]: DEBUG:	Parameter "enable-wallpaper" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[173]: DEBUG:	Parameter "enable-theming" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[173]: DEBUG:	Parameter "enable-font-smoothing" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[173]: DEBUG:	Parameter "enable-full-window-drag" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[173]: DEBUG:	Parameter "enable-desktop-composition" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[173]: DEBUG:	Parameter "enable-menu-animations" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[173]: DEBUG:	Parameter "disable-bitmap-caching" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[173]: DEBUG:	Parameter "disable-offscreen-caching" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[173]: DEBUG:	Parameter "disable-glyph-caching" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[173]: DEBUG:	Glyph caching is currently universally disabled, regardless of the value of the "disable-glyph-caching" parameter, as glyph caching support is not considered stable by FreeRDP as of the FreeRDP 2.0.0 release. See: https://issues.apache.org/jira/browse/GUACAMOLE-1191
+[2Kguacd-1  | guacd[173]: DEBUG:	Parameter "printer-name" omitted. Using default value of "Guacamole Printer".
+[2Kguacd-1  | guacd[173]: DEBUG:	Parameter "drive-name" omitted. Using default value of "Guacamole Filesystem".
+[2Kguacd-1  | guacd[173]: DEBUG:	Parameter "drive-path" omitted. Using default value of "".
+[2Kguacd-1  | guacd[173]: DEBUG:	Parameter "create-drive-path" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[173]: DEBUG:	Parameter "disable-download" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[173]: DEBUG:	Parameter "disable-upload" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[173]: DEBUG:	Parameter "sftp-hostname" omitted. Using default value of "172.30.61.2".
+[2Kguacd-1  | guacd[173]: DEBUG:	Parameter "sftp-port" omitted. Using default value of "22".
+[2Kguacd-1  | guacd[173]: DEBUG:	Parameter "sftp-timeout" omitted. Using default value of 10.
+[2Kguacd-1  | guacd[173]: DEBUG:	Parameter "sftp-username" omitted. Using default value of "fixture".
+[2Kguacd-1  | guacd[173]: DEBUG:	Parameter "sftp-password" omitted. Using default value of "".
+[2Kguacd-1  | guacd[173]: DEBUG:	Parameter "sftp-passphrase" omitted. Using default value of "".
+[2Kguacd-1  | guacd[173]: DEBUG:	Parameter "sftp-root-directory" omitted. Using default value of "/".
+[2Kguacd-1  | guacd[173]: DEBUG:	Parameter "sftp-server-alive-interval" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[173]: DEBUG:	Parameter "sftp-disable-download" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[173]: DEBUG:	Parameter "sftp-disable-upload" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[173]: DEBUG:	Parameter "recording-name" omitted. Using default value of "recording".
+[2Kguacd-1  | guacd[173]: DEBUG:	Parameter "recording-exclude-output" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[173]: DEBUG:	Parameter "recording-exclude-mouse" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[173]: DEBUG:	Parameter "recording-exclude-touch" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[173]: DEBUG:	Parameter "recording-include-keys" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[173]: DEBUG:	Parameter "create-recording-path" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[173]: DEBUG:	Parameter "recording-write-existing" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[173]: INFO:	Resize method "Defaulting to no resize method." invalid. 
+[2Kguacd-1  | guacd[173]: DEBUG:	Parameter "disable-gfx" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[173]: DEBUG:	Parameter "color-depth" omitted. Using default value of 32.
+[2Kguacd-1  | guacd[173]: DEBUG:	Parameter "enable-touch" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[173]: DEBUG:	Parameter "enable-audio-input" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[173]: DEBUG:	Parameter "gateway-port" omitted. Using default value of 443.
+[2Kguacd-1  | guacd[173]: INFO:	No clipboard line-ending normalization specified. Defaulting to preserving the format of all line endings.
+[2Kguacd-1  | guacd[173]: DEBUG:	Parameter "wol-send-packet" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[173]: INFO:	User "@41580d43-9f9f-4b0a-b032-b81c49972aeb" joined connection "$f3c44e59-769e-4162-84f8-fe6d0d179372" (1 users now present)
+[2Kguacd-1  | guacd[173]: DEBUG:	Client is using protocol version "VERSION_1_5_0"
+[2Kguacd-1  | guacd[173]: INFO:	Local system reports 2 processor(s) are available.
+[2Kguacd-1  | guacd[173]: INFO:	Graphical updates will be encoded using 2 worker thread(s).
+[2Kguacd-1  | guacd[173]: INFO:	Loading keymap "base"
+[2Kguacd-1  | guacd[173]: INFO:	Loading keymap "en-us-qwerty"
+[2Kguacd-1  | guacd[173]: DEBUG:	Local framebuffer format  PIXEL_FORMAT_BGRX32
+[2Kguacd-1  | guacd[173]: DEBUG:	Remote framebuffer format PIXEL_FORMAT_BGRA32
+[2Kguacd-1  | guacd[173]: DEBUG:	Strict RDP leaf pin matched
+[2Kguacd-1  | guacd[173]: DEBUG:	BIO_read returned a system error 0: Success
+[2Kguacd-1  | guacd[173]: DEBUG:	transport_read_layer:freerdp_set_last_error_ex ERRCONNECT_CONNECT_TRANSPORT_FAILED [0x0002000D]
+[2Kguacd-1  | guacd[173]: DEBUG:	ZeroTerm RDP redirect/reconnect denied
+[2Kguacd-1  | guacd[173]: DEBUG:	freerdp_post_connect failed
+[2Kguacd-1  | guacd[173]: INFO:	RDP server closed/refused connection: Server refused connection (wrong security type?)
+[2Kguacd-1  | guacd[1]: INFO:	Creating new client for protocol "rdp"
+[2Kguacd-1  | guacd[1]: INFO:	Connection ID is "$4a9861b8-14ba-4395-be97-0b233c915d6e"
+[2Kguacd-1  | guacd[192]: DEBUG:	Processing instruction: size
+[2Kguacd-1  | guacd[192]: DEBUG:	Processing instruction: audio
+[2Kguacd-1  | guacd[192]: DEBUG:	Processing instruction: video
+[2Kguacd-1  | guacd[192]: DEBUG:	Processing instruction: image
+[2Kguacd-1  | guacd[192]: DEBUG:	Parameter "console" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[192]: DEBUG:	Parameter "console-audio" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[192]: DEBUG:	Parameter "disable-auth" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[192]: INFO:	Security mode: TLS
+[2Kguacd-1  | guacd[192]: DEBUG:	Parameter "timeout" omitted. Using default value of 10.
+[2Kguacd-1  | guacd[192]: DEBUG:	User resolution is 1024x768 at 96 DPI
+[2Kguacd-1  | guacd[192]: DEBUG:	Using resolution of 1024x768 at 96 DPI
+[2Kguacd-1  | guacd[192]: DEBUG:	Parameter "force-lossless" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[192]: DEBUG:	Parameter "read-only" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[192]: DEBUG:	Parameter "client-name" omitted. Using default value of "Guacamole RDP".
+[2Kguacd-1  | guacd[192]: DEBUG:	Parameter "enable-wallpaper" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[192]: DEBUG:	Parameter "enable-theming" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[192]: DEBUG:	Parameter "enable-font-smoothing" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[192]: DEBUG:	Parameter "enable-full-window-drag" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[192]: DEBUG:	Parameter "enable-desktop-composition" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[192]: DEBUG:	Parameter "enable-menu-animations" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[192]: DEBUG:	Parameter "disable-bitmap-caching" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[192]: DEBUG:	Parameter "disable-offscreen-caching" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[192]: DEBUG:	Parameter "disable-glyph-caching" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[192]: DEBUG:	Glyph caching is currently universally disabled, regardless of the value of the "disable-glyph-caching" parameter, as glyph caching support is not considered stable by FreeRDP as of the FreeRDP 2.0.0 release. See: https://issues.apache.org/jira/browse/GUACAMOLE-1191
+[2Kguacd-1  | guacd[192]: DEBUG:	Parameter "printer-name" omitted. Using default value of "Guacamole Printer".
+[2Kguacd-1  | guacd[192]: DEBUG:	Parameter "drive-name" omitted. Using default value of "Guacamole Filesystem".
+[2Kguacd-1  | guacd[192]: DEBUG:	Parameter "drive-path" omitted. Using default value of "".
+[2Kguacd-1  | guacd[192]: DEBUG:	Parameter "create-drive-path" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[192]: DEBUG:	Parameter "disable-download" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[192]: DEBUG:	Parameter "disable-upload" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[192]: DEBUG:	Parameter "sftp-hostname" omitted. Using default value of "172.30.61.2".
+[2Kguacd-1  | guacd[192]: DEBUG:	Parameter "sftp-port" omitted. Using default value of "22".
+[2Kguacd-1  | guacd[192]: DEBUG:	Parameter "sftp-timeout" omitted. Using default value of 10.
+[2Kguacd-1  | guacd[192]: DEBUG:	Parameter "sftp-username" omitted. Using default value of "fixture".
+[2Kguacd-1  | guacd[192]: DEBUG:	Parameter "sftp-password" omitted. Using default value of "".
+[2Kguacd-1  | guacd[192]: DEBUG:	Parameter "sftp-passphrase" omitted. Using default value of "".
+[2Kguacd-1  | guacd[192]: DEBUG:	Parameter "sftp-root-directory" omitted. Using default value of "/".
+[2Kguacd-1  | guacd[192]: DEBUG:	Parameter "sftp-server-alive-interval" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[192]: DEBUG:	Parameter "sftp-disable-download" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[192]: DEBUG:	Parameter "sftp-disable-upload" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[192]: DEBUG:	Parameter "recording-name" omitted. Using default value of "recording".
+[2Kguacd-1  | guacd[192]: DEBUG:	Parameter "recording-exclude-output" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[192]: DEBUG:	Parameter "recording-exclude-mouse" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[192]: DEBUG:	Parameter "recording-exclude-touch" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[192]: DEBUG:	Parameter "recording-include-keys" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[192]: DEBUG:	Parameter "create-recording-path" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[192]: DEBUG:	Parameter "recording-write-existing" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[192]: INFO:	Resize method "Defaulting to no resize method." invalid. 
+[2Kguacd-1  | guacd[192]: DEBUG:	Parameter "color-depth" omitted. Using default value of 16.
+[2Kguacd-1  | guacd[192]: DEBUG:	Parameter "enable-touch" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[192]: DEBUG:	Parameter "enable-audio-input" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[192]: DEBUG:	Parameter "gateway-port" omitted. Using default value of 443.
+[2Kguacd-1  | guacd[192]: INFO:	No clipboard line-ending normalization specified. Defaulting to preserving the format of all line endings.
+[2Kguacd-1  | guacd[192]: DEBUG:	Parameter "wol-send-packet" omitted. Using default value of 0.
+[2Kguacd-1  | guacd[192]: INFO:	Local system reports 2 processor(s) are available.
+[2Kguacd-1  | guacd[192]: INFO:	User "@5312b9d9-e7d4-4227-bacc-7cad6eccefdf" joined connection "$4a9861b8-14ba-4395-be97-0b233c915d6e" (1 users now present)
+[2Kguacd-1  | guacd[192]: INFO:	Graphical updates will be encoded using 2 worker thread(s).
+[2Kguacd-1  | guacd[192]: DEBUG:	Client is using protocol version "VERSION_1_5_0"
+[2Kguacd-1  | guacd[192]: INFO:	Loading keymap "base"
+[2Kguacd-1  | guacd[192]: INFO:	Loading keymap "en-us-qwerty"
+[2Kguacd-1  | guacd[192]: DEBUG:	Local framebuffer format  PIXEL_FORMAT_BGRX32
+[2Kguacd-1  | guacd[192]: DEBUG:	Remote framebuffer format PIXEL_FORMAT_RGB16
+[2Kguacd-1  | guacd[192]: DEBUG:	Strict RDP leaf pin matched
+[2Kguacd-1  | guacd[192]: DEBUG:	ZeroTerm RDP redirect/reconnect denied
+[2Kguacd-1  | guacd[192]: DEBUG:	transport_check_fds: transport->ReceiveCallback() - -1
+[2Kguacd-1  | guacd[192]: DEBUG:	rdp_client_connect:freerdp_set_last_error_ex ERRCONNECT_CONNECT_TRANSPORT_FAILED [0x0002000D]
+[2Kguacd-1  | guacd[192]: DEBUG:	ZeroTerm RDP redirect/reconnect denied
+[2Kguacd-1  | guacd[192]: DEBUG:	freerdp_post_connect failed
+[2Kguacd-1  | guacd[192]: INFO:	RDP server closed/refused connection: Server refused connection (wrong security type?)
+[2Kguacd-1  | guacd[1]: INFO:	Creating new client for protocol "rdp"
+[2Kguacd-1  | guacd[1]: INFO:	Connection ID is "$3db3e9f9-18ed-4ac8-90db-438011c2f99e"
+[2Kguacd-1  | guacd[211]: DEBUG:	Processing instruction: size
+[2Kguacd-1  | guacd[73]: ERROR:	User is not responding.
+[2Kguacd-1  | guacd[73]: INFO:	User "@63c10d2a-c722-4d2c-a7b3-8c95cbe8f7e5" disconnected (0 users remain)
+[2Kguacd-1  | guacd[73]: INFO:	Last user of connection "$4e8d8514-661c-4180-ba6c-b7c98f552f1e" disconnected
+[2Kguacd-1  | guacd[73]: DEBUG:	Requesting termination of client...
+[2Kguacd-1  | guacd[73]: INFO:	Internal VNC client disconnected
+[2Kguacd-1  | guacd[211]: DEBUG:	Processing instruction: audio
+[2Kguacd-1  | guacd[211]: DEBUG:	Processing instruction: video
+[2Kguacd-1  | guacd[211]: DEBUG:	Processing instruction: image
+[2Kguacd-1  | guacd[211]: ERROR:	Strict RDP pin/security configuration rejected
+[2Kguacd-1  | guacd[211]: INFO:	Badly formatted client arguments.
+[2Kguacd-1  | guacd[211]: ERROR:	User "@96a46d7a-8485-462f-9a50-6501925930d8" could NOT join connection "$3db3e9f9-18ed-4ac8-90db-438011c2f99e"
+[2Kguacd-1  | guacd[211]: INFO:	Last user of connection "$3db3e9f9-18ed-4ac8-90db-438011c2f99e" disconnected
+[2Kguacd-1  | guacd[211]: DEBUG:	Requesting termination of client...
+[2Kguacd-1  | guacd[211]: DEBUG:	Client terminated successfully.
+[2Kguacd-1  | guacd[1]: INFO:	Connection "$3db3e9f9-18ed-4ac8-90db-438011c2f99e" removed.
+[2Kguacd-1  | guacd[1]: DEBUG:	Unable to request termination of client process: No such process 
+[2Kguacd-1  | guacd[1]: DEBUG:	All child processes for connection "$3db3e9f9-18ed-4ac8-90db-438011c2f99e" have been terminated.
+[2Kguacd-1  | guacd[73]: DEBUG:	Client terminated successfully.
+[2Kguacd-1  | guacd[1]: INFO:	Connection "$4e8d8514-661c-4180-ba6c-b7c98f552f1e" removed.
+[2Kguacd-1  | guacd[1]: DEBUG:	Unable to request termination of client process: No such process 
+[2Kguacd-1  | guacd[1]: DEBUG:	All child processes for connection "$4e8d8514-661c-4180-ba6c-b7c98f552f1e" have been terminated.
+[2Kguacd-1  | guacd[85]: ERROR:	User is not responding.
+[2Kguacd-1  | guacd[85]: INFO:	User "@644bb724-6224-4452-8a91-472d3c87adb3" disconnected (0 users remain)
+[2Kguacd-1  | guacd[85]: INFO:	Last user of connection "$977cf936-df24-497f-a2d4-bc8af97320fb" disconnected
+[2Kguacd-1  | guacd[85]: DEBUG:	Requesting termination of client...
+[2Kguacd-1  | guacd[85]: INFO:	Internal VNC client disconnected
+[2Kguacd-1  | guacd[85]: DEBUG:	Client terminated successfully.
+[2Kguacd-1  | guacd[1]: INFO:	Connection "$977cf936-df24-497f-a2d4-bc8af97320fb" removed.
+[2Kguacd-1  | guacd[1]: DEBUG:	Unable to request termination of client process: No such process 
+[2Kguacd-1  | guacd[1]: DEBUG:	All child processes for connection "$977cf936-df24-497f-a2d4-bc8af97320fb" have been terminated.
+[2Kguacd-1  | guacd[97]: ERROR:	User is not responding.
+[2Kguacd-1  | guacd[97]: INFO:	User "@29b307ff-cb24-490f-b950-5f7e7efcb2c1" disconnected (0 users remain)
+[2Kguacd-1  | guacd[97]: INFO:	Last user of connection "$91ebcdb5-1390-48fa-8265-c4eb0f0428d9" disconnected
+[2Kguacd-1  | guacd[97]: DEBUG:	Requesting termination of client...
+[2Kguacd-1  | guacd[97]: INFO:	Internal RDP client disconnected
+[2Kguacd-1  | guacd[97]: DEBUG:	Client terminated successfully.
+[2Kguacd-1  | guacd[1]: INFO:	Connection "$91ebcdb5-1390-48fa-8265-c4eb0f0428d9" removed.
+[2Kguacd-1  | guacd[1]: DEBUG:	Unable to request termination of client process: No such process 
+[2Kguacd-1  | guacd[1]: DEBUG:	All child processes for connection "$91ebcdb5-1390-48fa-8265-c4eb0f0428d9" have been terminated.
+[2Kguacd-1  | guacd[119]: ERROR:	User is not responding.
+[2Kguacd-1  | guacd[119]: INFO:	User "@9cc9f412-ac4a-4549-b627-46be9efdfc0e" disconnected (0 users remain)
+[2Kguacd-1  | guacd[119]: INFO:	Last user of connection "$e04cd39c-105e-4079-86ad-c2e0f1e90375" disconnected
+[2Kguacd-1  | guacd[119]: DEBUG:	Requesting termination of client...
+[2Kguacd-1  | guacd[119]: DEBUG:	Client terminated successfully.
+[2Kguacd-1  | guacd[1]: INFO:	Connection "$e04cd39c-105e-4079-86ad-c2e0f1e90375" removed.
+[2Kguacd-1  | guacd[1]: DEBUG:	Unable to request termination of client process: No such process 
+[2Kguacd-1  | guacd[1]: DEBUG:	All child processes for connection "$e04cd39c-105e-4079-86ad-c2e0f1e90375" have been terminated.
+[2Kguacd-1  | guacd[138]: ERROR:	User is not responding.
+[2Kguacd-1  | guacd[138]: INFO:	User "@61bd738b-2db9-40cc-a946-af4059427046" disconnected (0 users remain)
+[2Kguacd-1  | guacd[138]: INFO:	Last user of connection "$54b50e60-19f5-4479-abef-6361ddabf465" disconnected
+[2Kguacd-1  | guacd[138]: DEBUG:	Requesting termination of client...
+[2Kguacd-1  | guacd[138]: DEBUG:	Client terminated successfully.
+[2Kguacd-1  | guacd[1]: INFO:	Connection "$54b50e60-19f5-4479-abef-6361ddabf465" removed.
+[2Kguacd-1  | guacd[1]: DEBUG:	Unable to request termination of client process: No such process 
+[2Kguacd-1  | guacd[1]: DEBUG:	All child processes for connection "$54b50e60-19f5-4479-abef-6361ddabf465" have been terminated.
+[2Kguacd-1  | guacd[154]: ERROR:	User is not responding.
+[2Kguacd-1  | guacd[154]: INFO:	User "@4977534b-fa8a-4e30-be44-47f6ced8a9e8" disconnected (0 users remain)
+[2Kguacd-1  | guacd[154]: INFO:	Last user of connection "$069356c8-dc91-4084-82f6-84cf01f8e069" disconnected
+[2Kguacd-1  | guacd[154]: DEBUG:	Requesting termination of client...
+[2Kguacd-1  | guacd[154]: DEBUG:	Client terminated successfully.
+[2Kguacd-1  | guacd[1]: INFO:	Connection "$069356c8-dc91-4084-82f6-84cf01f8e069" removed.
+[2Kguacd-1  | guacd[1]: DEBUG:	Unable to request termination of client process: No such process 
+[2Kguacd-1  | guacd[1]: DEBUG:	All child processes for connection "$069356c8-dc91-4084-82f6-84cf01f8e069" have been terminated.
+[2Kguacd-1  | guacd[173]: ERROR:	User is not responding.
+[2Kguacd-1  | guacd[173]: INFO:	User "@41580d43-9f9f-4b0a-b032-b81c49972aeb" disconnected (0 users remain)
+[2Kguacd-1  | guacd[173]: INFO:	Last user of connection "$f3c44e59-769e-4162-84f8-fe6d0d179372" disconnected
+[2Kguacd-1  | guacd[173]: DEBUG:	Requesting termination of client...
+[2Kguacd-1  | guacd[173]: DEBUG:	Client terminated successfully.
+[2Kguacd-1  | guacd[1]: INFO:	Connection "$f3c44e59-769e-4162-84f8-fe6d0d179372" removed.
+[2Kguacd-1  | guacd[1]: DEBUG:	Unable to request termination of client process: No such process 
+[2Kguacd-1  | guacd[1]: DEBUG:	All child processes for connection "$f3c44e59-769e-4162-84f8-fe6d0d179372" have been terminated.
+[2Kguacd-1  | guacd[192]: ERROR:	User is not responding.
+[2Kguacd-1  | guacd[192]: INFO:	User "@5312b9d9-e7d4-4227-bacc-7cad6eccefdf" disconnected (0 users remain)
+[2Kguacd-1  | guacd[192]: INFO:	Last user of connection "$4a9861b8-14ba-4395-be97-0b233c915d6e" disconnected
+[2Kguacd-1  | guacd[192]: DEBUG:	Requesting termination of client...
+[2Kguacd-1  | guacd[192]: DEBUG:	Client terminated successfully.
+[2Kguacd-1  | guacd[1]: INFO:	Connection "$4a9861b8-14ba-4395-be97-0b233c915d6e" removed.
+[2Kguacd-1  | guacd[1]: DEBUG:	Unable to request termination of client process: No such process 
+[2Kguacd-1  | guacd[1]: DEBUG:	All child processes for connection "$4a9861b8-14ba-4395-be97-0b233c915d6e" have been terminated.
+[2Kguacd-1  | guacd[1]: INFO:	Creating new client for protocol "rdp"
+[2Kguacd-1  | guacd[1]: INFO:	Connection ID is "$48fccb7e-4840-4629-920e-b87191c10bda"
+[2Kguacd-1  | guacd[226]: DEBUG:	Processing instruction: size
+[2Kguacd-1  | guacd[226]: DEBUG:	Processing instruction: audio
+[2Kguacd-1  | guacd[226]: DEBUG:	Processing instruction: video
+[2Kguacd-1  | guacd[226]: DEBUG:	Processing instruction: image
+[2Kguacd-1  | guacd[226]: ERROR:	Strict RDP pin/security configuration rejected
+[2Kguacd-1  | guacd[226]: INFO:	Badly formatted client arguments.
+[2Kguacd-1  | guacd[226]: ERROR:	User "@d89f200b-5d7c-4d7f-8921-783a929137bf" could NOT join connection "$48fccb7e-4840-4629-920e-b87191c10bda"
+[2Kguacd-1  | guacd[226]: INFO:	Last user of connection "$48fccb7e-4840-4629-920e-b87191c10bda" disconnected
+[2Kguacd-1  | guacd[226]: DEBUG:	Requesting termination of client...
+[2Kguacd-1  | guacd[226]: DEBUG:	Client terminated successfully.
+[2Kguacd-1  | guacd[1]: INFO:	Connection "$48fccb7e-4840-4629-920e-b87191c10bda" removed.
+[2Kguacd-1  | guacd[1]: DEBUG:	Unable to request termination of client process: No such process 
+[2Kguacd-1  | guacd[1]: DEBUG:	All child processes for connection "$48fccb7e-4840-4629-920e-b87191c10bda" have been terminated.
+[2Kguacd-1  | guacd[1]: INFO:	Creating new client for protocol "rdp"
+[2Kguacd-1  | guacd[1]: INFO:	Connection ID is "$f54bc4ae-d6da-4858-8373-06c69da0a77a"
+[2Kguacd-1  | guacd[233]: DEBUG:	Processing instruction: size
+[2Kguacd-1  | guacd[233]: DEBUG:	Processing instruction: audio
+[2Kguacd-1  | guacd[233]: DEBUG:	Processing instruction: video
+[2Kguacd-1  | guacd[233]: DEBUG:	Processing instruction: image
+[2Kguacd-1  | guacd[233]: ERROR:	Strict RDP pin/security configuration rejected
+[2Kguacd-1  | guacd[233]: INFO:	Badly formatted client arguments.
+[2Kguacd-1  | guacd[233]: ERROR:	User "@070bbb83-93b1-43b5-8f66-c6fab15bc282" could NOT join connection "$f54bc4ae-d6da-4858-8373-06c69da0a77a"
+[2Kguacd-1  | guacd[233]: INFO:	Last user of connection "$f54bc4ae-d6da-4858-8373-06c69da0a77a" disconnected
+[2Kguacd-1  | guacd[233]: DEBUG:	Requesting termination of client...
+[2Kguacd-1  | guacd[233]: DEBUG:	Client terminated successfully.
+[2Kguacd-1  | guacd[1]: INFO:	Connection "$f54bc4ae-d6da-4858-8373-06c69da0a77a" removed.
+[2Kguacd-1  | guacd[1]: DEBUG:	Unable to request termination of client process: No such process 
+[2Kguacd-1  | guacd[1]: DEBUG:	All child processes for connection "$f54bc4ae-d6da-4858-8373-06c69da0a77a" have been terminated.
+[2Kguacd-1  | guacd[1]: INFO:	Creating new client for protocol "ssh"
+[2Kguacd-1  | guacd[1]: INFO:	Connection ID is "$cc948f75-77d2-4b77-a442-e53a42f38704"
+[2Kguacd-1  | guacd[240]: DEBUG:	Processing instruction: size
+[2Kguacd-1  | guacd[240]: DEBUG:	Processing instruction: audio
+[2Kguacd-1  | guacd[240]: DEBUG:	Processing instruction: video
+[2Kguacd-1  | guacd[240]: DEBUG:	Processing instruction: image
+[2Kguacd-1  | guacd[240]: ERROR:	Target-ready capability/trust configuration rejected
+[2Kguacd-1  | guacd[240]: INFO:	Badly formatted client arguments.
+[2Kguacd-1  | guacd[240]: ERROR:	User "@4ec4deb4-9837-4bf7-a4c1-23b31932454e" could NOT join connection "$cc948f75-77d2-4b77-a442-e53a42f38704"
+[2Kguacd-1  | guacd[240]: INFO:	Last user of connection "$cc948f75-77d2-4b77-a442-e53a42f38704" disconnected
+[2Kguacd-1  | guacd[240]: DEBUG:	Requesting termination of client...
+[2Kguacd-1  | guacd[240]: DEBUG:	Client terminated successfully.
+[2Kguacd-1  | guacd[1]: INFO:	Connection "$cc948f75-77d2-4b77-a442-e53a42f38704" removed.
+[2Kguacd-1  | guacd[1]: DEBUG:	Unable to request termination of client process: No such process 
+[2Kguacd-1  | guacd[1]: DEBUG:	All child processes for connection "$cc948f75-77d2-4b77-a442-e53a42f38704" have been terminated.
+[2Kguacd-1  | guacd[1]: INFO:	Creating new client for protocol "ssh"
+[2Kguacd-1  | guacd[1]: INFO:	Connection ID is "$25afadbd-0788-4ea3-b65e-fd2fbe236a01"
+[2Kguacd-1  | guacd[247]: DEBUG:	Processing instruction: size
+[2Kguacd-1  | guacd[247]: DEBUG:	Processing instruction: audio
+[2Kguacd-1  | guacd[247]: DEBUG:	Processing instruction: video
+[2Kguacd-1  | guacd[247]: DEBUG:	Processing instruction: image
+[2Kguacd-1  | guacd[247]: ERROR:	Target-ready capability/trust configuration rejected
+[2Kguacd-1  | guacd[247]: INFO:	Badly formatted client arguments.
+[2Kguacd-1  | guacd[247]: ERROR:	User "@8a39179e-6190-444c-902e-e578111992d5" could NOT join connection "$25afadbd-0788-4ea3-b65e-fd2fbe236a01"
+[2Kguacd-1  | guacd[247]: INFO:	Last user of connection "$25afadbd-0788-4ea3-b65e-fd2fbe236a01" disconnected
+[2Kguacd-1  | guacd[247]: DEBUG:	Requesting termination of client...
+[2Kguacd-1  | guacd[247]: DEBUG:	Client terminated successfully.
+[2Kguacd-1  | guacd[1]: INFO:	Connection "$25afadbd-0788-4ea3-b65e-fd2fbe236a01" removed.
+[2Kguacd-1  | guacd[1]: DEBUG:	Unable to request termination of client process: No such process 
+[2Kguacd-1  | guacd[1]: DEBUG:	All child processes for connection "$25afadbd-0788-4ea3-b65e-fd2fbe236a01" have been terminated.
+[2Kguacd-1  | guacd[1]: INFO:	Creating new client for protocol "rdp"
+[2Kguacd-1  | guacd[1]: INFO:	Connection ID is "$2324fbc7-84d4-4de3-909e-bf0230f8dda1"
+[2Kguacd-1  | guacd[254]: DEBUG:	Processing instruction: size
+[2Kguacd-1  | guacd[254]: DEBUG:	Processing instruction: audio
+[2Kguacd-1  | guacd[254]: DEBUG:	Processing instruction: video
+[2Kguacd-1  | guacd[254]: DEBUG:	Processing instruction: image
+[2Kguacd-1  | guacd[254]: ERROR:	Target-ready capability/trust configuration rejected
+[2Kguacd-1  | guacd[254]: INFO:	Badly formatted client arguments.
+[2Kguacd-1  | guacd[254]: ERROR:	User "@5c4fb247-7da7-4ba4-8fed-5228fb2943c7" could NOT join connection "$2324fbc7-84d4-4de3-909e-bf0230f8dda1"
+[2Kguacd-1  | guacd[254]: INFO:	Last user of connection "$2324fbc7-84d4-4de3-909e-bf0230f8dda1" disconnected
+[2Kguacd-1  | guacd[254]: DEBUG:	Requesting termination of client...
+[2Kguacd-1  | guacd[254]: DEBUG:	Client terminated successfully.
+[2Kguacd-1  | guacd[1]: INFO:	Connection "$2324fbc7-84d4-4de3-909e-bf0230f8dda1" removed.
+[2Kguacd-1  | guacd[1]: DEBUG:	Unable to request termination of client process: No such process 
+[2Kguacd-1  | guacd[1]: DEBUG:	All child processes for connection "$2324fbc7-84d4-4de3-909e-bf0230f8dda1" have been terminated.
+[2Kguacd-1  | guacd[1]: INFO:	Creating new client for protocol "rdp"
+[2Kguacd-1  | guacd[1]: INFO:	Connection ID is "$9887d148-8862-415e-b626-fe516cab4e2c"
+[2Kguacd-1  | guacd[261]: DEBUG:	Processing instruction: size
+[2Kguacd-1  | guacd[261]: DEBUG:	Processing instruction: audio
+[2Kguacd-1  | guacd[261]: DEBUG:	Processing instruction: video
+[2Kguacd-1  | guacd[261]: DEBUG:	Processing instruction: image
+[2Kguacd-1  | guacd[261]: ERROR:	Target-ready capability/trust configuration rejected
+[2Kguacd-1  | guacd[261]: INFO:	Badly formatted client arguments.
+[2Kguacd-1  | guacd[261]: ERROR:	User "@cb88d367-c7db-4c9a-8cdb-4c34b7c27d51" could NOT join connection "$9887d148-8862-415e-b626-fe516cab4e2c"
+[2Kguacd-1  | guacd[261]: INFO:	Last user of connection "$9887d148-8862-415e-b626-fe516cab4e2c" disconnected
+[2Kguacd-1  | guacd[261]: DEBUG:	Requesting termination of client...
+[2Kguacd-1  | guacd[261]: DEBUG:	Client terminated successfully.
+[2Kguacd-1  | guacd[1]: INFO:	Connection "$9887d148-8862-415e-b626-fe516cab4e2c" removed.
+[2Kguacd-1  | guacd[1]: DEBUG:	Unable to request termination of client process: No such process 
+[2Kguacd-1  | guacd[1]: DEBUG:	All child processes for connection "$9887d148-8862-415e-b626-fe516cab4e2c" have been terminated.
+[2Kguacd-1  | guacd[1]: INFO:	Creating new client for protocol "vnc"
+[2Kguacd-1  | guacd[1]: INFO:	Connection ID is "$ffc577a2-f8b8-4a9a-bad2-3ae15f2dace5"
+[2Kguacd-1  | guacd[268]: DEBUG:	Processing instruction: size
+[2Kguacd-1  | guacd[268]: DEBUG:	Processing instruction: audio
+[2Kguacd-1  | guacd[268]: DEBUG:	Processing instruction: video
+[2Kguacd-1  | guacd[268]: DEBUG:	Processing instruction: image
+[2Kguacd-1  | guacd[268]: ERROR:	Target-ready capability/trust configuration rejected
+[2Kguacd-1  | guacd[268]: INFO:	Badly formatted client arguments.
+[2Kguacd-1  | guacd[268]: ERROR:	User "@6e0b46c2-ca88-4154-a427-a402d38896d6" could NOT join connection "$ffc577a2-f8b8-4a9a-bad2-3ae15f2dace5"
+[2Kguacd-1  | guacd[268]: INFO:	Last user of connection "$ffc577a2-f8b8-4a9a-bad2-3ae15f2dace5" disconnected
+[2Kguacd-1  | guacd[268]: DEBUG:	Requesting termination of client...
+[2Kguacd-1  | guacd[268]: DEBUG:	Client terminated successfully.
+[2Kguacd-1  | guacd[1]: INFO:	Connection "$ffc577a2-f8b8-4a9a-bad2-3ae15f2dace5" removed.
+[2Kguacd-1  | guacd[1]: DEBUG:	Unable to request termination of client process: No such process 
+[2Kguacd-1  | guacd[1]: DEBUG:	All child processes for connection "$ffc577a2-f8b8-4a9a-bad2-3ae15f2dace5" have been terminated.
+[2Kguacd-1  | guacd[1]: INFO:	Creating new client for protocol "vnc"
+[2Kguacd-1  | guacd[1]: INFO:	Connection ID is "$063d8e07-a238-4536-8a77-5db8398de2cb"
+[2Kguacd-1  | guacd[275]: DEBUG:	Processing instruction: size
+[2Kguacd-1  | guacd[275]: DEBUG:	Processing instruction: audio
+[2Kguacd-1  | guacd[275]: DEBUG:	Processing instruction: video
+[2Kguacd-1  | guacd[275]: DEBUG:	Processing instruction: image
+[2Kguacd-1  | guacd[275]: ERROR:	Target-ready capability/trust configuration rejected
+[2Kguacd-1  | guacd[275]: INFO:	Badly formatted client arguments.
+[2Kguacd-1  | guacd[275]: ERROR:	User "@fa1e05b6-ca6a-4ae7-b6c1-ed7c20fb8401" could NOT join connection "$063d8e07-a238-4536-8a77-5db8398de2cb"
+[2Kguacd-1  | guacd[275]: INFO:	Last user of connection "$063d8e07-a238-4536-8a77-5db8398de2cb" disconnected
+[2Kguacd-1  | guacd[275]: DEBUG:	Requesting termination of client...
+[2Kguacd-1  | guacd[275]: DEBUG:	Client terminated successfully.
+[2Kguacd-1  | guacd[1]: INFO:	Connection "$063d8e07-a238-4536-8a77-5db8398de2cb" removed.
+[2Kguacd-1  | guacd[1]: DEBUG:	Unable to request termination of client process: No such process 
+[2Kguacd-1  | guacd[1]: DEBUG:	All child processes for connection "$063d8e07-a238-4536-8a77-5db8398de2cb" have been terminated.

@@ -11,9 +11,10 @@ use std::{collections::BTreeMap, path::PathBuf};
 use uuid::Uuid;
 use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
 
-#[derive(Serialize, Deserialize, Zeroize, ZeroizeOnDrop)]
+#[derive(Clone, Serialize, Deserialize, Zeroize, ZeroizeOnDrop)]
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Credential {
+    None,
     Password {
         password: String,
     },
@@ -25,12 +26,14 @@ pub enum Credential {
 impl Credential {
     pub fn kind(&self) -> &'static str {
         match self {
+            Self::None => "none",
             Self::Password { .. } => "password",
             Self::PrivateKey { .. } => "private_key",
         }
     }
     pub fn validate_lengths(&self) -> bool {
         match self {
+            Self::None => false,
             Self::Password { password } => !password.is_empty() && password.len() <= 16384,
             Self::PrivateKey {
                 key_pem,
@@ -417,7 +420,12 @@ mod tests {
             active: 2,
             keys: BTreeMap::from([(2, Zeroizing::new([9; 32]))]),
         };
-        let context = RecordingContext::new("server", Uuid::new_v4());
+        let context = RecordingContext::new(
+            "server",
+            Uuid::new_v4(),
+            Uuid::nil(),
+            bastion_domain::TargetProtocol::Ssh,
+        );
         let (key, envelope) = old.new_recording_dek(&context).unwrap();
         assert_eq!(envelope.wrapped_dek.len(), 48);
         assert_eq!(envelope.wrap_nonce.len(), 24);
@@ -478,9 +486,13 @@ mod tests {
             key_version: 1,
         };
         assert!(old.open_recording_dek(&context, &swapped).is_err());
-        let header = RecordingHeader::new(context.recording_id);
+        let header = RecordingHeader::new(
+            context.recording_id,
+            context.connection_id,
+            context.target_protocol,
+        );
         let mut writer = RecordingWriter::new(Vec::new(), header.clone(), key).unwrap();
-        writer.append_ndjson(b"{\"seq\":0,\"elapsed_us\":0,\"type\":\"meta\",\"format_version\":1,\"term\":\"xterm\",\"cols\":80,\"rows\":24}\n{\"seq\":1,\"elapsed_us\":1,\"type\":\"end\",\"reason\":\"closed\"}\n").unwrap();
+        writer.append_ndjson(b"{\"seq\":0,\"elapsed_us\":0,\"type\":\"meta\",\"format_version\":2,\"connection_id\":\"00000000-0000-0000-0000-000000000000\",\"target_protocol\":\"ssh\",\"width\":1280,\"height\":720,\"dpi\":96}\n{\"seq\":1,\"elapsed_us\":1,\"type\":\"end\",\"reason\":\"closed\"}\n").unwrap();
         let file = writer.finish().unwrap();
         let before = file.clone();
         let rewrapped = rotating.rewrap_recording_dek(&context, &envelope).unwrap();

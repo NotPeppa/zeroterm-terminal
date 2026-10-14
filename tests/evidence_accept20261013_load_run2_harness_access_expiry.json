@@ -1,0 +1,748 @@
+{
+  "production_ready": false,
+  "capacity_claimed": false,
+  "application_image_id": "sha256:e1c5419db24e98c4d5863c7f4c71fef4ec9a395807ae881fd168edf4eccd90d2",
+  "fixture_server_id": "zt-guac-v2-accept-20261013-load",
+  "duration_ms": 600000,
+  "flood_sessions": 8,
+  "flood_command": "while :; do head -c 49152 /dev/urandom | base64; done",
+  "samples": [
+    {
+      "at_ms": 3633,
+      "containers": [
+        {
+          "name": "bastion-1",
+          "cpu": "10.19%",
+          "mem": "27.6MiB / 939.7MiB",
+          "pids": "24",
+          "net": "656MB / 631MB",
+          "block": "12.6MB / 838MB"
+        },
+        {
+          "name": "guacd-1",
+          "cpu": "0.00%",
+          "mem": "9.02MiB / 939.7MiB",
+          "pids": "1",
+          "net": "37kB / 139kB",
+          "block": "19.7MB / 9.6MB"
+        },
+        {
+          "name": "postgres-1",
+          "cpu": "1.79%",
+          "mem": "71.99MiB / 939.7MiB",
+          "pids": "18",
+          "net": "17.9MB / 25.4MB",
+          "block": "43.2MB / 201MB"
+        },
+        {
+          "name": "target-1",
+          "cpu": "10.07%",
+          "mem": "62.45MiB / 192MiB",
+          "pids": "45",
+          "net": "4.24MB / 604MB",
+          "block": "90.7MB / 26.7MB"
+        },
+        {
+          "name": "proxy-1",
+          "cpu": "2.12%",
+          "mem": "6.578MiB / 939.7MiB",
+          "pids": "3",
+          "net": "647MB / 642MB",
+          "block": "2.62MB / 4.1kB"
+        }
+      ],
+      "connections": [
+        "active",
+        "active",
+        "active",
+        "active",
+        "active",
+        "active",
+        "active",
+        "active",
+        "active"
+      ]
+    },
+    {
+      "at_ms": 61169,
+      "containers": [
+        {
+          "name": "bastion-1",
+          "cpu": "18.42%",
+          "mem": "30.84MiB / 939.7MiB",
+          "pids": "31",
+          "net": "755MB / 725MB",
+          "block": "12.7MB / 966MB"
+        },
+        {
+          "name": "guacd-1",
+          "cpu": "0.00%",
+          "mem": "9.02MiB / 939.7MiB",
+          "pids": "1",
+          "net": "37kB / 139kB",
+          "block": "19.7MB / 9.6MB"
+        },
+        {
+          "name": "postgres-1",
+          "cpu": "9.88%",
+          "mem": "72.54MiB / 939.7MiB",
+          "pids": "18",
+          "net": "19.5MB / 27.6MB",
+          "block": "44.6MB / 214MB"
+        },
+        {
+          "name": "target-1",
+          "cpu": "16.74%",
+          "mem": "59.98MiB / 192MiB",
+          "pids": "46",
+          "net": "4.79MB / 696MB",
+          "block": "90.8MB / 26.9MB"
+        },
+        {
+          "name": "proxy-1",
+          "cpu": "4.04%",
+          "mem": "5.523MiB / 939.7MiB",
+          "pids": "3",
+          "net": "745MB / 739MB",
+          "block": "2.62MB / 8.19kB"
+        }
+      ],
+      "connections": [
+        "active",
+        "active",
+        "active",
+        "active",
+        "active",
+        "active",
+        "active",
+        "active",
+        "active"
+      ]
+    },
+    {
+      "at_ms": 117728,
+      "containers": [
+        {
+          "name": "bastion-1",
+          "cpu": "26.83%",
+          "mem": "32.21MiB / 939.7MiB",
+          "pids": "32",
+          "net": "852MB / 816MB",
+          "block": "12.7MB / 1.09GB"
+        },
+        {
+          "name": "guacd-1",
+          "cpu": "0.00%",
+          "mem": "9.02MiB / 939.7MiB",
+          "pids": "1",
+          "net": "37kB / 139kB",
+          "block": "19.7MB / 9.6MB"
+        },
+        {
+          "name": "postgres-1",
+          "cpu": "7.65%",
+          "mem": "72.57MiB / 939.7MiB",
+          "pids": "18",
+          "net": "21.1MB / 29.7MB",
+          "block": "44.9MB / 227MB"
+        },
+        {
+          "name": "target-1",
+          "cpu": "24.78%",
+          "mem": "59.91MiB / 192MiB",
+          "pids": "45",
+          "net": "5.42MB / 788MB",
+          "block": "90.8MB / 26.9MB"
+        },
+        {
+          "name": "proxy-1",
+          "cpu": "5.76%",
+          "mem": "5.516MiB / 939.7MiB",
+          "pids": "3",
+          "net": "840MB / 833MB",
+          "block": "2.62MB / 8.19kB"
+        }
+      ],
+      "connections": [
+        "active",
+        "active",
+        "active",
+        "active",
+        "active",
+        "active",
+        "active",
+        "active",
+        "active"
+      ]
+    },
+    {
+      "at_ms": 172393,
+      "containers": [
+        {
+          "name": "bastion-1",
+          "cpu": "8.53%",
+          "mem": "31.97MiB / 939.7MiB",
+          "pids": "32",
+          "net": "942MB / 901MB",
+          "block": "12.7MB / 1.21GB"
+        },
+        {
+          "name": "guacd-1",
+          "cpu": "0.00%",
+          "mem": "9.02MiB / 939.7MiB",
+          "pids": "1",
+          "net": "37kB / 139kB",
+          "block": "19.7MB / 9.6MB"
+        },
+        {
+          "name": "postgres-1",
+          "cpu": "1.49%",
+          "mem": "72.58MiB / 939.7MiB",
+          "pids": "18",
+          "net": "22.6MB / 31.8MB",
+          "block": "44.9MB / 238MB"
+        },
+        {
+          "name": "target-1",
+          "cpu": "5.01%",
+          "mem": "59.61MiB / 192MiB",
+          "pids": "45",
+          "net": "6.07MB / 873MB",
+          "block": "90.8MB / 26.9MB"
+        },
+        {
+          "name": "proxy-1",
+          "cpu": "1.88%",
+          "mem": "5.516MiB / 939.7MiB",
+          "pids": "3",
+          "net": "928MB / 921MB",
+          "block": "2.62MB / 8.19kB"
+        }
+      ],
+      "connections": [
+        "active",
+        "active",
+        "active",
+        "active",
+        "active",
+        "active",
+        "active",
+        "active",
+        "active"
+      ]
+    },
+    {
+      "at_ms": 227386,
+      "containers": [
+        {
+          "name": "bastion-1",
+          "cpu": "20.47%",
+          "mem": "33.05MiB / 939.7MiB",
+          "pids": "42",
+          "net": "1.04GB / 994MB",
+          "block": "12.7MB / 1.34GB"
+        },
+        {
+          "name": "guacd-1",
+          "cpu": "0.00%",
+          "mem": "9.02MiB / 939.7MiB",
+          "pids": "1",
+          "net": "37kB / 139kB",
+          "block": "19.7MB / 9.6MB"
+        },
+        {
+          "name": "postgres-1",
+          "cpu": "1.98%",
+          "mem": "72.6MiB / 939.7MiB",
+          "pids": "18",
+          "net": "24.2MB / 33.9MB",
+          "block": "44.9MB / 250MB"
+        },
+        {
+          "name": "target-1",
+          "cpu": "12.59%",
+          "mem": "59.61MiB / 192MiB",
+          "pids": "45",
+          "net": "6.77MB / 965MB",
+          "block": "90.8MB / 26.9MB"
+        },
+        {
+          "name": "proxy-1",
+          "cpu": "8.29%",
+          "mem": "5.543MiB / 939.7MiB",
+          "pids": "3",
+          "net": "1.02GB / 1.02GB",
+          "block": "2.62MB / 8.19kB"
+        }
+      ],
+      "connections": [
+        "active",
+        "active",
+        "active",
+        "active",
+        "active",
+        "active",
+        "active",
+        "active",
+        "active"
+      ]
+    },
+    {
+      "at_ms": 281055,
+      "containers": [
+        {
+          "name": "bastion-1",
+          "cpu": "24.14%",
+          "mem": "33.19MiB / 939.7MiB",
+          "pids": "42",
+          "net": "1.14GB / 1.09GB",
+          "block": "12.7MB / 1.46GB"
+        },
+        {
+          "name": "guacd-1",
+          "cpu": "0.00%",
+          "mem": "9.02MiB / 939.7MiB",
+          "pids": "1",
+          "net": "37kB / 139kB",
+          "block": "19.7MB / 9.6MB"
+        },
+        {
+          "name": "postgres-1",
+          "cpu": "2.13%",
+          "mem": "72.67MiB / 939.7MiB",
+          "pids": "18",
+          "net": "25.7MB / 36MB",
+          "block": "45MB / 262MB"
+        },
+        {
+          "name": "target-1",
+          "cpu": "19.12%",
+          "mem": "59.59MiB / 192MiB",
+          "pids": "45",
+          "net": "7.5MB / 1.06GB",
+          "block": "90.8MB / 26.9MB"
+        },
+        {
+          "name": "proxy-1",
+          "cpu": "5.24%",
+          "mem": "5.523MiB / 939.7MiB",
+          "pids": "3",
+          "net": "1.12GB / 1.11GB",
+          "block": "2.62MB / 8.19kB"
+        }
+      ],
+      "connections": [
+        "active",
+        "active",
+        "active",
+        "active",
+        "active",
+        "active",
+        "active",
+        "active",
+        "active"
+      ]
+    },
+    {
+      "at_ms": 337293,
+      "containers": [
+        {
+          "name": "bastion-1",
+          "cpu": "31.56%",
+          "mem": "32.79MiB / 939.7MiB",
+          "pids": "42",
+          "net": "1.24GB / 1.18GB",
+          "block": "12.7MB / 1.59GB"
+        },
+        {
+          "name": "guacd-1",
+          "cpu": "0.00%",
+          "mem": "9.02MiB / 939.7MiB",
+          "pids": "1",
+          "net": "37kB / 139kB",
+          "block": "19.7MB / 9.6MB"
+        },
+        {
+          "name": "postgres-1",
+          "cpu": "2.66%",
+          "mem": "72.66MiB / 939.7MiB",
+          "pids": "18",
+          "net": "27.3MB / 38.1MB",
+          "block": "45MB / 275MB"
+        },
+        {
+          "name": "target-1",
+          "cpu": "14.00%",
+          "mem": "59.46MiB / 192MiB",
+          "pids": "45",
+          "net": "8.23MB / 1.15GB",
+          "block": "90.8MB / 26.9MB"
+        },
+        {
+          "name": "proxy-1",
+          "cpu": "8.08%",
+          "mem": "5.578MiB / 939.7MiB",
+          "pids": "3",
+          "net": "1.22GB / 1.21GB",
+          "block": "2.62MB / 8.19kB"
+        }
+      ],
+      "connections": [
+        "active",
+        "active",
+        "active",
+        "active",
+        "active",
+        "active",
+        "active",
+        "active",
+        "active"
+      ]
+    },
+    {
+      "at_ms": 392016,
+      "containers": [
+        {
+          "name": "bastion-1",
+          "cpu": "23.97%",
+          "mem": "32.89MiB / 939.7MiB",
+          "pids": "42",
+          "net": "1.33GB / 1.27GB",
+          "block": "12.7MB / 1.72GB"
+        },
+        {
+          "name": "guacd-1",
+          "cpu": "0.00%",
+          "mem": "9.02MiB / 939.7MiB",
+          "pids": "1",
+          "net": "37kB / 139kB",
+          "block": "19.7MB / 9.6MB"
+        },
+        {
+          "name": "postgres-1",
+          "cpu": "2.10%",
+          "mem": "72.68MiB / 939.7MiB",
+          "pids": "18",
+          "net": "28.8MB / 40.2MB",
+          "block": "45MB / 286MB"
+        },
+        {
+          "name": "target-1",
+          "cpu": "19.68%",
+          "mem": "59.77MiB / 192MiB",
+          "pids": "46",
+          "net": "8.99MB / 1.24GB",
+          "block": "90.8MB / 26.9MB"
+        },
+        {
+          "name": "proxy-1",
+          "cpu": "8.61%",
+          "mem": "5.559MiB / 939.7MiB",
+          "pids": "3",
+          "net": "1.31GB / 1.3GB",
+          "block": "2.62MB / 8.19kB"
+        }
+      ],
+      "connections": [
+        "active",
+        "active",
+        "active",
+        "active",
+        "active",
+        "active",
+        "active",
+        "active",
+        "active"
+      ]
+    },
+    {
+      "at_ms": 448617,
+      "containers": [
+        {
+          "name": "bastion-1",
+          "cpu": "14.70%",
+          "mem": "32.29MiB / 939.7MiB",
+          "pids": "42",
+          "net": "1.43GB / 1.36GB",
+          "block": "12.7MB / 1.84GB"
+        },
+        {
+          "name": "guacd-1",
+          "cpu": "0.00%",
+          "mem": "9.02MiB / 939.7MiB",
+          "pids": "1",
+          "net": "37kB / 139kB",
+          "block": "19.7MB / 9.6MB"
+        },
+        {
+          "name": "postgres-1",
+          "cpu": "2.48%",
+          "mem": "72.69MiB / 939.7MiB",
+          "pids": "18",
+          "net": "30.4MB / 42.3MB",
+          "block": "45MB / 298MB"
+        },
+        {
+          "name": "target-1",
+          "cpu": "10.90%",
+          "mem": "59.56MiB / 192MiB",
+          "pids": "46",
+          "net": "9.73MB / 1.33GB",
+          "block": "90.8MB / 26.9MB"
+        },
+        {
+          "name": "proxy-1",
+          "cpu": "9.31%",
+          "mem": "5.559MiB / 939.7MiB",
+          "pids": "3",
+          "net": "1.4GB / 1.39GB",
+          "block": "2.62MB / 8.19kB"
+        }
+      ],
+      "connections": [
+        "active",
+        "active",
+        "active",
+        "active",
+        "active",
+        "active",
+        "active",
+        "active",
+        "active"
+      ]
+    },
+    {
+      "at_ms": 502275,
+      "containers": [
+        {
+          "name": "bastion-1",
+          "cpu": "24.02%",
+          "mem": "32.23MiB / 939.7MiB",
+          "pids": "42",
+          "net": "1.52GB / 1.45GB",
+          "block": "12.7MB / 1.96GB"
+        },
+        {
+          "name": "guacd-1",
+          "cpu": "0.00%",
+          "mem": "9.02MiB / 939.7MiB",
+          "pids": "1",
+          "net": "37kB / 139kB",
+          "block": "19.7MB / 9.6MB"
+        },
+        {
+          "name": "postgres-1",
+          "cpu": "2.27%",
+          "mem": "72.7MiB / 939.7MiB",
+          "pids": "18",
+          "net": "31.9MB / 44.4MB",
+          "block": "45MB / 310MB"
+        },
+        {
+          "name": "target-1",
+          "cpu": "27.31%",
+          "mem": "59.82MiB / 192MiB",
+          "pids": "45",
+          "net": "10.5MB / 1.42GB",
+          "block": "90.8MB / 26.9MB"
+        },
+        {
+          "name": "proxy-1",
+          "cpu": "6.81%",
+          "mem": "5.574MiB / 939.7MiB",
+          "pids": "3",
+          "net": "1.5GB / 1.48GB",
+          "block": "2.62MB / 8.19kB"
+        }
+      ],
+      "connections": [
+        "active",
+        "active",
+        "active",
+        "active",
+        "active",
+        "active",
+        "active",
+        "active",
+        "active"
+      ]
+    }
+  ],
+  "echo": [
+    {
+      "at_ms": 3615,
+      "keystroke_echo_ms": 2154,
+      "command_roundtrip_ms": 1461
+    },
+    {
+      "at_ms": 33411,
+      "keystroke_echo_ms": 1726,
+      "command_roundtrip_ms": 1275
+    },
+    {
+      "at_ms": 48764,
+      "keystroke_echo_ms": 3638,
+      "command_roundtrip_ms": 1696
+    },
+    {
+      "at_ms": 61160,
+      "keystroke_echo_ms": 1099,
+      "command_roundtrip_ms": 1274
+    },
+    {
+      "at_ms": 90575,
+      "keystroke_echo_ms": 1086,
+      "command_roundtrip_ms": 1040
+    },
+    {
+      "at_ms": 104260,
+      "keystroke_echo_ms": 1964,
+      "command_roundtrip_ms": 1707
+    },
+    {
+      "at_ms": 117718,
+      "keystroke_echo_ms": 1948,
+      "command_roundtrip_ms": 1501
+    },
+    {
+      "at_ms": 147331,
+      "keystroke_echo_ms": 1285,
+      "command_roundtrip_ms": 850
+    },
+    {
+      "at_ms": 159699,
+      "keystroke_echo_ms": 867,
+      "command_roundtrip_ms": 1486
+    },
+    {
+      "at_ms": 172371,
+      "keystroke_echo_ms": 1190,
+      "command_roundtrip_ms": 1464
+    },
+    {
+      "at_ms": 201801,
+      "keystroke_echo_ms": 1308,
+      "command_roundtrip_ms": 1476
+    },
+    {
+      "at_ms": 213747,
+      "keystroke_echo_ms": 874,
+      "command_roundtrip_ms": 1050
+    },
+    {
+      "at_ms": 227378,
+      "keystroke_echo_ms": 2357,
+      "command_roundtrip_ms": 1261
+    },
+    {
+      "at_ms": 256101,
+      "keystroke_echo_ms": 855,
+      "command_roundtrip_ms": 840
+    },
+    {
+      "at_ms": 268465,
+      "keystroke_echo_ms": 1077,
+      "command_roundtrip_ms": 1266
+    },
+    {
+      "at_ms": 281048,
+      "keystroke_echo_ms": 1521,
+      "command_roundtrip_ms": 1051
+    },
+    {
+      "at_ms": 311083,
+      "keystroke_echo_ms": 1074,
+      "command_roundtrip_ms": 1255
+    },
+    {
+      "at_ms": 324518,
+      "keystroke_echo_ms": 1302,
+      "command_roundtrip_ms": 2122
+    },
+    {
+      "at_ms": 337285,
+      "keystroke_echo_ms": 1491,
+      "command_roundtrip_ms": 1262
+    },
+    {
+      "at_ms": 367920,
+      "keystroke_echo_ms": 1507,
+      "command_roundtrip_ms": 856
+    },
+    {
+      "at_ms": 380065,
+      "keystroke_echo_ms": 1304,
+      "command_roundtrip_ms": 826
+    },
+    {
+      "at_ms": 392007,
+      "keystroke_echo_ms": 862,
+      "command_roundtrip_ms": 1062
+    },
+    {
+      "at_ms": 421094,
+      "keystroke_echo_ms": 1070,
+      "command_roundtrip_ms": 1257
+    },
+    {
+      "at_ms": 435387,
+      "keystroke_echo_ms": 1720,
+      "command_roundtrip_ms": 2550
+    },
+    {
+      "at_ms": 448610,
+      "keystroke_echo_ms": 1736,
+      "command_roundtrip_ms": 1480
+    },
+    {
+      "at_ms": 478399,
+      "keystroke_echo_ms": 1062,
+      "command_roundtrip_ms": 1246
+    },
+    {
+      "at_ms": 490320,
+      "keystroke_echo_ms": 853,
+      "command_roundtrip_ms": 1046
+    },
+    {
+      "at_ms": 502268,
+      "keystroke_echo_ms": 1291,
+      "command_roundtrip_ms": 638
+    },
+    {
+      "at_ms": 532837,
+      "keystroke_echo_ms": 1712,
+      "command_roundtrip_ms": 1263
+    },
+    {
+      "at_ms": 545383,
+      "keystroke_echo_ms": 1072,
+      "command_roundtrip_ms": 1462
+    },
+    {
+      "at_ms": 557322,
+      "keystroke_echo_ms": 1060,
+      "command_roundtrip_ms": 856
+    }
+  ],
+  "errors": [],
+  "baseline_echo": [
+    {
+      "at_ms": 0,
+      "keystroke_echo_ms": 901,
+      "command_roundtrip_ms": 644
+    },
+    {
+      "at_ms": 0,
+      "keystroke_echo_ms": 1289,
+      "command_roundtrip_ms": 640
+    },
+    {
+      "at_ms": 0,
+      "keystroke_echo_ms": 1106,
+      "command_roundtrip_ms": 643
+    }
+  ],
+  "status": "failed",
+  "error": "page.evaluate: Error: API status 401 for /connections/fc45ad9b-f4b0-4c15-bde3-964be6d5b7c2\n    at eval (eval at evaluate (:303:30), <anonymous>:4:87)\n    at async <anonymous>:329:30\n    at api (D:\\code\\NotPeppa\\zeroterm-terminal\\tests\\browser_load.mjs:22:46)\n    at D:\\code\\NotPeppa\\zeroterm-terminal\\tests\\browser_load.mjs:81:104"
+}

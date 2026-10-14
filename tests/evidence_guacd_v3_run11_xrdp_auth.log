@@ -1,0 +1,22 @@
+[20261008-05:58:10] [INFO ] starting xrdp-sesman with pid 17
+[20261008-05:58:17] [INFO ] Socket 11: AF_INET6 connection received from ::1 port 35138
+[20261008-05:58:17] [INFO ] Terminal Server Users group is disabled, allowing authentication
+[20261008-05:58:17] [INFO ] ++ created session (access granted): username fixture, ip ::ffff:172.30.62.2:56036 - socket: 11
+[20261008-05:58:17] [INFO ] starting Xorg session...
+[20261008-05:58:17] [INFO ] Starting session: session_pid 83, display :10.0, width 1024, height 768, bpp 24, client ip ::ffff:172.30.62.2:56036 - socket: 11, user name fixture
+[20261008-05:58:17] [INFO ] [session start] (display 10): calling auth_start_session from pid 83
+[20261008-05:58:17] [ERROR] sesman_data_in: scp_process_msg failed
+[20261008-05:58:17] [ERROR] sesman_main_loop: trans_check_wait_objs failed, removing trans
+[20261008-05:58:17] [INFO ] Starting X server on display 10: /usr/lib/xorg/Xorg :10 -auth .Xauthority -config xrdp/xorg.conf -noreset -nolisten tcp -logfile .xorgxrdp.%s.log  
+[20261008-05:58:18] [INFO ] Found X server running at /tmp/.X11-unix/X10
+[20261008-05:58:18] [INFO ] Found X server running at /tmp/.X11-unix/X10
+[20261008-05:58:18] [INFO ] Session started successfully for user fixture on display 10
+[20261008-05:58:18] [INFO ] Starting the xrdp channel server for display 10
+[20261008-05:58:18] [INFO ] Found X server running at /tmp/.X11-unix/X10
+[20261008-05:58:18] [INFO ] Session in progress on display 10, waiting until the window manager (pid 84) exits to end the session
+[20261008-05:58:18] [INFO ] Starting the default window manager on display 10: /etc/xrdp/startwm.sh
+[20261008-05:58:28] [INFO ] Socket 11: AF_INET6 connection received from ::1 port 53484
+[20261008-05:58:30] [ERROR] pam_authenticate failed: Authentication failure
+[20261008-05:58:30] [INFO ] AUTHFAIL: user=badpassfixture ip=::ffff:172.30.62.2 time=1791439110
+[20261008-05:58:30] [ERROR] sesman_data_in: scp_process_msg failed
+[20261008-05:58:30] [ERROR] sesman_main_loop: trans_check_wait_objs failed, removing trans

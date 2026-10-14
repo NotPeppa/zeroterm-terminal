@@ -1,10 +1,8 @@
 use super::*;
-#[cfg(test)]
-#[path = "recording_tests.rs"]
-mod tests;
 use base64::{engine::general_purpose::STANDARD, Engine};
 use bastion_domain::{RecordingCreate, RecordingState};
 use bastion_secrets::recording::{RecordingContext, RecordingHeader, RecordingWriter};
+use sha2::{Digest, Sha256};
 use std::{
     fs::File,
     io::{self, Write},
@@ -22,17 +20,18 @@ pub struct RecordingConfig {
     pub min_free_bytes: u64,
 }
 
-/// One shell's concrete bounded sequencer. Each method returns only after the
+/// One connection's concrete bounded sequencer. Each method returns only after the
 /// encrypted bytes have been written and flushed; callers must ACK before output.
 #[derive(Clone)]
-pub struct ShellRecording {
+pub struct SessionRecording {
     inner: Arc<RecorderSender>,
 }
 struct RecorderSender {
     tx: mpsc::Sender<RecordRequest>,
     sequence: Mutex<()>,
     bytes: Arc<Semaphore>,
-    channel_id: Uuid,
+    recording_id: Uuid,
+    connection: Connection,
     backend: Arc<dyn GatewayBackend>,
 }
 struct RecordRequest {
@@ -41,30 +40,32 @@ struct RecordRequest {
     ack: oneshot::Sender<Result<(), ErrorCode>>,
     _bytes: OwnedSemaphorePermit,
 }
-impl ShellRecording {
+impl SessionRecording {
     pub(crate) async fn prepare(
         backend: Arc<dyn GatewayBackend>,
         connection: &Connection,
-        upstream_id: u32,
-        term: &str,
-        cols: u32,
-        rows: u32,
     ) -> Result<Self, ErrorCode> {
         let config = backend
             .recording_config()
             .ok_or(ErrorCode::RecordingUnavailable)?;
-        check_recording_directory(&config.directory, config.min_free_bytes)?;
+        let writer_slot = backend.registry().recording_slot()?;
         let id = Uuid::new_v4();
-        let header = RecordingHeader::new(id);
+        let mut header = RecordingHeader::new(id, connection.id, connection.target_protocol);
+        header.stream_protocol = connection.target_protocol.stream_protocol().into();
         let (key, envelope) = config
             .keys
-            .new_recording_dek(&RecordingContext::new(&config.server_id, id))
+            .new_recording_dek(&RecordingContext::new(
+                &config.server_id,
+                id,
+                connection.id,
+                connection.target_protocol,
+            ))
             .map_err(|_| ErrorCode::RecordingUnavailable)?;
         let relative_path = format!("{id}.ztrec");
         let recording = RecordingCreate {
             id,
             relative_path: relative_path.clone(),
-            format_version: 1,
+            format_version: 2,
             retention_until: chrono::Utc::now()
                 + chrono::Duration::from_std(config.retention)
                     .map_err(|_| ErrorCode::InvalidArgument)?,
@@ -73,14 +74,14 @@ impl ShellRecording {
             key_version: envelope.key_version,
             nonce_prefix: header.nonce_prefix.to_vec(),
         };
-        let channel_id = timeout(
-            ACK_TIMEOUT,
-            backend.begin_shell(connection, upstream_id, recording),
-        )
-        .await
-        .map_err(|_| ErrorCode::RecordingUnavailable)??;
+        timeout(ACK_TIMEOUT, backend.begin_recording(connection, recording))
+            .await
+            .map_err(|_| ErrorCode::RecordingUnavailable)??;
         let (ready, receiver) = oneshot::channel();
         let actor_backend = backend.clone();
+        let connection_id = connection.id;
+        let target_protocol = connection.target_protocol;
+        let display = connection.display;
         let connection = connection.clone();
         backend.registry().track(tokio::spawn(async move {
             let directory = config.directory.clone();
@@ -91,6 +92,7 @@ impl ShellRecording {
                     HashedFile {
                         file,
                         hash: Sha256::new(),
+                        _slot: writer_slot,
                     },
                     header,
                     key,
@@ -110,13 +112,10 @@ impl ShellRecording {
                     let _ = ready.send(Err(ErrorCode::RecordingUnavailable));
                     let _ = timeout(
                         ACK_TIMEOUT,
-                        actor_backend.finish_shell(
-                            channel_id,
+                        actor_backend.finish_recording(
                             id,
                             RecordingState::Failed,
                             0,
-                            None,
-                            None,
                             None,
                             Some(ErrorCode::RecordingUnavailable),
                         ),
@@ -128,39 +127,12 @@ impl ShellRecording {
             if ready.is_closed() {
                 let _ = timeout(
                     ACK_TIMEOUT,
-                    actor_backend.finish_shell(
-                        channel_id,
+                    actor_backend.finish_recording(
                         id,
                         RecordingState::Failed,
                         writer.bytes_written() as i64,
-                        None,
-                        None,
                         None,
                         Some(ErrorCode::RecordingUnavailable),
-                    ),
-                )
-                .await;
-                return;
-            }
-            if let Err(error) = timeout(
-                ACK_TIMEOUT,
-                actor_backend.activate_shell(&connection, channel_id, id),
-            )
-            .await
-            .unwrap_or(Err(ErrorCode::RecordingUnavailable))
-            {
-                let _ = ready.send(Err(error));
-                let _ = timeout(
-                    ACK_TIMEOUT,
-                    actor_backend.finish_shell(
-                        channel_id,
-                        id,
-                        RecordingState::Failed,
-                        writer.bytes_written() as i64,
-                        None,
-                        None,
-                        None,
-                        Some(error),
                     ),
                 )
                 .await;
@@ -172,20 +144,18 @@ impl ShellRecording {
                     tx,
                     sequence: Mutex::new(()),
                     bytes: Arc::new(Semaphore::new(256 * 1024)),
-                    channel_id,
+                    recording_id: id,
+                    connection: connection.clone(),
                     backend: actor_backend.clone(),
                 }),
             };
             if ready.send(Ok(result)).is_err() {
                 let _ = timeout(
                     ACK_TIMEOUT,
-                    actor_backend.finish_shell(
-                        channel_id,
+                    actor_backend.finish_recording(
                         id,
                         RecordingState::Failed,
                         writer.bytes_written() as i64,
-                        None,
-                        None,
                         None,
                         Some(ErrorCode::RecordingUnavailable),
                     ),
@@ -193,22 +163,24 @@ impl ShellRecording {
                 .await;
                 return;
             }
-            recorder_loop(writer, rx, actor_backend, config, channel_id, id).await;
+            recorder_loop(writer, rx, actor_backend, config, id).await;
         }));
         let result = timeout(ACK_TIMEOUT, receiver)
             .await
             .map_err(|_| ErrorCode::RecordingUnavailable)?
             .map_err(|_| ErrorCode::RecordingUnavailable)??;
-        result.event(serde_json::json!({"type":"meta","format_version":1,"term":term,"cols":cols,"rows":rows}), None).await?;
+        result.event(serde_json::json!({"type":"meta","format_version":2,"connection_id":connection_id,"target_protocol":target_protocol,"stream_protocol":target_protocol.stream_protocol(),"width":display.width,"height":display.height,"dpi":display.dpi}), None).await?;
         Ok(result)
     }
-    pub(crate) async fn streaming(&self) -> Result<(), ErrorCode> {
+    pub(crate) async fn activate(&self) -> Result<(), ErrorCode> {
         timeout(
             Duration::from_secs(2),
-            self.inner.backend.mark_streaming(self.inner.channel_id),
+            self.inner
+                .backend
+                .activate_recording(&self.inner.connection, self.inner.recording_id),
         )
         .await
-        .unwrap_or(Err(ErrorCode::PolicyStoreUnavailable))
+        .unwrap_or(Err(ErrorCode::RecordingUnavailable))
     }
     async fn event(
         &self,
@@ -248,32 +220,21 @@ impl ShellRecording {
             .await
             .unwrap_or(Err(ErrorCode::RecordingUnavailable))
     }
-    pub(crate) async fn output(&self, stderr: bool, bytes: &[u8]) -> Result<(), ErrorCode> {
+    pub(crate) async fn output(&self, bytes: &[u8]) -> Result<(), ErrorCode> {
         for chunk in bytes.chunks(32 * 1024) {
             if chunk.is_empty() {
                 continue;
             }
-            self.event(serde_json::json!({"type":"output","stream":if stderr {"stderr"} else {"stdout"},"data_base64":STANDARD.encode(chunk)}), None).await?;
+            self.event(
+                serde_json::json!({"type":"output","data_base64":STANDARD.encode(chunk)}),
+                None,
+            )
+            .await?;
         }
         Ok(())
     }
-    pub(crate) async fn resize(&self, cols: u32, rows: u32) -> Result<(), ErrorCode> {
-        self.event(
-            serde_json::json!({"type":"resize","cols":cols,"rows":rows}),
-            None,
-        )
-        .await
-    }
-    pub(crate) async fn exit(
-        &self,
-        code: Option<u32>,
-        signal: Option<String>,
-    ) -> Result<(), ErrorCode> {
-        self.event(
-            serde_json::json!({"type":"exit","exit_code":code,"exit_signal":signal}),
-            None,
-        )
-        .await
+    pub(crate) async fn closed(&self) {
+        self.inner.tx.closed().await;
     }
     pub(crate) async fn finish(
         &self,
@@ -291,6 +252,8 @@ impl ShellRecording {
 struct HashedFile {
     file: File,
     hash: Sha256,
+    // Held by the actual file owner, including any uncancellable blocking fsync.
+    _slot: OwnedSemaphorePermit,
 }
 impl Write for HashedFile {
     fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
@@ -313,12 +276,28 @@ async fn settle_io<T>(mut task: JoinHandle<T>) -> Result<Result<T, tokio::task::
         }
     }
 }
+const CHECKPOINT_BYTES: i64 = 256 * 1024;
+fn checkpoint_due(
+    seq: u64,
+    finish: bool,
+    elapsed: Duration,
+    written_bytes: i64,
+    synced_bytes: i64,
+    next_plaintext_bytes: usize,
+) -> bool {
+    seq == 0
+        || finish
+        || elapsed >= Duration::from_secs(1)
+        || written_bytes
+            .saturating_sub(synced_bytes)
+            .saturating_add(next_plaintext_bytes as i64 + 28)
+            >= CHECKPOINT_BYTES
+}
 async fn recorder_loop(
     mut writer: RecordingWriter<HashedFile>,
     mut rx: mpsc::Receiver<RecordRequest>,
     backend: Arc<dyn GatewayBackend>,
     config: RecordingConfig,
-    channel_id: Uuid,
     id: Uuid,
 ) {
     let started = tokio::time::Instant::now();
@@ -327,11 +306,10 @@ async fn recorder_loop(
     let mut written = -1i64;
     let mut bytes = writer.bytes_written() as i64;
     let mut last_sync = started;
+    let mut last_synced_bytes = bytes;
     let mut tick = tokio::time::interval(Duration::from_secs(1));
     tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     let state = RecordingState::Partial;
-    let mut exit_code = None;
-    let mut exit_signal = None;
     let mut checksum = None;
     loop {
         let request = tokio::select! {
@@ -343,15 +321,16 @@ async fn recorder_loop(
                 })).await;
                 match synced_writer {
                     Ok(Ok((next,Ok(())))) => { writer=next; synced=written; last_sync=tokio::time::Instant::now(); },
-                    _ => { let _ = backend.finish_shell(channel_id,id,RecordingState::Partial,bytes,None,exit_code,exit_signal.clone(),Some(ErrorCode::RecordingUnavailable)).await; return; }
+                    _ => { rx.close(); let _ = backend.finish_recording(id,RecordingState::Partial,bytes,None,Some(ErrorCode::RecordingUnavailable)).await; return; }
                 }
                 if timeout(ACK_TIMEOUT, backend.checkpoint_recording(id,written,synced,bytes)).await != Ok(Ok(())) { break; }
+                last_synced_bytes=bytes;
                 continue;
             }
         };
         let Some(mut request) = request else {
-            // A dropped/aborted channel seals a partial prefix, never a complete recording.
-            let end = serde_json::json!({"type":"end","reason":"channel_interrupted","seq":seq,"elapsed_us":started.elapsed().as_micros().min(u64::MAX as u128) as u64});
+            // A dropped/aborted connection seals a partial prefix, never a complete recording.
+            let end = serde_json::json!({"type":"end","reason":"connection_interrupted","seq":seq,"elapsed_us":started.elapsed().as_micros().min(u64::MAX as u128) as u64});
             let mut line = serde_json::to_vec(&end).unwrap();
             line.push(b'\n');
             let final_writer = settle_io(tokio::task::spawn_blocking(move || {
@@ -383,8 +362,12 @@ async fn recorder_loop(
             break;
         };
         request.event["seq"] = seq.into();
-        request.event["elapsed_us"] =
-            (started.elapsed().as_micros().min(u64::MAX as u128) as u64).into();
+        request.event["elapsed_us"] = (if seq == 0 {
+            0
+        } else {
+            started.elapsed().as_micros().min(u64::MAX as u128) as u64
+        })
+        .into();
         let mut line = match serde_json::to_vec(&request.event) {
             Ok(line) => line,
             Err(_) => {
@@ -395,7 +378,14 @@ async fn recorder_loop(
         line.push(b'\n');
         let directory = config.directory.clone();
         let minimum = config.min_free_bytes;
-        let should_sync = request.finish.is_some() || last_sync.elapsed() >= Duration::from_secs(1);
+        let should_sync = checkpoint_due(
+            seq,
+            request.finish.is_some(),
+            last_sync.elapsed(),
+            bytes,
+            last_synced_bytes,
+            line.len(),
+        );
         let result = settle_io(tokio::task::spawn_blocking(move || {
             let result = (|| {
                 check_recording_directory(&directory, minimum)?;
@@ -429,16 +419,14 @@ async fn recorder_loop(
                 }
             }
             _ => {
+                rx.close();
                 let _ = request.ack.send(Err(ErrorCode::RecordingUnavailable));
                 let _ = backend
-                    .finish_shell(
-                        channel_id,
+                    .finish_recording(
                         id,
                         RecordingState::Partial,
                         bytes,
                         None,
-                        exit_code,
-                        exit_signal.clone(),
                         Some(ErrorCode::RecordingUnavailable),
                     )
                     .await;
@@ -446,10 +434,6 @@ async fn recorder_loop(
             }
         }
         seq += 1;
-        if request.event["type"] == "exit" {
-            exit_code = request.event["exit_code"].as_u64().map(|n| n as u32);
-            exit_signal = request.event["exit_signal"].as_str().map(str::to_owned);
-        }
         if should_sync {
             synced = written;
             last_sync = tokio::time::Instant::now();
@@ -463,6 +447,9 @@ async fn recorder_loop(
                 let _ = request.ack.send(Err(ErrorCode::RecordingUnavailable));
                 break;
             }
+        }
+        if should_sync {
+            last_synced_bytes = bytes;
         }
         if request.ack.is_closed() {
             let _ = timeout(
@@ -495,29 +482,17 @@ async fn recorder_loop(
             };
             let finalized = timeout(
                 ACK_TIMEOUT,
-                backend.finish_shell(
-                    channel_id,
-                    id,
-                    finish_state,
-                    bytes,
-                    checksum.clone(),
-                    exit_code,
-                    exit_signal.clone(),
-                    failure,
-                ),
+                backend.finish_recording(id, finish_state, bytes, checksum.clone(), failure),
             )
             .await;
             if finalized != Ok(Ok(())) {
                 let _ = timeout(
                     ACK_TIMEOUT,
-                    backend.finish_shell(
-                        channel_id,
+                    backend.finish_recording(
                         id,
                         RecordingState::Partial,
                         bytes,
                         checksum,
-                        exit_code,
-                        exit_signal,
                         Some(ErrorCode::RecordingUnavailable),
                     ),
                 )
@@ -534,6 +509,7 @@ async fn recorder_loop(
         }
         let _ = request.ack.send(Ok(()));
     }
+    rx.close();
     let _ = timeout(
         ACK_TIMEOUT,
         backend.checkpoint_recording(id, written, synced, bytes),
@@ -541,14 +517,11 @@ async fn recorder_loop(
     .await;
     let _ = timeout(
         ACK_TIMEOUT,
-        backend.finish_shell(
-            channel_id,
+        backend.finish_recording(
             id,
             state,
             bytes,
             checksum,
-            exit_code,
-            exit_signal,
             Some(ErrorCode::RecordingUnavailable),
         ),
     )
@@ -590,7 +563,7 @@ pub fn check_recording_directory(
     // statvfs field widths differ across Unix targets; widen before multiplying.
     #[allow(clippy::unnecessary_cast)]
     let available_bytes = (stat.f_bavail as u64).saturating_mul(stat.f_frsize as u64);
-    if available_bytes < minimum_free_bytes {
+    if stat.f_flag & libc::ST_RDONLY != 0 || available_bytes < minimum_free_bytes {
         return Err(ErrorCode::RecordingUnavailable);
     }
     Ok(())
@@ -635,9 +608,56 @@ fn create_recording_file(directory: &Path, name: &str, minimum: u64) -> Result<F
     if fd < 0 {
         return Err(ErrorCode::RecordingUnavailable);
     }
-    Ok(unsafe { File::from_raw_fd(fd) })
+    let file = unsafe { File::from_raw_fd(fd) };
+    // A synced file alone does not make its newly created directory entry durable.
+    dir.sync_all()
+        .map_err(|_| ErrorCode::RecordingUnavailable)?;
+    Ok(file)
 }
 #[cfg(not(unix))]
 fn create_recording_file(_directory: &Path, _name: &str, _minimum: u64) -> Result<File, ErrorCode> {
     Err(ErrorCode::RecordingUnavailable)
+}
+
+#[cfg(test)]
+mod checkpoint_tests {
+    use super::*;
+    #[test]
+    fn ciphertext_byte_boundary_triggers_before_timer() {
+        let mut bytes = 512;
+        let mut synced = bytes;
+        let mut sync_calls = 0;
+        let mut checkpoint_calls = 0;
+        for seq in 1..=8 {
+            let next_plaintext = 44_000;
+            let due = checkpoint_due(seq, false, Duration::ZERO, bytes, synced, next_plaintext);
+            bytes += next_plaintext as i64 + 28;
+            if due {
+                sync_calls += 1;
+                checkpoint_calls += 1;
+                synced = bytes;
+            }
+        }
+        assert_eq!(sync_calls, 1);
+        assert_eq!(checkpoint_calls, 1);
+        assert!(bytes - synced < CHECKPOINT_BYTES);
+        assert!(checkpoint_due(
+            2,
+            false,
+            Duration::from_secs(1),
+            bytes,
+            bytes,
+            0
+        ));
+        assert!(checkpoint_due(2, true, Duration::ZERO, bytes, bytes, 0));
+        assert!(checkpoint_due(0, false, Duration::ZERO, bytes, bytes, 0));
+        assert!(!checkpoint_due(
+            2,
+            false,
+            Duration::ZERO,
+            bytes,
+            bytes,
+            32 * 1024
+        ));
+    }
 }

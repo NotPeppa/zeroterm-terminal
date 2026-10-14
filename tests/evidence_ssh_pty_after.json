@@ -1,0 +1,13 @@
+{
+  "production_ready": false,
+  "mode": "verify-after-fix",
+  "checked_at": "2026-10-10T13:55:10.829Z",
+  "connection_id": "00628e00-a9e3-4043-9305-5469d68ffd1a",
+  "ssh_active": true,
+  "real_shell_output_and_unicode": true,
+  "search_and_selection_copy": true,
+  "resize_keeps_session_active": true,
+  "recording_complete": true,
+  "readonly_terminal_replay": true,
+  "status": "passed-real-ssh-browser"
+}

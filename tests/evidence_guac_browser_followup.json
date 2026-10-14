@@ -1,0 +1,345 @@
+{
+  "production_ready": false,
+  "windows_nla_verified": false,
+  "native_os_ime_verified": false,
+  "fixture_server_id": "zt-guac-v2-followup-7b819270feb1-browser",
+  "engine_image_id": "sha256:63926f22592fad15ee841e8e7488020a6b0f17a257205f06a725718415c01e1e",
+  "profiles": [
+    {
+      "label": "rdp-tls",
+      "protocol": "rdp",
+      "connection_id": "62603696-03b0-4fcd-a8ff-4e8700021095",
+      "keyboard_target_roundtrip": true,
+      "unicode_input": false,
+      "non_bmp_input_supported": false,
+      "target_input_limit": "xrdp TLS fixture ignores Unicode keyboard events; Windows NLA/IME not verified",
+      "scaled_mouse_input": true,
+      "focus_release": true,
+      "fullscreen": true,
+      "canvas_sha256": "690ecc47cd549a5a43d4f71d8edbcbc50f60e25391e5cec314f7e123d0972835",
+      "recording_id": "a120dba4-b2b8-4318-8b42-70a28d32ba0c",
+      "offline_verified_replay": true
+    },
+    {
+      "label": "vnc-none",
+      "protocol": "vnc",
+      "connection_id": "ec51251d-ece7-46bc-9421-78de48837168",
+      "keyboard_target_roundtrip": true,
+      "unicode_input": true,
+      "non_bmp_input_supported": true,
+      "scaled_mouse_input": true,
+      "focus_release": true,
+      "fullscreen": true,
+      "canvas_sha256": "d90b2d251ce401a6009d03066e1084cfa2c2f7cdfa8aa7730fc22a19d5f97d8d",
+      "recording_id": "8b83a0b7-9612-4d5b-9ee8-9ed7c7b23dbc",
+      "offline_verified_replay": true
+    },
+    {
+      "label": "vnc-password",
+      "protocol": "vnc",
+      "connection_id": "cb09e69f-25c9-4c3c-b1cb-085e8efe1b1f",
+      "keyboard_target_roundtrip": true,
+      "unicode_input": true,
+      "non_bmp_input_supported": true,
+      "scaled_mouse_input": true,
+      "focus_release": true,
+      "fullscreen": true,
+      "canvas_sha256": "d19032766a33ecce1465d4fc4bfa04310158cd3a84d817d564590a92e9879e8d",
+      "recording_id": "6aa2e1b5-aad5-407f-a784-1161aba7e220",
+      "offline_verified_replay": true
+    },
+    {
+      "label": "ssh-password",
+      "protocol": "ssh",
+      "connection_id": "d22d9fac-6a5e-4250-96c8-47f026f4bff7",
+      "keyboard_target_roundtrip": true,
+      "unicode_input": true,
+      "non_bmp_input_supported": false,
+      "scaled_mouse_input": true,
+      "focus_release": true,
+      "fullscreen": true,
+      "canvas_sha256": "14d4cdfa8317823a353600ddd5f226bd21d95867f9855a550b0e5b0386438d36",
+      "recording_id": "c7dccf48-5e1e-4bf0-9de3-63ee49d2f9b3",
+      "offline_verified_replay": true
+    },
+    {
+      "label": "ssh-private-key",
+      "protocol": "ssh",
+      "connection_id": "c20ff53b-4b91-481b-9e67-b3f442bdcffa",
+      "keyboard_target_roundtrip": true,
+      "unicode_input": true,
+      "non_bmp_input_supported": false,
+      "scaled_mouse_input": true,
+      "focus_release": true,
+      "fullscreen": true,
+      "canvas_sha256": "ed6cbed83656e40853a7c45d6a2ae8c4008a1487113ae41ced7949703e2590ec",
+      "recording_id": "4c24211a-f51f-4604-8c45-ac0ec313a21b",
+      "offline_verified_replay": true
+    },
+    {
+      "label": "ssh-encrypted-key",
+      "protocol": "ssh",
+      "connection_id": "936bd71b-d1ef-47fa-a815-b2fde5471bbe",
+      "keyboard_target_roundtrip": true,
+      "unicode_input": true,
+      "non_bmp_input_supported": false,
+      "scaled_mouse_input": true,
+      "focus_release": true,
+      "fullscreen": true,
+      "canvas_sha256": "52ea732749058a782cc9095f4bca6aea0ac4bcf6ff037b228483924ab050b5d2",
+      "recording_id": "449b6567-5d70-4434-ba31-d4b05067765a",
+      "offline_verified_replay": true
+    }
+  ],
+  "faults": {
+    "revocation": {
+      "closed_ms": 1952,
+      "recording_state": "partial"
+    },
+    "recording_permission": {
+      "closed": true,
+      "recording_state": "partial"
+    },
+    "periodic_checkpoint": {
+      "closed_without_user_input": true,
+      "recording_state": "partial"
+    },
+    "guacd_outage": {
+      "connections_unavailable": true,
+      "management_authenticated": true,
+      "replay_available": true
+    }
+  },
+  "browser_version": "149.0.7827.55",
+  "https_trust": "only the independently obtained fixture proxy SPKI is excepted",
+  "unicode_keysyms": [
+    [
+      16797229,
+      1
+    ],
+    [
+      16797229,
+      0
+    ],
+    [
+      16905728,
+      1
+    ],
+    [
+      16905728,
+      0
+    ],
+    [
+      16797229,
+      1
+    ],
+    [
+      16797229,
+      0
+    ],
+    [
+      16905728,
+      1
+    ],
+    [
+      16905728,
+      0
+    ],
+    [
+      16797229,
+      1
+    ],
+    [
+      16797229,
+      0
+    ],
+    [
+      16905728,
+      1
+    ],
+    [
+      16905728,
+      0
+    ],
+    [
+      16797229,
+      1
+    ],
+    [
+      16797229,
+      0
+    ],
+    [
+      16905728,
+      1
+    ],
+    [
+      16905728,
+      0
+    ],
+    [
+      16797229,
+      1
+    ],
+    [
+      16797229,
+      0
+    ],
+    [
+      16803207,
+      1
+    ],
+    [
+      16803207,
+      0
+    ],
+    [
+      16797229,
+      1
+    ],
+    [
+      16797229,
+      0
+    ],
+    [
+      16803207,
+      1
+    ],
+    [
+      16803207,
+      0
+    ],
+    [
+      16797229,
+      1
+    ],
+    [
+      16797229,
+      0
+    ],
+    [
+      16803207,
+      1
+    ],
+    [
+      16803207,
+      0
+    ],
+    [
+      16797229,
+      1
+    ],
+    [
+      16797229,
+      0
+    ],
+    [
+      16803207,
+      1
+    ],
+    [
+      16803207,
+      0
+    ],
+    [
+      16797229,
+      1
+    ],
+    [
+      16797229,
+      0
+    ],
+    [
+      16803207,
+      1
+    ],
+    [
+      16803207,
+      0
+    ],
+    [
+      16797229,
+      1
+    ],
+    [
+      16797229,
+      0
+    ],
+    [
+      16803207,
+      1
+    ],
+    [
+      16803207,
+      0
+    ]
+  ],
+  "mixed_protocol_smoke": {
+    "active_connections": 3,
+    "protocols": [
+      "ssh",
+      "rdp",
+      "vnc"
+    ],
+    "fourth_user_connection_rejected": true,
+    "resources": [
+      {
+        "BlockIO": "4.2MB / 2.22MB",
+        "CPUPerc": "0.02%",
+        "Container": "e6676c470cab67e7929546a4f5cddbe5fd08bbc4204be361f27710b02247904b",
+        "ID": "e6676c470cab",
+        "MemPerc": "0.25%",
+        "MemUsage": "2.395MiB / 939.7MiB",
+        "Name": "zt-guac-v2-followup-7b819270feb1-browser-proxy-1",
+        "NetIO": "8.61MB / 6.72MB",
+        "PIDs": "3"
+      },
+      {
+        "BlockIO": "30.1MB / 1.71MB",
+        "CPUPerc": "0.41%",
+        "Container": "84216da7e9aa5f88c66ea100f22a3c1f77e02094428e756442a13dc3b62dd3b3",
+        "ID": "84216da7e9aa",
+        "MemPerc": "1.30%",
+        "MemUsage": "12.17MiB / 939.7MiB",
+        "Name": "zt-guac-v2-followup-7b819270feb1-browser-bastion-1",
+        "NetIO": "8.61MB / 6.72MB",
+        "PIDs": "6"
+      },
+      {
+        "BlockIO": "538MB / 111MB",
+        "CPUPerc": "0.09%",
+        "Container": "02b2f759ef7ba0071b2a2ea6ec97a52f4ba9c5795a542175e32cefedfb9b9955",
+        "ID": "02b2f759ef7b",
+        "MemPerc": "7.54%",
+        "MemUsage": "70.87MiB / 939.7MiB",
+        "Name": "zt-guac-v2-followup-7b819270feb1-browser-guacd-1",
+        "NetIO": "2.6MB / 3.74MB",
+        "PIDs": "71"
+      },
+      {
+        "BlockIO": "2.19GB / 578MB",
+        "CPUPerc": "9.28%",
+        "Container": "a41bc5b808e9dcf15cf7906280652ccbb05e9ed5f894c44b9f0af3a17836de05",
+        "ID": "a41bc5b808e9",
+        "MemPerc": "3.56%",
+        "MemUsage": "33.45MiB / 939.7MiB",
+        "Name": "zt-guac-v2-followup-7b819270feb1-browser-postgres-1",
+        "NetIO": "29.8MB / 45.7MB",
+        "PIDs": "10"
+      },
+      {
+        "BlockIO": "382MB / 100MB",
+        "CPUPerc": "0.00%",
+        "Container": "5045ec35acaeb06dd84a575d8fb43aa29a01b75627937f4f3ae083a7913f43bb",
+        "ID": "5045ec35acae",
+        "MemPerc": "25.89%",
+        "MemUsage": "49.71MiB / 192MiB",
+        "Name": "zt-guac-v2-followup-7b819270feb1-browser-target-1",
+        "NetIO": "713kB / 1.37MB",
+        "PIDs": "23"
+      }
+    ],
+    "capacity_acceptance_claimed": false
+  },
+  "status": "passed-real-browser-component"
+}

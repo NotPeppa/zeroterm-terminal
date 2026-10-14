@@ -66,7 +66,7 @@ struct BackupManifest {
     schema_version: u32,
     credential_count: u64,
     recording_count: u64,
-    host_key_count: u64,
+    target_pin_count: u64,
     kek_versions: Vec<i64>,
 }
 /// Verify a disposable restored database/files against its separately preserved manifest.
@@ -88,7 +88,7 @@ pub(super) async fn verify_backup(path: PathBuf, manifest_path: PathBuf) -> Resu
     }
     let mut manifest: BackupManifest =
         serde_json::from_slice(&manifest_bytes).context("invalid backup manifest")?;
-    if manifest.server_id != config.server_id || manifest.schema_version != 1 {
+    if manifest.server_id != config.server_id || manifest.schema_version != 2 {
         bail!("backup manifest identity/schema mismatch");
     }
     let store = config.store().await?;
@@ -125,22 +125,49 @@ pub(super) async fn verify_backup(path: PathBuf, manifest_path: PathBuf) -> Resu
                 passphrase,
             } = &credential
             {
-                russh::keys::decode_secret_key(key_pem, passphrase.as_deref())
+                let key = ssh_key::PrivateKey::from_openssh(key_pem)
                     .map_err(|_| anyhow::anyhow!("backup private key validation failed"))?;
+                if key.is_encrypted() {
+                    key.decrypt(
+                        passphrase
+                            .as_deref()
+                            .context("backup encrypted key has no passphrase")?,
+                    )
+                    .map_err(|_| anyhow::anyhow!("backup private key validation failed"))?;
+                }
             }
             credentials += 1;
         }
     }
-    let mut host_keys = 0u64;
+    let mut target_pins = 0u64;
     for asset in store.admin_assets().await.map_err(store_error)? {
-        for host_key in store.host_keys(asset.id).await.map_err(store_error)? {
-            let key = russh::keys::PublicKey::from_openssh(&host_key.public_key)
-                .map_err(|_| anyhow::anyhow!("backup host key validation failed"))?;
-            let fingerprint = key.fingerprint(russh::keys::HashAlg::Sha256).to_string();
-            if fingerprint != host_key.fingerprint {
-                bail!("backup host key fingerprint mismatch");
+        match asset.protocol {
+            bastion_domain::TargetProtocol::Ssh => {
+                ssh_key::PublicKey::from_openssh(
+                    asset
+                        .ssh_host_key
+                        .as_deref()
+                        .context("backup SSH pin missing")?,
+                )
+                .map_err(|_| anyhow::anyhow!("backup SSH pin invalid"))?;
+                target_pins += 1;
             }
-            host_keys += 1;
+            bastion_domain::TargetProtocol::Rdp => {
+                let pin = asset
+                    .rdp_certificate_sha256
+                    .as_deref()
+                    .context("backup RDP pin missing")?;
+                if pin.len() != 64
+                    || !pin
+                        .bytes()
+                        .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+                    || asset.security.is_none()
+                {
+                    bail!("backup RDP security invalid");
+                }
+                target_pins += 1;
+            }
+            bastion_domain::TargetProtocol::Vnc => {}
         }
     }
     let mut recordings = 0u64;
@@ -173,17 +200,17 @@ pub(super) async fn verify_backup(path: PathBuf, manifest_path: PathBuf) -> Resu
             recordings += 1;
         }
     }
-    if (credentials, recordings, host_keys)
+    if (credentials, recordings, target_pins)
         != (
             manifest.credential_count,
             manifest.recording_count,
-            manifest.host_key_count,
+            manifest.target_pin_count,
         )
     {
         bail!("backup manifest object counts mismatch");
     }
     lease.close().await?;
-    println!("Backup identity, schema, in-use keys, credentials, host keys and recording integrity verified; release readiness remains false");
+    println!("Backup identity, schema, in-use keys, credentials, target pins and recording integrity verified; release readiness remains false");
     Ok(())
 }
 pub(super) async fn rewrap_keys(path: PathBuf) -> Result<()> {
@@ -243,7 +270,12 @@ pub(super) async fn rewrap_keys(path: PathBuf) -> Result<()> {
             if entry.key_version == config.active_kek_version {
                 continue;
             }
-            let context = RecordingContext::new(&config.server_id, entry.metadata.id);
+            let context = RecordingContext::new(
+                &config.server_id,
+                entry.metadata.id,
+                entry.metadata.connection_id,
+                entry.metadata.target_protocol,
+            );
             let old = RecordingEnvelope {
                 wrapped_dek: entry.wrapped_dek,
                 wrap_nonce: entry.wrap_nonce,
@@ -334,7 +366,7 @@ mod tests {
     use super::*;
     #[test]
     fn manifest_is_public_metadata_only_and_rejects_unknown_fields() {
-        assert!(serde_json::from_str::<BackupManifest>(r#"{"server_id":"a","schema_version":1,"credential_count":0,"recording_count":0,"host_key_count":0,"kek_versions":[1]}"#).is_ok());
-        assert!(serde_json::from_str::<BackupManifest>(r#"{"server_id":"a","schema_version":1,"credential_count":0,"recording_count":0,"host_key_count":0,"kek_versions":[1],"kek":"secret"}"#).is_err());
+        assert!(serde_json::from_str::<BackupManifest>(r#"{"server_id":"a","schema_version":2,"credential_count":0,"recording_count":0,"target_pin_count":0,"kek_versions":[1]}"#).is_ok());
+        assert!(serde_json::from_str::<BackupManifest>(r#"{"server_id":"a","schema_version":2,"credential_count":0,"recording_count":0,"target_pin_count":0,"kek_versions":[1],"kek":"secret"}"#).is_err());
     }
 }

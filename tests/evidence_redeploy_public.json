@@ -1,0 +1,14 @@
+{
+  "production_ready": false,
+  "preview": false,
+  "recording_complete": true,
+  "status": "passed-real-browser-session-layout",
+  "sidebar_selection_and_search": true,
+  "requested_exact_asset_account": true,
+  "real_ssh_input": true,
+  "initial_display_fit": true,
+  "narrow_layout": true,
+  "clipboard_native_paste": true,
+  "asset_group_form": true,
+  "page_errors": []
+}

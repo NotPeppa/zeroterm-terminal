@@ -1,0 +1,48 @@
+{
+  "Memory": 335544320,
+  "MemorySwap": 335544320,
+  "CpuQuota": 100000,
+  "CpuPeriod": 100000,
+  "container_id": "123a1c3dd5858fb535e563b16eede1b2f81e11288139eb4ec9a359191dbf05fb",
+  "builder": "zt-guac-v2-52d7796f-builder",
+  "source_archive_sha256": "7a577cdf17bf9f37979a3119e0be14d7798c8b5e56013d9dd7dc169dd23bd0ac",
+  "production_ready": false,
+  "cgroup": {
+    "memory.max": "335544320",
+    "memory.swap.max": "0",
+    "cpu.max": "100000 100000"
+  },
+  "status": "failed-controlled-builder-oom",
+  "build_exit": 1,
+  "application_image_built": false,
+  "https_deployment_smoke_executed": false,
+  "memory_events": "low 0\nhigh 0\nmax 208217\noom 1\noom_kill 1\noom_group_kill 0",
+  "existing_test_containers_unchanged": true,
+  "existing_test_container_statuses": [
+    {
+      "ID": "dc50db74d046af96b3efa726ec6a01dea6687c814b64600224bcd14c9617a35e",
+      "Names": "zeroterm-test-proxy-1",
+      "Status": "Up 16 hours (healthy)"
+    },
+    {
+      "ID": "3740c44fce2d03b190d058b89074b8d1d91f24f1e1cd470974ef6d362b894ea5",
+      "Names": "zeroterm-test-bastion-1",
+      "Status": "Up 16 hours (healthy)"
+    },
+    {
+      "ID": "af33155853c68cd73d53ab5c6ff4f2f71a8cc13689428ab1f5b01bfc272d91df",
+      "Names": "zeroterm-test-postgres-1",
+      "Status": "Up 17 hours (healthy)"
+    },
+    {
+      "ID": "ece98fbaf40e27bc31af17faa78405aac9c9699b5bc93bab285dbd548d8949ac",
+      "Names": "zeroterm-test-target-b-1",
+      "Status": "Up 26 hours"
+    },
+    {
+      "ID": "3800fb75a827c9a9202d1da4897a3fe43d09be41fc73040caffc89fd5937115a",
+      "Names": "zeroterm-test-target-a-1",
+      "Status": "Up 26 hours"
+    }
+  ]
+}

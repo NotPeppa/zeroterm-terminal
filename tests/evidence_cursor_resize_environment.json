@@ -1,0 +1,29 @@
+{
+  "production_ready": false,
+  "source_sha256": "96d3d4db5fdd8fc2b75ee14dc4fc0f040063d8fac2713a263277be75ba21be23",
+  "live": {
+    "bastion": {
+      "container_id": "cddda9e4c91faee04a5e7f747cde81124d5ae5f58b441d35ef11db46b04e9656",
+      "image_id": "sha256:767713cfbde0200082a080fde8b67c3f4284b7e592b4d803b93bb42e33523d02",
+      "health": "healthy"
+    },
+    "guacd": {
+      "container_id": "03d2a77fdbe03729efaf385eb543822e60afbc179a70e9bfd3bd2dcde5dc4280",
+      "image_id": "sha256:689c462e27a23670c35bb3435022627f71144f5e04210bffea3b52ba7bac6a23",
+      "health": null
+    },
+    "postgres": {
+      "container_id": "1671917d6188d5634a3aaf7d9c2b0f43b56b73176c88e311bfaa3b8b38ed222e",
+      "image_id": "sha256:589f742565e4f6d22149176b032974f55f8201a8a37b71ed587ec5c6902e689f",
+      "health": "healthy"
+    },
+    "proxy": {
+      "container_id": "145c79ca1de48a5ed57685d425558f05c4dcc4d2c710078d6c50b37756aa196a",
+      "image_id": "sha256:43d9d8c1f8968f09df8c1aa6c136ecc617e62d64fe4c0b24c97de4eb210bd973",
+      "health": "healthy"
+    }
+  },
+  "status": "verified",
+  "deployed_static_files_match_tested_build": true,
+  "owned_builder_stopped": true
+}

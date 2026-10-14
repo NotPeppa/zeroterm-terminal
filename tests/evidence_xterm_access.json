@@ -1,0 +1,30 @@
+{
+  "production_ready": false,
+  "validation_scope": "HTTPS accessibility only; no live SSH/RDP/VNC/browser acceptance",
+  "checked_at": "2026-10-10T09:46:23.118Z",
+  "checks": {
+    "/": {
+      "status": 200
+    },
+    "/assets/index-Sgc2swYa.js": {
+      "status": 200,
+      "contains_ssh_stream_protocol": true
+    },
+    "/health/live": {
+      "status": 200
+    },
+    "/health/ready": {
+      "status": 200
+    },
+    "/api/v1/info": {
+      "status": 200
+    }
+  },
+  "server_id": "zeroterm-test-guac-v2",
+  "stream_protocols": {
+    "rdp": "bastion.guac.v1",
+    "ssh": "bastion.ssh.v1",
+    "vnc": "bastion.guac.v1"
+  },
+  "status": "passed"
+}

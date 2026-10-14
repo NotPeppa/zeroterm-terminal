@@ -1,4 +1,4 @@
-//! Production-only checks. Legacy M1 intentionally stays an explicit separate mode.
+//! Browser-only deployment permission, recording and resource checks.
 #[cfg(unix)]
 use anyhow::Context;
 use anyhow::{bail, Result};
@@ -27,12 +27,10 @@ pub(super) struct Limits {
     pub pending_connections: u32,
     pub queue_bytes: u32,
     pub connections_per_user: u32,
-    pub channels_per_connection: u32,
-    pub channels_per_user: u32,
+    pub startup_seconds: u64,
     pub absolute_seconds: u64,
     pub idle_seconds: u64,
     pub stalled_seconds: u64,
-    pub file_max_bytes: u64,
 }
 impl Production {
     pub fn validate(&self) -> Result<()> {
@@ -46,21 +44,18 @@ impl Production {
             || self.trusted_proxies.is_empty()
             || self.trusted_proxies.iter().any(|net| net.prefix_len() == 0)
             || l.connections_global == 0
-            || l.connections_global > 100
+            || l.connections_global > 10
             || l.connections_per_user == 0
             || l.connections_per_user > l.connections_global
-            || l.connections_per_user > 10
+            || l.connections_per_user > 3
             || !(1..=20).contains(&l.pending_connections)
             || !(32768..=262144).contains(&l.queue_bytes)
-            || !(1..=16).contains(&l.channels_per_connection)
-            || !(1..=64).contains(&l.channels_per_user)
+            || !(1..=45).contains(&l.startup_seconds)
             || !(1..=28800).contains(&l.absolute_seconds)
             || l.idle_seconds == 0
             || l.idle_seconds > l.absolute_seconds
             || l.idle_seconds > 1800
             || !(1..=30).contains(&l.stalled_seconds)
-            || l.file_max_bytes == 0
-            || l.file_max_bytes > i64::MAX as u64
         {
             bail!("invalid production recording, proxy, metrics or resource limits");
         }
@@ -123,16 +118,14 @@ mod tests {
             metrics_listen: "127.0.0.1:9090".parse().unwrap(),
             trusted_proxies: vec!["127.0.0.1/32".parse().unwrap()],
             limits: Limits {
-                connections_global: 100,
+                connections_global: 10,
                 pending_connections: 20,
                 queue_bytes: 262144,
-                connections_per_user: 8,
-                channels_per_connection: 16,
-                channels_per_user: 64,
+                connections_per_user: 3,
+                startup_seconds: 45,
                 absolute_seconds: 3600,
                 idle_seconds: 600,
                 stalled_seconds: 10,
-                file_max_bytes: 1024 * 1024,
             },
         };
         assert!(production.validate().is_ok());

@@ -1,0 +1,9 @@
+{
+  "production_ready": false,
+  "backup_skipped_per_user_preference": true,
+  "source_sha256": "7d9bd1674774c7e2f0ec80b64047ca3d04e339fdeffaec14012374673ea1fe2c",
+  "app_image_id": "sha256:a03699f9e03ae8d5e6920dffaca1faf6efba237f23c34855ae11f0d84cd544e6",
+  "status": "updated",
+  "postgres_and_guacd_not_recreated": true,
+  "no_database_migration": true
+}

@@ -1,11 +1,10 @@
 mod protocol;
+mod rdp_certificate;
+mod ssh_host_keys;
 pub use protocol::{
-    check_recording_directory, copy_regular_file, run_backend, run_web_session, test_target,
-    ConnectionSession, DirectoryEntry, FileMetadata, GatewayBackend, NetworkPolicy,
-    RecordingConfig, RuntimeLimits, RuntimeRegistry, SftpDownload, SftpSession, SftpUpload,
-    ShellRecording, Target, TargetAuth, TargetEndpoint,
+    check_recording_directory, protocol_available, run_web_session, GatewayBackend, GuacdConfig,
+    NetworkPolicy, RecordingConfig, RuntimeLimits, RuntimeRegistry, SessionRecording, Target,
+    TargetAuth, TargetEndpoint,
 };
-#[cfg(feature = "dev-prototype")]
-mod prototype;
-#[cfg(feature = "dev-prototype")]
-pub use prototype::run;
+pub use rdp_certificate::{scan_rdp_certificate, RdpCertificate};
+pub use ssh_host_keys::{scan_ssh_host_keys, ssh_host_key_fingerprint, SshHostKey};

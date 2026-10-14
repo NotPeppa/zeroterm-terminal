@@ -1,6 +1,10 @@
 /target/
 /.local/
+/.env
 *.log
+!/tests/evidence_guacd_v3_run11_protocol.log
+!/tests/evidence_guacd_v3_run11_xrdp_auth.log
+!/tests/evidence_guacd_v3_run11_ssh_auth.log
 .DS_Store
 /.dsh-permission-recovery/
 __pycache__/

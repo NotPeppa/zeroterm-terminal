@@ -1,0 +1,9 @@
+{
+  "source_sha256": "5828c827abad13e6aef7bbab10998e4648fab8717d72554fcd7ca50e53123c3f",
+  "production_ready": false,
+  "validation": "gateway unit tests, fmt, clippy and authorized real OpenSSH PTY/shell/output probe passed locally; live browser follows deployment",
+  "app_exit": 0,
+  "app_image_id": "sha256:5b6d3347431229ec847d22593777a5e45d7a466c54a240207c420c885a398484",
+  "status": "passed",
+  "finished_at": "2026-10-10T13:34:07Z"
+}

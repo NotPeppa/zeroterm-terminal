@@ -1,0 +1,9 @@
+{
+  "production_ready": false,
+  "status": "passed-public-browser-groups",
+  "group_create_rename_delete": true,
+  "asset_form_group_choice": true,
+  "existing_assets_unchanged": true,
+  "owned_test_group_removed": true,
+  "page_errors": []
+}

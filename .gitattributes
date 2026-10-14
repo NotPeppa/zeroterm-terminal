@@ -1,0 +1,4 @@
+# Preserve official Guacamole JS/license byte hashes across Windows autocrlf.
+web/public/guacamole/all.js -text
+web/public/guacamole/LICENSE -text
+web/public/guacamole/NOTICE -text

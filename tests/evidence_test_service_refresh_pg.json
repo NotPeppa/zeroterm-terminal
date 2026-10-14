@@ -1,0 +1,5 @@
+{
+  "production_ready": false,
+  "postgres_suites_exit": 0,
+  "status": "passed-postgres"
+}

@@ -1,0 +1,9 @@
+{
+  "production_ready": false,
+  "real_postgres_suites": 7,
+  "exit_code": 0,
+  "status": "passed",
+  "tests_image_id": "sha256:4b864d03dbaf14b9028f5d1a64c40bcd51ebbc3dea5dbed219e30d30dff881e0",
+  "owned_postgres_removed": true,
+  "finished_at": "2026-10-10T03:58:31Z"
+}

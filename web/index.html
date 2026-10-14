@@ -1,29 +1,55 @@
 <!doctype html>
 <html lang="zh-CN">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="color-scheme" content="dark"><meta name="theme-color" content="#101621"><title>ZeroTerm · 工作台</title></head>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="color-scheme" content="dark"><meta name="theme-color" content="#141414"><link rel="icon" type="image/svg+xml" href="/favicon.svg"><title>ZeroTerm · 堡垒机</title></head>
 <body>
 <a class="skip" href="#route-view">跳到主要内容</a>
-<main>
-  <header class="site-header"><a class="brand" href="#/assets">ZeroTerm <small>工作台</small></a><p id="discovery" role="status">正在读取服务端能力…</p></header>
-  <p id="development-warning" class="error" role="status" hidden></p>
-  <p id="status" role="status" aria-live="polite">正在检查登录会话…</p><p id="error" role="alert" hidden></p>
-  <section id="login-panel" class="auth-layout" aria-labelledby="login-heading" hidden>
-    <div><p class="eyebrow">授权目标访问</p><h1>连接你的<br>授权工作空间。</h1><p class="muted">浏览器只访问同源网关；目标地址与凭据由服务端管理。功能和录制状态以服务端实际发现结果为准。</p></div>
-    <div class="auth-card"><h2 id="login-heading">登录控制台</h2>
-      <form id="login-form"><label for="username">用户名</label><input id="username" name="username" autocomplete="username" required maxlength="64"><label for="password">密码</label><input id="password" name="password" type="password" autocomplete="current-password" required maxlength="1024">
-        <details><summary>高级：设备标签（可选）</summary><label for="device">设备标签</label><input id="device" name="device_label" value="Web 浏览器" maxlength="128" aria-describedby="device-help"><p id="device-help" class="muted">用于在个人设置中识别和撤销这次设备登录，不影响授权目标。留空使用“Web 浏览器”。</p></details>
-        <button id="login" type="submit" class="primary">登录</button>
-      </form><p class="muted">HttpOnly Cookie 登录；不在浏览器持久保存令牌、密码或目标凭据。</p>
+<p id="error" role="alert" title="点击关闭" hidden></p>
+<div id="app">
+  <section id="login-panel" class="login" aria-labelledby="login-heading" hidden>
+    <div class="login-card">
+      <div class="login-brand"><span class="logo" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg></span><span>ZEROTERM</span></div>
+      <h1 id="login-heading">登录堡垒机</h1>
+      <p class="muted">目标地址与凭据由服务端托管，浏览器只访问同源网关。</p>
+      <form id="login-form">
+        <label for="username">用户名</label><input id="username" name="username" autocomplete="username" required maxlength="64">
+        <label for="password">密码</label><input id="password" name="password" type="password" autocomplete="current-password" required maxlength="1024">
+        <details><summary>设备标签（可选）</summary><label for="device">设备标签</label><input id="device" name="device_label" value="Web 浏览器" maxlength="128" aria-describedby="device-help"><p id="device-help" class="muted">用于在个人设置中识别和撤销这次设备登录，留空使用“Web 浏览器”。</p></details>
+        <button id="login" type="submit" class="primary block">登 录</button>
+      </form>
+      <p class="muted small">HttpOnly Cookie 登录；不在浏览器持久保存令牌、密码或目标凭据。</p>
     </div>
   </section>
-  <section id="workspace" class="workspace-shell" hidden>
-    <aside class="sidebar"><strong id="sidebar-user"></strong><nav id="navigation" aria-label="工作台导航"></nav></aside>
-    <div class="workspace-main"><header class="workspace-topbar"><h1 id="assets-heading" tabindex="-1">工作台</h1><div class="toolbar"><button id="refresh" type="button">主动刷新登录</button><button id="logout" type="button">注销</button></div></header>
-      <p id="identity" class="identity-strip"></p>
-      <section id="target-bar" aria-label="授权目标选择"><div class="target-fields"><label for="asset">授权资产<select id="asset"></select></label><label for="account">目标账号<select id="account"></select></label><div class="toolbar"><button id="reload" type="button">刷新目标</button><button id="more" type="button" hidden>更多目标</button></div></div><p id="capabilities" class="muted"></p></section>
-      <section id="route-view" class="workspace-content" tabindex="-1" aria-labelledby="assets-heading"></section>
+  <div id="workspace" class="layout" hidden>
+    <aside class="sider">
+      <a class="brand" href="#/assets"><span class="logo" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg></span><span class="brand-text">ZEROTERM</span></a>
+      <nav id="navigation" aria-label="工作台导航"></nav>
+      <button id="collapse" type="button" class="collapse" aria-label="折叠导航" title="折叠导航"></button>
+    </aside>
+    <div class="main">
+      <header class="header">
+        <nav class="crumb" aria-label="当前位置"><span>首页</span><span aria-hidden="true">/</span><span id="crumb"></span></nav>
+        <div class="header-right">
+          <span id="development-warning" class="tag warning" role="status" hidden></span>
+          <details class="user-menu">
+            <summary><span class="avatar" aria-hidden="true"></span><span id="sidebar-user"></span></summary>
+            <div class="menu">
+              <div class="menu-head"><span class="avatar lg" aria-hidden="true"></span><div><strong id="menu-name"></strong><span id="menu-role" class="tag"></span></div></div>
+              <button id="refresh" type="button" class="menu-item">主动刷新登录</button>
+              <button id="logout" type="button" class="menu-item danger-item">注销</button>
+            </div>
+          </details>
+        </div>
+      </header>
+      <div class="content">
+        <div class="page-head">
+          <h1 id="assets-heading" tabindex="-1">工作台</h1>
+        </div>
+        <section id="route-view" class="route" tabindex="-1" aria-labelledby="assets-heading"></section>
+      </div>
     </div>
-  </section>
-</main>
+  </div>
+</div>
+<footer class="statusbar"><span id="status" role="status" aria-live="polite">正在检查登录会话…</span><span id="discovery" role="status">正在读取服务端能力…</span></footer>
+<script src="/guacamole/all.js"></script>
 <script type="module" src="/src/main.ts"></script>
 </body></html>

@@ -1,0 +1,133 @@
+{
+  "production_ready": false,
+  "preview": false,
+  "cases": [
+    {
+      "window": {
+        "width": 1280,
+        "height": 720
+      },
+      "zoom": "fit",
+      "mouse_exit_resizes": 0,
+      "stable_dimensions": "730,388,730,388"
+    },
+    {
+      "window": {
+        "width": 1280,
+        "height": 720
+      },
+      "zoom": "1",
+      "mouse_exit_resizes": 0,
+      "stable_dimensions": "730,388,730,388"
+    },
+    {
+      "window": {
+        "width": 1366,
+        "height": 768
+      },
+      "zoom": "fit",
+      "mouse_exit_resizes": 0,
+      "stable_dimensions": "816,456,816,456"
+    },
+    {
+      "window": {
+        "width": 1366,
+        "height": 768
+      },
+      "zoom": "1",
+      "mouse_exit_resizes": 0,
+      "stable_dimensions": "816,456,816,456"
+    },
+    {
+      "window": {
+        "width": 1440,
+        "height": 1000
+      },
+      "zoom": "fit",
+      "mouse_exit_resizes": 0,
+      "stable_dimensions": "890,688,890,688"
+    },
+    {
+      "window": {
+        "width": 1440,
+        "height": 1000
+      },
+      "zoom": "1",
+      "mouse_exit_resizes": 0,
+      "stable_dimensions": "890,688,890,688"
+    }
+  ],
+  "server_sizes": [
+    "4.size,1.1,1.0,1.0;",
+    "4.size,1.0,4.1280,3.720;",
+    "4.size,1.1,4.1250,3.703;",
+    "4.size,1.2,4.1250,3.703;",
+    "4.size,2.-1,1.1,1.1;",
+    "4.size,1.3,2.16,3.720;",
+    "4.size,1.4,2.12,3.716;",
+    "4.size,1.0,3.890,3.688;",
+    "4.size,1.1,3.860,3.665;",
+    "4.size,1.2,3.860,3.665;",
+    "4.size,1.3,2.16,3.688;",
+    "4.size,1.4,2.12,3.684;",
+    "4.size,1.0,3.730,3.388;",
+    "4.size,1.1,3.700,3.361;",
+    "4.size,1.2,3.700,3.361;",
+    "4.size,1.3,2.16,3.388;",
+    "4.size,1.4,2.12,3.384;",
+    "4.size,2.-1,1.7,2.16;",
+    "4.size,2.-1,2.11,2.16;",
+    "4.size,2.-1,1.7,2.16;",
+    "4.size,2.-1,2.11,2.16;",
+    "4.size,1.0,3.816,3.456;",
+    "4.size,1.1,3.780,3.437;",
+    "4.size,1.2,3.780,3.437;",
+    "4.size,1.3,2.16,3.456;",
+    "4.size,1.4,2.12,3.452;",
+    "4.size,2.-1,1.7,2.16;",
+    "4.size,2.-1,2.11,2.16;",
+    "4.size,2.-1,1.7,2.16;",
+    "4.size,2.-1,2.11,2.16;",
+    "4.size,1.0,3.890,3.688;",
+    "4.size,1.1,3.860,3.665;",
+    "4.size,1.2,3.860,3.665;",
+    "4.size,1.3,2.16,3.688;",
+    "4.size,1.4,2.12,3.684;",
+    "4.size,2.-1,1.7,2.16;"
+  ],
+  "client_sizes": [
+    "4.size,3.890,3.688;",
+    "4.size,3.730,3.388;",
+    "4.size,3.816,3.456;",
+    "4.size,3.890,3.688;"
+  ],
+  "server_opcodes": {
+    "size": 36,
+    "move": 8,
+    "rect": 32,
+    "cfill": 32,
+    "img": 18,
+    "blob": 18,
+    "end": 18,
+    "cursor": 10,
+    "sync": 43
+  },
+  "distinct_dimensions": [
+    "890,688,890,688",
+    "730,388,501.90625,388",
+    "730,388,730,388",
+    "816,456,730,388",
+    "816,456,816,456",
+    "890,688,816,456"
+  ],
+  "recording_complete": true,
+  "status": "passed-real-browser-session-layout",
+  "sidebar_selection_and_search": true,
+  "requested_exact_asset_account": true,
+  "real_ssh_input": true,
+  "initial_display_fit": true,
+  "narrow_layout": true,
+  "clipboard_native_paste": true,
+  "asset_group_form": true,
+  "page_errors": []
+}

@@ -1,0 +1,233 @@
+Server listening on 0.0.0.0 port 22.
+Server listening on :: port 22.
+Connection from 172.30.62.4 port 54428 on 172.30.62.3 port 22 rdomain ""
+Accepted password for fixture from 172.30.62.4 port 54428 ssh2
+User child is on pid 86
+Starting session: shell on pts/2 for fixture from 172.30.62.4 port 54428 id 0
+Connection closed by 172.30.62.4 port 54428
+Close session: user fixture from 172.30.62.4 port 54428 id 0
+Transferred: sent 2048, received 1512 bytes
+Closing connection to 172.30.62.4 port 54428
+syslogin_perform_logout: logout() returned an error
+Connection from 172.30.62.5 port 52564 on 172.30.62.3 port 22 rdomain ""
+Accepted password for fixture from 172.30.62.5 port 52564 ssh2
+User child is on pid 135
+Starting session: shell on pts/3 for fixture from 172.30.62.5 port 52564 id 0
+Connection closed by 172.30.62.5 port 52564
+Close session: user fixture from 172.30.62.5 port 52564 id 0
+Transferred: sent 2096, received 1512 bytes
+Closing connection to 172.30.62.5 port 52564
+syslogin_perform_logout: logout() returned an error
+Connection from 172.30.62.5 port 33048 on 172.30.62.3 port 22 rdomain ""
+Accepted password for fixture from 172.30.62.5 port 33048 ssh2
+User child is on pid 145
+Starting session: shell on pts/3 for fixture from 172.30.62.5 port 33048 id 0
+Connection from 172.30.62.5 port 54618 on 172.30.62.3 port 22 rdomain ""
+Accepted password for fixture from 172.30.62.5 port 54618 ssh2
+User child is on pid 158
+Starting session: shell on pts/4 for fixture from 172.30.62.5 port 54618 id 0
+Connection from 172.30.62.5 port 59580 on 172.30.62.3 port 22 rdomain ""
+Accepted password for fixture from 172.30.62.5 port 59580 ssh2
+User child is on pid 207
+Starting session: shell on pts/6 for fixture from 172.30.62.5 port 59580 id 0
+Connection from 172.30.62.5 port 34248 on 172.30.62.3 port 22 rdomain ""
+Accepted password for fixture from 172.30.62.5 port 34248 ssh2
+User child is on pid 256
+Starting session: shell on pts/8 for fixture from 172.30.62.5 port 34248 id 0
+Connection closed by 172.30.62.5 port 33048
+Close session: user fixture from 172.30.62.5 port 33048 id 0
+Transferred: sent 2096, received 1512 bytes
+Closing connection to 172.30.62.5 port 33048
+syslogin_perform_logout: logout() returned an error
+Connection closed by 172.30.62.5 port 54618
+Close session: user fixture from 172.30.62.5 port 54618 id 0
+Transferred: sent 2112, received 1512 bytes
+Closing connection to 172.30.62.5 port 54618
+syslogin_perform_logout: logout() returned an error
+Connection closed by 172.30.62.5 port 59580
+Close session: user fixture from 172.30.62.5 port 59580 id 0
+Transferred: sent 2096, received 1512 bytes
+Closing connection to 172.30.62.5 port 59580
+syslogin_perform_logout: logout() returned an error
+Connection closed by 172.30.62.5 port 34248
+Close session: user fixture from 172.30.62.5 port 34248 id 0
+Transferred: sent 2128, received 1512 bytes
+Closing connection to 172.30.62.5 port 34248
+syslogin_perform_logout: logout() returned an error
+Connection from 172.30.62.5 port 56176 on 172.30.62.3 port 22 rdomain ""
+Accepted password for fixture from 172.30.62.5 port 56176 ssh2
+User child is on pid 272
+Starting session: shell on pts/3 for fixture from 172.30.62.5 port 56176 id 0
+Connection closed by 172.30.62.5 port 56176
+Close session: user fixture from 172.30.62.5 port 56176 id 0
+Transferred: sent 2096, received 1512 bytes
+Closing connection to 172.30.62.5 port 56176
+syslogin_perform_logout: logout() returned an error
+Connection from 172.30.62.5 port 48786 on 172.30.62.3 port 22 rdomain ""
+Accepted password for fixture from 172.30.62.5 port 48786 ssh2
+User child is on pid 282
+Starting session: shell on pts/3 for fixture from 172.30.62.5 port 48786 id 0
+Connection closed by 172.30.62.5 port 48786
+Close session: user fixture from 172.30.62.5 port 48786 id 0
+Transferred: sent 2096, received 1512 bytes
+Closing connection to 172.30.62.5 port 48786
+syslogin_perform_logout: logout() returned an error
+Connection from 172.30.62.5 port 60432 on 172.30.62.3 port 22 rdomain ""
+Accepted password for fixture from 172.30.62.5 port 60432 ssh2
+User child is on pid 292
+Starting session: shell on pts/3 for fixture from 172.30.62.5 port 60432 id 0
+Connection closed by 172.30.62.5 port 60432
+Close session: user fixture from 172.30.62.5 port 60432 id 0
+Transferred: sent 2096, received 1512 bytes
+Closing connection to 172.30.62.5 port 60432
+syslogin_perform_logout: logout() returned an error
+Connection from 172.30.62.5 port 41766 on 172.30.62.3 port 22 rdomain ""
+Accepted password for fixture from 172.30.62.5 port 41766 ssh2
+User child is on pid 302
+Starting session: shell on pts/3 for fixture from 172.30.62.5 port 41766 id 0
+Connection closed by 172.30.62.5 port 41766
+Close session: user fixture from 172.30.62.5 port 41766 id 0
+Transferred: sent 2096, received 1512 bytes
+Closing connection to 172.30.62.5 port 41766
+syslogin_perform_logout: logout() returned an error
+Connection from 172.30.62.5 port 41102 on 172.30.62.3 port 22 rdomain ""
+Accepted password for fixture from 172.30.62.5 port 41102 ssh2
+User child is on pid 312
+Starting session: shell on pts/3 for fixture from 172.30.62.5 port 41102 id 0
+Connection closed by 172.30.62.5 port 41102
+Close session: user fixture from 172.30.62.5 port 41102 id 0
+Transferred: sent 2688, received 2088 bytes
+Closing connection to 172.30.62.5 port 41102
+syslogin_perform_logout: logout() returned an error
+Connection from 172.30.62.5 port 57664 on 172.30.62.3 port 22 rdomain ""
+Accepted password for fixture from 172.30.62.5 port 57664 ssh2
+User child is on pid 322
+Starting session: shell on pts/3 for fixture from 172.30.62.5 port 57664 id 0
+Connection closed by 172.30.62.5 port 57664
+Close session: user fixture from 172.30.62.5 port 57664 id 0
+Transferred: sent 2096, received 1512 bytes
+Closing connection to 172.30.62.5 port 57664
+syslogin_perform_logout: logout() returned an error
+Connection from 172.30.62.5 port 52896 on 172.30.62.3 port 22 rdomain ""
+Accepted password for fixture from 172.30.62.5 port 52896 ssh2
+User child is on pid 332
+Starting session: shell on pts/3 for fixture from 172.30.62.5 port 52896 id 0
+Connection closed by 172.30.62.5 port 52896
+Close session: user fixture from 172.30.62.5 port 52896 id 0
+Transferred: sent 2096, received 1512 bytes
+Closing connection to 172.30.62.5 port 52896
+syslogin_perform_logout: logout() returned an error
+Connection from 172.30.62.5 port 58894 on 172.30.62.3 port 22 rdomain ""
+Accepted password for fixture from 172.30.62.5 port 58894 ssh2
+User child is on pid 342
+Starting session: shell on pts/3 for fixture from 172.30.62.5 port 58894 id 0
+Connection closed by 172.30.62.5 port 58894
+Close session: user fixture from 172.30.62.5 port 58894 id 0
+Transferred: sent 2096, received 1512 bytes
+Closing connection to 172.30.62.5 port 58894
+syslogin_perform_logout: logout() returned an error
+Connection from 172.30.62.5 port 42696 on 172.30.62.3 port 22 rdomain ""
+Accepted password for fixture from 172.30.62.5 port 42696 ssh2
+User child is on pid 352
+Starting session: shell on pts/3 for fixture from 172.30.62.5 port 42696 id 0
+Connection closed by 172.30.62.5 port 42696
+Close session: user fixture from 172.30.62.5 port 42696 id 0
+Transferred: sent 2096, received 1512 bytes
+Closing connection to 172.30.62.5 port 42696
+syslogin_perform_logout: logout() returned an error
+Connection from 172.30.62.5 port 59182 on 172.30.62.3 port 22 rdomain ""
+Accepted password for fixture from 172.30.62.5 port 59182 ssh2
+User child is on pid 362
+Starting session: shell on pts/3 for fixture from 172.30.62.5 port 59182 id 0
+Connection closed by 172.30.62.5 port 59182
+Close session: user fixture from 172.30.62.5 port 59182 id 0
+Transferred: sent 4832, received 4264 bytes
+Closing connection to 172.30.62.5 port 59182
+syslogin_perform_logout: logout() returned an error
+Connection from 172.30.62.5 port 40808 on 172.30.62.3 port 22 rdomain ""
+Accepted key ED25519 SHA256:3PPkoKVQU/OXw0EU7iuZOx1+7QbNFEH6ia2U+2+I6M0 found at /home/fixture/.ssh/authorized_keys:1
+Postponed publickey for fixture from 172.30.62.5 port 40808 ssh2 [preauth]
+Accepted key ED25519 SHA256:3PPkoKVQU/OXw0EU7iuZOx1+7QbNFEH6ia2U+2+I6M0 found at /home/fixture/.ssh/authorized_keys:1
+Accepted publickey for fixture from 172.30.62.5 port 40808 ssh2: ED25519 SHA256:3PPkoKVQU/OXw0EU7iuZOx1+7QbNFEH6ia2U+2+I6M0
+User child is on pid 385
+Starting session: shell on pts/3 for fixture from 172.30.62.5 port 40808 id 0
+Connection closed by 172.30.62.5 port 40808
+Close session: user fixture from 172.30.62.5 port 40808 id 0
+Transferred: sent 5472, received 4696 bytes
+Closing connection to 172.30.62.5 port 40808
+syslogin_perform_logout: logout() returned an error
+Connection from 172.30.62.5 port 40760 on 172.30.62.3 port 22 rdomain ""
+Accepted key ED25519 SHA256:qYmYMsHDdUDdpsLrn36i/WxabueZX6bwYkfzXtfbAbM found at /home/fixture/.ssh/authorized_keys:2
+Postponed publickey for fixture from 172.30.62.5 port 40760 ssh2 [preauth]
+Accepted key ED25519 SHA256:qYmYMsHDdUDdpsLrn36i/WxabueZX6bwYkfzXtfbAbM found at /home/fixture/.ssh/authorized_keys:2
+Accepted publickey for fixture from 172.30.62.5 port 40760 ssh2: ED25519 SHA256:qYmYMsHDdUDdpsLrn36i/WxabueZX6bwYkfzXtfbAbM
+User child is on pid 408
+Starting session: shell on pts/3 for fixture from 172.30.62.5 port 40760 id 0
+Connection closed by 172.30.62.5 port 40760
+Close session: user fixture from 172.30.62.5 port 40760 id 0
+Transferred: sent 5376, received 4696 bytes
+Closing connection to 172.30.62.5 port 40760
+syslogin_perform_logout: logout() returned an error
+Connection from 172.30.62.5 port 51816 on 172.30.62.3 port 22 rdomain ""
+Accepted password for fixture from 172.30.62.5 port 51816 ssh2
+User child is on pid 471
+Starting session: shell on pts/3 for fixture from 172.30.62.5 port 51816 id 0
+Connection closed by 172.30.62.5 port 51816
+Close session: user fixture from 172.30.62.5 port 51816 id 0
+Transferred: sent 3536, received 2920 bytes
+Closing connection to 172.30.62.5 port 51816
+syslogin_perform_logout: logout() returned an error
+Connection from 172.30.62.5 port 46000 on 172.30.62.3 port 22 rdomain ""
+Accepted password for fixture from 172.30.62.5 port 46000 ssh2
+User child is on pid 503
+Starting session: shell on pts/3 for fixture from 172.30.62.5 port 46000 id 0
+Connection closed by 172.30.62.5 port 46000
+Close session: user fixture from 172.30.62.5 port 46000 id 0
+syslogin_perform_logout: logout() returned an error
+Transferred: sent 2144, received 1512 bytes
+Closing connection to 172.30.62.5 port 46000
+Connection from 172.30.62.5 port 43142 on 172.30.62.3 port 22 rdomain ""
+Accepted password for fixture from 172.30.62.5 port 43142 ssh2
+User child is on pid 513
+Starting session: shell on pts/3 for fixture from 172.30.62.5 port 43142 id 0
+Connection closed by 172.30.62.5 port 43142
+Close session: user fixture from 172.30.62.5 port 43142 id 0
+syslogin_perform_logout: logout() returned an error
+Transferred: sent 2320, received 1704 bytes
+Closing connection to 172.30.62.5 port 43142
+Connection from 172.30.62.5 port 48936 on 172.30.62.3 port 22 rdomain ""
+Accepted password for fixture from 172.30.62.5 port 48936 ssh2
+User child is on pid 523
+Starting session: shell on pts/3 for fixture from 172.30.62.5 port 48936 id 0
+Connection closed by 172.30.62.5 port 48936
+Close session: user fixture from 172.30.62.5 port 48936 id 0
+Transferred: sent 2128, received 1512 bytes
+Closing connection to 172.30.62.5 port 48936
+syslogin_perform_logout: logout() returned an error
+Connection from 172.30.62.5 port 39522 on 172.30.62.3 port 22 rdomain ""
+Accepted password for fixture from 172.30.62.5 port 39522 ssh2
+User child is on pid 533
+Starting session: shell on pts/3 for fixture from 172.30.62.5 port 39522 id 0
+Connection closed by 172.30.62.5 port 39522
+Close session: user fixture from 172.30.62.5 port 39522 id 0
+Transferred: sent 2096, received 1512 bytes
+Closing connection to 172.30.62.5 port 39522
+syslogin_perform_logout: logout() returned an error
+Connection from 172.30.62.5 port 45874 on 172.30.62.3 port 22 rdomain ""
+Accepted password for fixture from 172.30.62.5 port 45874 ssh2
+User child is on pid 543
+Starting session: shell on pts/3 for fixture from 172.30.62.5 port 45874 id 0
+Connection closed by 172.30.62.5 port 45874
+Close session: user fixture from 172.30.62.5 port 45874 id 0
+Transferred: sent 2128, received 1512 bytes
+Closing connection to 172.30.62.5 port 45874
+syslogin_perform_logout: logout() returned an error
+Connection from 172.30.62.5 port 57592 on 172.30.62.3 port 22 rdomain ""
+Accepted password for fixture from 172.30.62.5 port 57592 ssh2
+User child is on pid 553
+Starting session: shell on pts/3 for fixture from 172.30.62.5 port 57592 id 0
+Connection closed by 172.30.62.5 port 57592
+Close session: user fixture from 172.30.62.5 port 57592 id 0
+Transferred: sent 7056, received 3368 bytes
+Closing connection to 172.30.62.5 port 57592
+syslogin_perform_logout: logout() returned an error

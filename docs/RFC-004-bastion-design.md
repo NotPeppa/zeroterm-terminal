@@ -8,7 +8,7 @@
 | 关联文档 | [项目说明](../README.md) |
 | 实现状态 | 本文是设计；除明确标为现有能力的部分外，接口、类型、目录和配置均待实现 |
 
-本文定义一个独立、完整、可单独部署的自托管 Web 堡垒机。管理员在 Web 界面配置目标 SSH 服务器及其账号凭据，用户在浏览器登录、选择授权资产并打开终端或文件管理器。堡垒机自身完整负责用户、资产、授权、SSH 连接、SFTP、exec、审计和会话管理，不依赖 ZeroTerm 才能工作。浏览器目标会话遵循 `浏览器 → Web 堡垒机 → 目标 SSH`，目标密码和私钥不下发给浏览器。
+本文定义一个独立、完整、可单独部署的自托管 Web 堡垒机。管理员在 Web 界面配置目标 SSH 服务器及其账号凭据，用户在浏览器登录、选择可用资产并打开终端或文件管理器。堡垒机自身完整负责用户、资产、授权、SSH 连接、SFTP、exec、审计和会话管理，不依赖 ZeroTerm 才能工作。浏览器目标会话遵循 `浏览器 → Web 堡垒机 → 目标 SSH`，目标密码和私钥不下发给浏览器。
 
 设计采用 HTTPS API、WebSocket 数据面与服务端 SSH 会话代理。浏览器使用 xterm.js 等终端组件，终端输入、输出、尺寸变化和 SFTP 数据通过 WebSocket 或受保护的 HTTP 流传输；浏览器不直接建立 SSH 连接。与此同时，系统提供独立的 ZeroTerm 集成入口：ZeroTerm 可以通过同一套用户、资产和授权 API 申请 SSH 连接票据，再使用标准 SSH 连接到堡垒机。ZeroTerm 是额外接入方式，不是堡垒机运行前提。第一版提供用户授权、Web 会话票据、ZeroTerm SSH 票据、会话事件及终端输出录制。完整文件操作审计、精确命令控制、多节点高可用作为后续扩展。
 
@@ -20,9 +20,9 @@
 
 1. 管理员在 Web 管理界面创建资产，例如生产应用服务器，并配置地址与 SSH 端口。
 2. 管理员添加一个或多个目标账号，例如 deploy、ops，并录入密码或私钥及其口令。
-3. 管理员审核目标主机密钥，分配用户对资产账号的访问能力。
+3. 管理员审核目标主机密钥，按需为普通用户分配精确资产账号访问授权；管理员默认拥有启用资产账号的访问权。
 4. 用户在浏览器打开堡垒机地址并登录自己的账号。
-5. Web 前端展示可访问资产、可使用目标账号及能力。
+5. Web 前端展示可用资产、目标账号与服务端实际提供的功能。
 6. 用户选择资产账号，打开浏览器终端、文件管理器或服务器工具。
 7. 前端申请一次性 WebSocket 会话票据并建立 WSS 连接；服务端用托管凭据登录目标并代理通道。
 8. 管理员在 Web 界面查看会话和审计记录，必要时撤销授权并断开会话。
@@ -37,13 +37,13 @@
 | 用户 | 本地账号登录、密码修改、设备登录会话、注销、管理员停用 |
 | 资产 | SSH 地址、端口、名称、标签、目标账号、主机密钥管理 |
 | 目标认证 | 密码；PEM/OpenSSH 私钥与可选 passphrase |
-| 授权 | 用户与资产账号的显式授权；shell、exec、sftp 能力 |
+| 授权 | 管理员默认访问启用资产账号；普通用户通过精确资产账号 Grant 获得完整访问；auditor 无目标访问 |
 | 终端 | PTY、shell、尺寸变化、二进制数据、退出状态、取消与断开 |
 | 文件 | SFTP subsystem 双向代理，兼容目标服务器支持的协议扩展 |
 | 服务器工具 | 转发 exec；指标、Docker、systemd 等继续在目标执行 |
 | 审计 | 管理变更、登录、票据、连接、通道、exec 请求、终端输出录制 |
 | Web 客户端 | 登录、资产选择、浏览器终端、SFTP 文件管理、服务器工具、会话与审计页面 |
-| ZeroTerm 集成 | 通过集成 API 申请授权和一次性 SSH 票据；ZeroTerm 可使用终端、SFTP、exec 等已授权能力 |
+| ZeroTerm 集成 | 通过集成 API 申请授权和一次性 SSH 票据；ZeroTerm 可使用终端、SFTP、exec 等功能 |
 
 ### 1.3 第一版不承诺的能力
 
@@ -54,7 +54,7 @@
 - SSO、MFA、SSH 用户证书、外部 KMS、凭据自动轮换与多节点高可用。
 - 在断线后恢复原来的 SSH 通道；持久任务使用目标上的 tmux 等机制。
 
-第一版禁止某类协议能力，不代表阻止已获 shell/exec 权限的用户在目标系统执行等价程序。目标账号权限与目标网络策略共同决定实际访问边界。
+第一版禁止某类协议能力，不代表阻止已获目标账号访问的用户在目标系统执行等价程序。目标账号权限与目标网络策略共同决定实际访问边界。
 
 ## 2. 现有代码与改造依据
 
@@ -201,7 +201,7 @@ zeroterm-terminal/
 | target_accounts | id, asset_id, username, credential_id, enabled, config_revision | UNIQUE(asset_id, username)；凭据不可跨资产随意引用 |
 | credentials | id, kind, ciphertext, nonce, wrapped_dek, wrap_nonce, key_version, revision | kind=password/private_key；所有密文字段非空 |
 | asset_host_keys | id, asset_id, algorithm, public_key, fingerprint, state, approved_by | 只使用 approved；原公钥必须保存，指纹用于展示 |
-| grants | id, user_id, asset_id, account_id, capabilities, enabled, expires_at | 账号必须属于指定资产；能力只允许已知枚举 |
+| grants | id, user_id, asset_id, account_id, capabilities, enabled, expires_at | 账号必须属于指定资产；capabilities 仅为弃用的 v1 兼容存储，新写入固定为 shell/exec/sftp |
 | session_tickets | id, transport, protocol_version, secret_hash, login_session_id, user_id, asset_id, account_id, capabilities, gateway_id, revisions, state, expires_at, consumed_at, connection_id | transport 为 websocket/ssh；secret_hash 唯一；connection_id 唯一；原子单次消费 |
 | connections | id, session_ticket_id, identity fields, transport, purpose, state, gateway_id, revisions, started_at, ended_at, reason, byte counters | session_ticket_id 唯一；一票据对应一连接；保留身份快照 |
 | channels | id, connection_id, upstream_channel_id, kind, state, timestamps, exit_code, recording_id | UNIQUE(connection_id, upstream_channel_id) |
@@ -210,19 +210,20 @@ zeroterm-terminal/
 
 账号资产一致性通过 `target_accounts UNIQUE(id, asset_id)` 加 `grants(account_id, asset_id)` 复合外键等数据库约束实现，不能只依赖 UI。资产与账号停用采用逻辑删除；连接和审计历史不能被级联删除。用户名、资产名的修改不重写历史快照。
 
-迁移必须包含 token_hash 唯一索引、grants(user_id, asset_id, account_id)、session_tickets(state, expires_at)、connections(user_id, state)、audit_events(occurred_at, id) 与 recordings(state, retention_until) 查询索引。枚举状态、能力集合去重、revision 单调递增及 nonce 长度应在数据库或明确的 store 校验层落实。refresh_tokens 是历史权威来源，login_sessions.refresh_hash 仅为当前版本冗余索引，更新时必须同事务。API 的通用 revision 映射到 user.auth_revision、asset/account.config_revision；其他可编辑资源需增加独立 revision。
+迁移必须包含 token_hash 唯一索引、grants(user_id, asset_id, account_id)、session_tickets(state, expires_at)、connections(user_id, state)、audit_events(occurred_at, id) 与 recordings(state, retention_until) 查询索引。枚举状态、兼容协议集合校验、revision 单调递增及 nonce 长度应在数据库或明确的 store 校验层落实。refresh_tokens 是历史权威来源，login_sessions.refresh_hash 仅为当前版本冗余索引，更新时必须同事务。API 的通用 revision 映射到 user.auth_revision、asset/account.config_revision；其他可编辑资源需增加独立 revision。
 
 ### 5.1 授权语义
 
-- operator 仅能访问显式授权的资产账号；auditor 能查看全局审计与录制，不能申请 WebSocket 会话。
-- admin 能管理资源和断开会话，**仍需显式资产授权才可取得目标 SSH 连接**；管理权限不自动等于目标登录权限。
-- 第一版 grant 是用户级 allow 规则，不实现群组继承或 deny 规则。多个有效 grant 的能力取并集。
-- user、login_session、asset、account 必须均有效；grant 未过期且账号所属资产正确。
-- 申请能力必须全部被允许，否则返回 403，不静默降权。
-- 连接内有效能力是票据能力与当前权限的交集。授权扩大不提升旧连接能力；授权缩减按撤销流程关闭受影响连接。
-- `purpose=metrics` 仅是审计用途标签，不赋予受限的只读语义。第一版 exec 权限允许执行任意目标命令。
+- 启用的 admin 默认访问所有启用资产及其启用目标账号，不需要 Grant；主机密钥、凭据、出站规则、限额、审计和录制要求仍必须满足。
+- operator 仅能访问显式授权的精确资产账号；任意一个启用、未过期且账号属于该资产的有效 Grant 即提供完整的终端、exec、SFTP 访问。不实现群组继承或 deny 规则，不按协议种类分配权限。
+- auditor 能查看全局审计与录制，但没有目标访问权；即使存在 Grant 也不能取得 WebSocket/SSH 目标连接或使用 exec/SFTP。
+- user、login_session、asset、account 必须均有效；普通用户还必须有有效的精确 Grant。管理员也不能绕过停用用户、过期登录或停用资产账号。
+- 授权是精确资产账号的二元访问判断。shell/exec/sftp 保留为通道 kind、功能发现和兼容元数据，不是可配置权限；新连接在签发、消费、通道启动和活动复核时重新判断目标访问。
+- v1 请求中的 `capabilities` 已弃用且可省略；省略或合法已知窄数组归一化为完整集合。显式空数组、长度大于 3、未知值或 null 均拒绝。新账号/Grant/票据响应固定为 `["shell","exec","sftp"]`；升级前 pending/live 票据与连接保留字面窄快照，消费、运行期与通道启动继续按该窄快照检查；不回填为 full。只有重新签发票据并重连才获得完整集合，新 Web 与后端须同步发布。
+- 删除 Grant 不移除管理员的隐式访问；撤销管理员访问需停用用户或降级角色，停用资产/账号也会阻止访问。普通用户失去最后一个有效 Grant 时按撤销流程关闭受影响连接。
+- `purpose=metrics` 仅是审计用途标签，不赋予权限或只读语义。目标访问包含任意 exec；真正的权限边界依赖目标系统账号。
 
-shell 与 exec 都允许在目标运行程序，不能用“禁用 sftp”承诺用户无法通过 shell 传文件。真正只读或命令限制应由目标受限账号或后续专门执行服务实现。
+shell 与 exec 都允许在目标运行程序，不能通过在界面隐藏文件功能承诺用户无法通过 shell 传文件；本版不提供按协议权限开关。真正只读或命令限制应由目标受限账号或后续专门执行服务实现。
 
 ### 5.2 修订号
 
@@ -299,11 +300,11 @@ KEK 轮换先写入新密钥版本，再逐条重包 DEK；全部迁移与备份
 | POST /auth/logout | 已登录 | 撤销当前登录会话，幂等 |
 | POST /auth/logout-all | 已登录 | 撤销本人全部设备登录及活动连接 |
 | GET /me | 已登录 | 用户、login_session_id、policy_revision |
-| GET /assets | operator/admin | 已授权资产元数据、允许的目标账号与各账号能力 |
+| GET /assets | operator/admin | 可用资产与目标账号；admin 可见启用的空账号资产，普通用户仅见有效 Grant 对应的启用账号；兼容元数据固定完整集合 |
 | GET /assets/{asset_id} | 有资产权限 | 资产详情；无权限与不存在统一 404 |
-| POST /sessions | operator/admin 且有授权 | asset_id/account_id/capabilities/purpose → 一次性 WebSocket 票据与 connection_id |
+| POST /sessions | operator（有效精确 Grant）/启用 admin（无需 Grant） | asset_id/account_id/purpose（capabilities 仅为可省略的弃用兼容字段） → 一次性 WebSocket 票据与 connection_id |
 | GET /sessions/{id}/stream | 连接所有者 | WSS 升级；使用 `Sec-WebSocket-Protocol` 提交一次性票据 |
-| POST /integrations/zeroterm/connection-tickets | operator/admin 且有授权 | asset_id/account_id/capabilities/purpose → 一次性 SSH 票据、SSH 入口与 connection_id |
+| POST /integrations/zeroterm/connection-tickets | operator（有效精确 Grant）/启用 admin（无需 Grant） | asset_id/account_id/purpose（capabilities 仅为可省略的弃用兼容字段） → 一次性 SSH 票据、SSH 入口与 connection_id |
 | GET /connections/{id} | 连接所有者/admin/auditor | 状态、故障 code、通道摘要；不含凭据 |
 | GET /connections | 自己；admin/auditor 可全局 | 可分页连接列表 |
 | POST /connections/{id}/disconnect | 所有者/admin | 原因、request_id；请求关闭，返回 202，已关闭返回当前状态 |
@@ -336,7 +337,7 @@ KEK 轮换先写入新密钥版本，再逐条重包 DEK；全部迁移与备份
 | target account | username, credential | username 1–128 UTF-8 字节，拒绝 NUL/控制字符；不插入本地 shell 命令 |
 | password credential | type=password, password | 原值不 trim，1 字节至 16 KiB，第一版拒绝空密码 |
 | private key credential | type=private_key, key_pem, passphrase 可选 | 不超过 128 KiB；写入前解析并校验口令；不存私钥路径 |
-| grant | user_id, asset_id, account_id, capabilities | 能力非空，集合只含 shell/exec/sftp；账号资产一致 |
+| grant | user_id, asset_id, account_id, expires_at | 精确资产账号一致；新客户端更新仅 enabled/expires_at；兼容 capabilities 可省略，合法已知窄数组归一化为 full，空/超长/未知/null 拒绝 |
 | host key approval | algorithm, public_key, candidate_id 可选 | 公钥解析、算法一致、候选属于本资产；不只接收指纹 |
 
 用户密码初始下限为产品策略，可按部署修改；不强制周期性改密。初次创建或重置密码由管理员通过可信渠道交付，界面不回显已有密码。目标用户名是 SSH 原始认证字段，不通过 `ssh user@host` 命令字符串拼接。
@@ -373,7 +374,6 @@ Content-Type: application/json
 {
   "asset_id": "11111111-1111-4111-8111-111111111111",
   "account_id": "22222222-2222-4222-8222-222222222222",
-  "capabilities": ["shell", "exec", "sftp"],
   "purpose": "terminal"
 }
 ```
@@ -393,7 +393,7 @@ Content-Type: application/json
 
 浏览器随后连接 `wss://<same-origin>/api/v1/sessions/{session_id}/stream`，在 `Sec-WebSocket-Protocol` 中提交 `bastion.v1` 与 `ws_token`；不能把票据拼入 URL。有效期默认从数据库签发时间起 30 秒。票据只限制 WebSocket 握手消费窗口，已建立会话的时长另由策略控制。
 
-purpose 枚举为 terminal/sftp/metrics/server_tool，只有审计意义。服务端根据 capability 决策，不能信任 purpose 推断命令安全。
+purpose 枚举为 terminal/sftp/metrics/server_tool，只有审计意义。服务端根据精确资产账号访问权决策，不能信任 purpose 推断权限或命令安全。
 
 会话创建事务同时建立 pending connection 记录；WebSocket 握手完全没到达也可在过期清理时标记为 expired。响应丢失后浏览器可以重新申请，旧票据自然过期；服务端限额包含尚未过期的 pending 记录，防止无限签发。
 
@@ -411,7 +411,6 @@ Content-Type: application/json
 {
   "asset_id": "11111111-1111-4111-8111-111111111111",
   "account_id": "22222222-2222-4222-8222-222222222222",
-  "capabilities": ["shell", "exec", "sftp"],
   "purpose": "terminal"
 }
 ```
@@ -448,7 +447,7 @@ Cookie: bastion_session=<HttpOnly cookie>
 Sec-WebSocket-Protocol: bastion.v1, <ws_token>
 ```
 
-服务器必须校验同源 Origin、登录会话、session_id、协议版本和票据哈希。浏览器不能通过修改 URL、协议头或首帧选择其他资产、账号或能力；目标路由只从服务端保存的票据读取。票据校验、权限复核、原子消费与 connection 状态转移在同一事务内完成。未知票据、错误票据、过期、已消费、撤销或修订变化均拒绝握手，不通过响应差异泄露资源信息。
+服务器必须校验同源 Origin、登录会话、session_id、协议版本和票据哈希。浏览器不能通过修改 URL、协议头或首帧选择其他资产或账号；目标路由只从服务端保存的票据读取。票据校验、权限复核、原子消费与 connection 状态转移在同一事务内完成。未知票据、错误票据、过期、已消费、撤销或修订变化均拒绝握手，不通过响应差异泄露资源信息。
 
 WebSocket 只承载已授权会话，不接受浏览器上传目标密码、私钥或任意 SSH 配置。ZeroTerm 集成使用独立的 SSH password 票据和协议版本，不能复用浏览器的 `ws_token`；两种票据都由同一授权事务签发和撤销。
 
@@ -464,7 +463,7 @@ SSH password: ticket_secret
 
 `username` 不直接携带目标 host 或目标账号。服务端只从已存储票据查出目标，避免客户端修改用户名选择其他地址。`none` 认证必须拒绝并只公布 password；publickey 探测、keyboard-interactive 与未知用户名格式均拒绝，不消费票据。
 
-ZeroTerm 连接建立后，网关把 shell、exec、SFTP 和 resize 等 SSH channel 映射到目标 SSH。ZeroTerm 连接与浏览器 WebSocket 连接共享 capability、connection 状态、录制、审计、撤销和限额语义，但各自使用独立票据和 connection_id。
+ZeroTerm 连接建立后，网关把 shell、exec、SFTP 和 resize 等 SSH channel 映射到目标 SSH。ZeroTerm 连接与浏览器 WebSocket 连接共享精确资产账号访问、connection 状态、录制、审计、撤销和限额语义，但各自使用独立票据和 connection_id。
 
 ### 8.3 票据签发与消费
 
@@ -518,26 +517,26 @@ ZeroTerm 集成连接直接以 SSH channel 作为上游，绕过浏览器帧层�
 
 | WebSocket 事件 | 第一版处理 |
 |---|---|
-| `open` | 检查 capability 与通道限额，创建本地 pending 通道 |
-| `pty` | 要求 shell 能力，转发终端名、尺寸与 terminal modes |
-| `shell` | 要求 shell 能力，目标启动成功后返回 `ready` |
-| `exec` | 要求 exec 能力，转发原始 command bytes，记录脱敏请求摘要 |
-| `sftp_open` | 要求 sftp 能力，建立目标 SFTP subsystem |
+| `open` | 检查目标访问、通道 kind/状态与限额，创建本地 pending 通道 |
+| `pty` | 验证目标访问与 shell 通道状态，转发终端名、尺寸与 terminal modes |
+| `shell` | 验证目标访问与 shell 通道状态，目标启动成功后返回 `ready` |
+| `exec` | 验证目标访问与 exec 通道状态，转发原始 command bytes，记录脱敏请求摘要 |
+| `sftp_open` | 验证目标访问与 sftp 通道状态，建立目标 SFTP subsystem |
 | `resize` | 已有 PTY 才转发，尺寸做范围检查 |
 | `input` | 原始二进制输入，不能按 UTF-8 重写或拼接命令 |
 | `close` | 两端幂等关闭，回收映射；不得关闭同会话其他正常通道 |
 | `output` / `stderr` | 服务端返回二进制数据帧，保留 stdout/stderr 类型 |
 | `exit` / `error` | 返回退出状态或稳定错误 code，再完成关闭握手 |
 
-服务端向目标 SSH 的请求矩阵如下；WebSocket 事件只能触发被授权的行：
+服务端向目标 SSH 的请求矩阵如下；WebSocket 事件必须符合已授权目标、合法通道种类与状态：
 
 | 请求或事件 | 第一版处理 |
 |---|---|
 | channel_open session | 检查连接有效与通道限额，建立本地 pending 通道 |
-| pty-req | 要求 shell 能力；转发终端名、尺寸与 terminal modes，使用独立目标通道 |
-| shell | 要求 shell 能力，转发启动结果；首个终端输出来自目标 |
-| exec | 要求 exec 能力；转发原始 command bytes，记录脱敏请求摘要 |
-| subsystem sftp | 要求 sftp 能力，目标请求成功后开始原始字节流桥接 |
+| pty-req | 验证目标访问与 shell 通道状态；转发终端名、尺寸与 terminal modes，使用独立目标通道 |
+| shell | 验证目标访问与 shell 通道状态，转发启动结果；首个终端输出来自目标 |
+| exec | 验证目标访问与 exec 通道状态；转发原始 command bytes，记录脱敏请求摘要 |
+| subsystem sftp | 验证目标访问与 sftp 通道状态，目标请求成功后开始原始字节流桥接 |
 | env | 启动前允许 LANG、LC_ALL、LC_CTYPE 白名单与长度检查；拒绝其他变量 |
 | window-change | 已有 PTY 才转发，尺寸做范围检查；不修改数据流 |
 | signal | 转发合法 SSH signal 名称；不在网关本地执行 kill |
@@ -571,7 +570,7 @@ EOF 不等于 close：目标可能在收到 stdin EOF 后仍输出结果。必�
 
 SFTP v1 在完成目标 subsystem 请求后直接桥接字节流，文件数据不进入终端录制。因不解析请求，第一版只记录 SFTP 通道及流量，不能宣称具备文件级审计、只读、目录限制或文件删除拦截。未经授权的 subsystem 直接失败。
 
-exec 使用流式桥接，必须区分 stdout、stderr 与退出码；命令可很长且含用户秘密。exec 审计默认只记录 command 长度和 SHA-256，不保存原始完整命令。可选摘要功能默认关闭；明确开启后先脱敏，最多 4 KiB，并告知脱敏不保证识别所有秘密。自定义命令权限依赖目标账号；服务器工具取得 exec 即有相同执行能力。
+exec 使用流式桥接，必须区分 stdout、stderr 与退出码；命令可很长且含用户秘密。exec 审计默认只记录 command 长度和 SHA-256，不保存原始完整命令。可选摘要功能默认关闭；明确开启后先脱敏，最多 4 KiB，并告知脱敏不保证识别所有秘密。自定义命令权限依赖目标账号；服务器工具与自由 exec 都具有目标账号的执行能力，不提供工具专属权限。
 
 ### 9.4 心跳与空通道
 
@@ -602,7 +601,7 @@ closed/failed/expired/revoked/interrupted 都是终态，不能恢复为 active�
 
 ### 10.2 撤销步骤
 
-管理事务按顺序修改授权或资源状态、提升相应修订、撤销未消费票据、追加 audit_event。提交成功后通知进程内活动会话注册表，对受影响连接重新计算当前权限，取消 connecting 任务、关闭相关 active 连接。权限缩减即使只移除一个 capability，也关闭该连接并让客户端按新能力重新连接。
+管理事务按顺序修改授权或资源状态、提升相应修订、撤销未消费票据、追加 audit_event。提交成功后通知进程内活动会话注册表，对受影响连接重新计算当前权限，取消 connecting 任务、关闭相关 active 连接。普通用户失去最后一个有效精确 Grant、用户/资产/账号被停用或角色失去访问权时关闭连接；删除管理员的 Grant 不撤销隐式访问，删除多个有效 Grant 中的一个也不等于失去访问。
 
 连接在注册后立即复核授权和修订，处理“事务已消费，但尚未进入注册表时管理员撤销”的竞态。新通道启动前再次复核；后台每 2 秒复查活动连接权限，补偿通知丢失。票据成功消费也不允许绕过此复查。
 
@@ -640,7 +639,7 @@ TLS API 返回的服务身份信息只能用于展示和诊断，不能自动替
 
 ### 11.3 地址与出站边界
 
-管理员可配置资产 host，但用户不能通过票据提交任意 host/port。默认出站 CIDR allowlist 由部署配置明确给出，只允许实际目标网段；denylist 优先拒绝云元数据、回环与 link-local，不能用“所有内网地址都安全”作为假设。
+管理员可配置资产 host，但用户不能通过票据提交任意 host/port。默认示例允许正常公网和内网 IPv4/IPv6 目标（allow 为 `0.0.0.0/0`、`::/0`），不再限定演示目标网段；denylist 优先拒绝未指定地址、回环、link-local、组播/保留地址，以及已知云元数据地址（包括 `169.254.0.0/16`、`100.100.100.200/32`、`fd00:ec2::254/128`）。内网并非天然可信，仍仅连接管理员配置并授权的资产；有网络隔离要求的部署应将 allow 收紧为实际目标 CIDR，并按云平台补充元数据/内部控制面 deny。
 
 每次连接解析 DNS，检查所有候选 IP 的出站规则，只向允许的解析结果创建 TCP socket；SSH 拨号使用选定 IP，不再次以原 hostname 解析，避免 DNS rebinding。逻辑资产身份仍按 asset_id 校验其批准公钥。无允许地址返回 TARGET_ADDRESS_DENIED。
 
@@ -717,14 +716,14 @@ Web 首版以浏览器为唯一主客户端，所有页面由同一前端应用�
 | 页面或模块 | 主要能力 |
 |---|---|
 | 登录页 | 用户名、密码、登录会话和错误提示；不回显目标凭据 |
-| 资产工作台 | 展示授权资产、目标账号、能力、标签和连接状态 |
+| 资产工作台 | 展示可用资产、目标账号、标签和连接状态；管理员可见无账号资产但没有连接动作 |
 | 浏览器终端 | xterm.js、PTY 尺寸变化、输入/输出、退出状态、断开与重连 |
 | 文件管理器 | 当前目录、上传、下载、重命名、删除和权限错误；由服务端 SFTP 代理执行 |
-| 服务器工具 | 指标、Docker、systemd、tmux 等受 `exec` 能力保护的工具 |
+| 服务器工具 | 指标、Docker、systemd、tmux 等依赖目标访问与 exec 功能发现的工具 |
 | 会话与审计 | 活动会话、断开、终端录制回放和审计查询 |
 | 管理后台 | 用户、资产、目标账号、凭据替换、主机密钥审批、授权和策略 |
 
-页面展示的资产、账号和能力都来自服务端授权结果。前端缓存只能用于界面展示，不能作为连接授权依据。
+页面展示的可用资产和账号来自服务端目标访问结果；终端/执行/文件动作按目标存在、功能发现和运行状态控制，不按 capabilities 数组门控。前端缓存只能用于界面展示，不能作为连接授权依据。
 
 ### 13.2 浏览器登录与会话
 
@@ -736,7 +735,6 @@ Web 首版以浏览器为唯一主客户端，所有页面由同一前端应用�
 const session = await api.post('/api/v1/sessions', {
   asset_id,
   account_id,
-  capabilities: ['shell'],
   purpose: 'terminal',
 });
 
@@ -752,9 +750,9 @@ const ws = new WebSocket(
 
 终端由 xterm.js 渲染，输入以有界二进制帧发送，输出以二进制帧返回；前端不能逐块自行 UTF-8 解码、改写换行或清洗 ANSI。`resize`、`exit`、`error` 和录制状态使用带版本的 JSON 控制帧。浏览器终端只显示目标会话输出，不执行服务端返回的 HTML。
 
-文件管理器通过同一授权模型使用 SFTP。目录和元数据请求可使用 JSON API，文件内容使用受保护的流式 HTTP 或 WebSocket 二进制帧；服务端仍建立目标 SFTP subsystem 并执行能力、大小、超时和背压限制。第一版不宣称文件级审计、目录白名单或断点续传。
+文件管理器通过同一授权模型使用 SFTP。目录和元数据请求可使用 JSON API，文件内容使用受保护的流式 HTTP 或 WebSocket 二进制帧；服务端仍建立目标 SFTP subsystem 并执行目标访问、大小、超时和背压限制。第一版不宣称文件级审计、目录白名单或断点续传。
 
-指标、Docker、systemd、端口和 tmux 工具只能通过 `exec` 能力在目标账号下运行。工具页面明确显示资产、目标账号和会话 ID，禁止把命令发到堡垒机本机。具有副作用的命令不自动重试。
+指标、Docker、systemd、端口和 tmux 工具只能在已获访问的目标账号下通过已装配的 `exec` 功能运行。工具页面明确显示资产、目标账号和会话 ID，禁止把命令发到堡垒机本机。具有副作用的命令不自动重试。
 
 ### 13.4 UI 状态与错误表现
 
@@ -768,7 +766,7 @@ ZeroTerm 集成是堡垒机的额外产品能力，与 Web UI 共享用户、资
 
 ZeroTerm 只保存堡垒机地址、已核验的 SSH host key 和短期登录状态，不保存目标密码、目标私钥或长期 `ticket_secret`。每个 ZeroTerm 连接都通过 `/integrations/zeroterm/connection-tickets` 申请新票据；票据过期、消费、注销、权限变化或连接断开后不能复用。
 
-浏览器和 ZeroTerm 的连接在 UI 上都必须显示资产名、目标账号、能力和 connection_id，不能只显示堡垒机域名，避免用户在错误目标上执行命令。两种入口的权限错误、撤销延迟、录制策略和副作用操作重试规则必须一致。
+浏览器和 ZeroTerm 的连接在 UI 上都必须显示资产名、目标账号和 connection_id，不能只显示堡垒机域名，避免用户在错误目标上执行命令。两种入口的权限错误、撤销延迟、录制策略和副作用操作重试规则必须一致。
 
 ## 14. 错误契约与重试
 
@@ -790,7 +788,7 @@ ZeroTerm 只保存堡垒机地址、已核验的 SSH host key 和短期登录状
 | TARGET_ADDRESS_DENIED | 403 | 管理员修正出站或资产配置 |
 | TARGET_UNREACHABLE / TARGET_TIMEOUT | 502/504 | 显示目标故障；可手动新建连接 |
 | TARGET_AUTH_FAILED | 502 | 管理员更新托管凭据；不向用户索取目标密码 |
-| CHANNEL_PERMISSION_DENIED | 403 | 禁用对应功能，其他许可通道可继续 |
+| CHANNEL_PERMISSION_DENIED | 403 | 拒绝该通道，其他合法通道可继续；不是可配置的能力权限 |
 | TARGET_REQUEST_REJECTED | 502 | 显示目标未支持 shell/exec/SFTP 请求 |
 | RECORDING_UNAVAILABLE | 503 | 不启动或关闭 shell，提示管理员检查存储 |
 | POLICY_STORE_UNAVAILABLE | 503 | 禁新请求；活动连接遵循宽限后关闭 |
@@ -977,8 +975,12 @@ M0 可暂时使用内存假票据和测试密钥，但必须与生产装配隔�
 | SESSION-02 | 错 token、到期、修订变化、消费后断线 | 不误消费；不复活；必须新会话 |
 | SESSION-03 | 登录注销、角色变更、授权撤销与消费并发 | 不能凭旧授权继续创建可用通道 |
 | ACL-01 | A 用户申请 B 用户资产/账号 | 拒绝；更改 asset_id/account_id 不越权 |
-| ACL-02 | 仅有 sftp，尝试 shell/exec/未知 subsystem | 请求失败；无网关本机执行 |
-| ACL-03 | admin 无显式资产授权 | 管理可用；目标登录拒绝 |
+| ACL-02 | 有效 Grant 的旧存储为仅 sftp，尝试 shell/exec/SFTP/未知 subsystem | 三种已支持功能均可用，未知 subsystem 拒绝；无网关本机执行 |
+| ACL-03 | admin 无 Grant 或其 Grant 被删除 | 所有启用资产账号可访问；空账号资产可见但不可连接；主机密钥仍须核验 |
+| ACL-04 | 用户/资产/账号停用、账号属于其他资产、登录过期 | admin 与 operator 均拒绝目标访问 |
+| ACL-05 | auditor 持有效 Grant | WebSocket/SSH/exec/SFTP 目标访问均拒绝 |
+| ACL-06 | 兼容 capabilities 省略/合法窄数组/空/超长/未知/null | 前两者归一化完整集合，其他拒绝；新响应完整，历史 Connection 快照字面保留 |
+| ACL-07 | 普通用户最后一个 Grant 撤销/到期，多 Grant 之一撤销 | 前者关闭目标连接；后者仍有有效精确 Grant 时访问不变 |
 | TARGET-01 | 未核验与变化的 host key | 在提交目标认证凭据前拒绝 |
 | TARGET-02 | DNS 切换到回环/元数据地址 | 出站规则阻止；无二次 DNS 绕过 |
 | SSH-01 | vim、less、tmux、中文、emoji、二进制输出 | 字节不改写；尺寸与终端 modes 正确 |
@@ -992,7 +994,7 @@ M0 可暂时使用内存假票据和测试密钥，但必须与生产装配隔�
 | WEB-03 | WebSocket 断开后重建 | 使用新票据；不重放副作用操作；失败占位符清除 |
 | WEB-04 | Cookie、Origin、CSP、CSRF、协议头攻击 | 跨站 WebSocket 和脚本注入被拒绝 |
 | ZT-01 | ZeroTerm 申请 SSH 票据并打开终端、SFTP、exec | 仅访问授权资产；目标输出和退出信息正确；票据单次消费 |
-| ZT-02 | ZeroTerm 与浏览器同时访问同一/不同资产 | connection、能力、录制和撤销相互隔离；不串目标 |
+| ZT-02 | ZeroTerm 与浏览器同时访问同一/不同资产 | connection、目标访问、录制和撤销相互隔离；不串目标 |
 | REVOKE-01 | 活跃 shell/SFTP/exec 撤销 | 正常环境 3 秒内开始关闭；目标后台进程边界说明准确 |
 | RECORD-01 | 回放中文和跨 UTF-8 分块、resize、异常结束 | 字节/尺寸正确；partial 明确展示 |
 | RECORD-02 | 磁盘满、写入阻塞、权限错误、文件损坏 | shell 拒绝/关闭；不静默丢录制 |
@@ -1004,7 +1006,11 @@ LOG-01 对运行日志和 API 凭据字段做断言，不能对授权终端的�
 
 ### 18.3 性能验收
 
-在记录 CPU、内存、磁盘、网络 RTT、目标 OpenSSH 配置与版本的受控环境中测试。初始基线使用 4 vCPU、8 GiB 内存、SSD，以下为目标：
+默认部署目标为 **1 vCPU、1 GiB 内存**，包含同机应用、PostgreSQL、HTTPS 代理以及宿主系统/Docker 的运行开销，不以外置数据库或关闭 required 加密录制来满足目标。镜像构建资源与运行资源分开计量；可在其他机器构建后部署预构建镜像。
+
+低资源验收必须在该资源预算下覆盖登录、WSS、SSH/exec/SFTP、required 加密录制/回放、撤销和恢复，记录实际并发数、稳态/峰值内存、CPU、延迟及 OOM/重启情况。“能运行”不等同于在该配置下承诺以下高并发容量；1 vCPU 验收通过前，不宣称该最低资源目标已验证。
+
+以下保留原有 **4 vCPU、8 GiB 内存、SSD 的高并发性能验收基准**，它不是最低运行配置。记录 CPU、内存、磁盘、网络 RTT、目标 OpenSSH 配置与版本；未执行或未达标项仍须明确报告，不得把低资源功能验收当作高并发性能通过：
 
 - 50 条活跃终端连接持续 1 小时，无代理任务、channel 或文件描述符持续泄漏。
 - 同时 4 路 ≥1 GiB 文件传输与 20 条终端，按键回显不因文件队列出现长期阻塞。
@@ -1056,7 +1062,7 @@ LOG-01 对运行日志和 API 凭据字段做断言，不能对授权终端的�
 2. PostgreSQL 版本化迁移与约束，WebSocket 票据消费、授权撤销和会话轮换事务实现。
 3. 网关通道状态机与真实 OpenSSH 集成测试，覆盖 EOF、退出信息和并发。
 4. 密钥初始化、轮换、备份恢复 CLI 及运维说明。
-5. WebSocket 帧协议、ZeroTerm SSH 集成票据协议、Web 前端会话封装与能力映射。
+5. WebSocket 帧协议、ZeroTerm SSH 集成票据协议、Web 前端会话封装与通道种类映射。
 6. `.ztrec` 字节级格式规范、版本头、加密/AAD 说明与回放验证器。
 7. 自动化功能/安全测试报告、性能报告、客户端协议兼容表与已知限制。
 

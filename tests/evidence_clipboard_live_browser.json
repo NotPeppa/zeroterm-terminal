@@ -1,0 +1,12 @@
+{
+  "production_ready": false,
+  "windows_nla_verified": false,
+  "recording_complete": true,
+  "status": "passed-public-browser-native-paste",
+  "target_protocol": "ssh",
+  "native_control_v": true,
+  "clipboard_controls_visible": true,
+  "connection_id": "10d7fda2-df74-4361-8005-a1e8bed30fa8",
+  "page_errors": [],
+  "target_marker_visually_verified": true
+}

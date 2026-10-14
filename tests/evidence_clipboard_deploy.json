@@ -1,0 +1,13 @@
+{
+  "production_ready": false,
+  "backup_skipped_per_user_preference": true,
+  "source_sha256": "4818cdcc54e283cae2a922945a40ec8d0b7e884e009e20995501edb542769323",
+  "engine_source_sha256": "4818cdcc54e283cae2a922945a40ec8d0b7e884e009e20995501edb542769323",
+  "app_image_id": "sha256:1a5b76c17ce14569080282c2a72941345e4c00baee0bade8710a0b657220d118",
+  "engine_image_id": "sha256:689c462e27a23670c35bb3435022627f71144f5e04210bffea3b52ba7bac6a23",
+  "status": "updated",
+  "postgres_not_recreated": true,
+  "engine_egress_reinstalled": true,
+  "no_database_migration": true,
+  "finished_at": "2026-10-09T18:05:42Z"
+}

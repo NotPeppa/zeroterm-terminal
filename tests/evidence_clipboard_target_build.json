@@ -1,0 +1,6 @@
+{
+  "source_sha256": "4818cdcc54e283cae2a922945a40ec8d0b7e884e009e20995501edb542769323",
+  "dockerfile_sha256": "6429b09b76c39b8a34ef15f18e8f3d6ff325a16aebe4547e0830606dc6e154e2",
+  "status": "passed",
+  "target_image_id": "sha256:08a75d3089f3cd1b151da51651606acd5e3e32a0a8b1a86fccb2a30693e54c55"
+}

@@ -1,0 +1,1175 @@
+{
+  "production_ready": false,
+  "windows_nla_verified": false,
+  "native_os_ime_verified": false,
+  "application_image_id": "sha256:e1c5419db24e98c4d5863c7f4c71fef4ec9a395807ae881fd168edf4eccd90d2",
+  "engine_image_id": "sha256:689c462e27a23670c35bb3435022627f71144f5e04210bffea3b52ba7bac6a23",
+  "fixture_server_id": "zt-guac-v2-accept-20261013-recovery2",
+  "baseline": [
+    {
+      "bytes": 1514,
+      "checksum": "7281ebeb1da88e736875952d9dddbc613d61df42a903f5cbc20dc2a47d189d81",
+      "connection_id": "017b06f1-8dea-4905-a72d-5b3f9e7fbf70",
+      "format_version": 2,
+      "id": "25c1a123-b128-4680-b47b-3a7d3dafe36b",
+      "last_synced_seq": 5,
+      "last_written_seq": 5,
+      "retention_until": "2026-11-12T10:20:15.377564+00:00",
+      "state": "complete",
+      "target_protocol": "ssh"
+    },
+    {
+      "bytes": 17920,
+      "checksum": "f5e1e2654df3e2a5babf6963447f2556df504d01636ecf1162f945fde515a92a",
+      "connection_id": "8f11a5c4-bfaf-4bbc-b1ba-3c533f4583b3",
+      "format_version": 2,
+      "id": "914d4d66-462d-43b3-bd70-1e8e8c4a4937",
+      "last_synced_seq": 77,
+      "last_written_seq": 77,
+      "retention_until": "2026-11-12T10:20:22.64797+00:00",
+      "state": "complete",
+      "target_protocol": "rdp"
+    },
+    {
+      "bytes": 6080,
+      "checksum": "b20fc9abd515e61db2f20aedcc03aa3453c8a9aa73011dcc83e841bf56da88af",
+      "connection_id": "4e133adf-072c-45f7-85f6-110d898600be",
+      "format_version": 2,
+      "id": "0cc9fcf2-ff73-452d-b2b1-1c36f690ce4d",
+      "last_synced_seq": 31,
+      "last_written_seq": 31,
+      "retention_until": "2026-11-12T10:20:33.671749+00:00",
+      "state": "complete",
+      "target_protocol": "vnc"
+    }
+  ],
+  "faults": {
+    "startup_open": {
+      "recording_state": "failed",
+      "output_blocks": 0,
+      "hits": [
+        "open EACCES"
+      ]
+    },
+    "startup_dir-fsync": {
+      "recording_state": "failed",
+      "output_blocks": 0,
+      "hits": [
+        "fsync EIO"
+      ]
+    },
+    "startup_write": {
+      "recording_state": "failed",
+      "output_blocks": 0,
+      "hits": [
+        "write EIO"
+      ]
+    },
+    "startup_short-write": {
+      "recording_state": "failed",
+      "output_blocks": 0,
+      "hits": [
+        "write partial",
+        "write EIO after partial"
+      ]
+    },
+    "startup_file-fsync": {
+      "recording_state": "failed",
+      "output_blocks": 0,
+      "hits": [
+        "fsync EIO"
+      ]
+    },
+    "active_write": {
+      "closed_ms": 467,
+      "clock_start": "after fault control operation completes, before target input",
+      "recording_state": "partial",
+      "hits": [
+        "write EIO"
+      ]
+    },
+    "active_short-write": {
+      "closed_ms": 460,
+      "clock_start": "after fault control operation completes, before target input",
+      "recording_state": "partial",
+      "hits": [
+        "write partial",
+        "write EIO after partial"
+      ]
+    },
+    "active_file-fsync": {
+      "closed_ms": 465,
+      "clock_start": "after fault control operation completes, before target input",
+      "recording_state": "partial",
+      "hits": [
+        "fsync EIO"
+      ]
+    },
+    "active_blocked-write": {
+      "closed_ms": 8461,
+      "clock_start": "after fault control operation completes, before target input",
+      "recording_state": "partial",
+      "hits": [
+        "write blocked 8s"
+      ]
+    },
+    "active_blocked-fsync": {
+      "closed_ms": 8471,
+      "clock_start": "after fault control operation completes, before target input",
+      "recording_state": "partial",
+      "hits": [
+        "fsync blocked 8s"
+      ]
+    },
+    "end_fsync": {
+      "recording_state": "partial",
+      "hits": [
+        "fsync EIO"
+      ]
+    },
+    "real_disk_full": {
+      "real_enospc": true,
+      "filled_bytes": 499789824,
+      "filesystem_limit_bytes": 510873600,
+      "recording_state": "partial"
+    },
+    "database_finalization": {
+      "recording_state": "partial"
+    },
+    "process_restart": {
+      "connection_state": "interrupted",
+      "recording_state": "partial"
+    },
+    "tamper": {
+      "status": 200,
+      "clean_eof": false
+    },
+    "truncate": {
+      "status": 503,
+      "clean_eof": false
+    }
+  },
+  "restore": {
+    "cold_restore_separate_pg_cluster": true,
+    "manifest": {
+      "server_id": "zt-guac-v2-accept-20261013-recovery2",
+      "schema_version": 2,
+      "credential_count": 7,
+      "recording_count": 3,
+      "target_pin_count": 5,
+      "kek_versions": [
+        1
+      ]
+    },
+    "verify_backup": {
+      "exit": 0
+    },
+    "recover_restore": {
+      "exit": 0
+    },
+    "old_login_families_revoked": true,
+    "issued_tickets_revoked": true,
+    "old_cookie_rejected": true,
+    "three_protocol_replay": true
+  },
+  "rewrap": {
+    "credential_ciphertext_and_nonce_unchanged": true,
+    "recording_nonce_and_ciphertext_unchanged": true,
+    "new_key_only_backup_verified": true,
+    "missing_key_rejected": true,
+    "real_target_authentication": true,
+    "three_protocol_replay": true
+  },
+  "capacity_limits": {
+    "guacd_pids_limit": 256,
+    "guacd_pid_events": "max 0",
+    "three_rdp_os_logins_verified": true
+  },
+  "mixed_protocol_measurement": {
+    "connections": 10,
+    "distribution": {
+      "ssh": 4,
+      "rdp": 3,
+      "vnc": 3
+    },
+    "duration_ms": 181067,
+    "eleventh_global_connection_rejected": true,
+    "load": "initial display, periodic mouse movement and protocol sync; no throughput claim",
+    "samples": [
+      {
+        "at": "2026-10-13T10:24:06.467Z",
+        "containers": [
+          {
+            "BlockIO": "9.59MB / 483kB",
+            "CPUPerc": "1.11%",
+            "Container": "zt-guac-v2-accept-20261013-recovery2-bastion-1",
+            "ID": "b13b25e7cfe6",
+            "MemPerc": "0.78%",
+            "MemUsage": "7.328MiB / 939.7MiB",
+            "Name": "zt-guac-v2-accept-20261013-recovery2-bastion-1",
+            "NetIO": "2.82MB / 6.22MB",
+            "PIDs": "8"
+          },
+          {
+            "BlockIO": "36.9MB / 23MB",
+            "CPUPerc": "0.11%",
+            "Container": "zt-guac-v2-accept-20261013-recovery2-guacd-1",
+            "ID": "5199c9d1bfbf",
+            "MemPerc": "7.87%",
+            "MemUsage": "73.95MiB / 939.7MiB",
+            "Name": "zt-guac-v2-accept-20261013-recovery2-guacd-1",
+            "NetIO": "85.2kB / 143kB",
+            "PIDs": "103"
+          },
+          {
+            "BlockIO": "196MB / 90.9MB",
+            "CPUPerc": "0.00%",
+            "Container": "zt-guac-v2-accept-20261013-recovery2-target-1",
+            "ID": "c55d0130c49a",
+            "MemPerc": "51.42%",
+            "MemUsage": "98.72MiB / 192MiB",
+            "Name": "zt-guac-v2-accept-20261013-recovery2-target-1",
+            "NetIO": "45.3kB / 75kB",
+            "PIDs": "52"
+          },
+          {
+            "BlockIO": "22.7MB / 78.4MB",
+            "CPUPerc": "1.30%",
+            "Container": "zt-guac-v2-accept-20261013-recovery2-restored-postgres",
+            "ID": "868130c00ff0",
+            "MemPerc": "25.08%",
+            "MemUsage": "32.1MiB / 128MiB",
+            "Name": "zt-guac-v2-accept-20261013-recovery2-restored-postgres",
+            "NetIO": "1.91MB / 2.72MB",
+            "PIDs": "11"
+          }
+        ],
+        "browser_processes": [
+          {
+            "type": "browser",
+            "id": 2416,
+            "cpuTime": 2.274065
+          },
+          {
+            "type": "renderer",
+            "id": 17996,
+            "cpuTime": 0.565539
+          },
+          {
+            "type": "renderer",
+            "id": 26712,
+            "cpuTime": 0.371228
+          },
+          {
+            "type": "renderer",
+            "id": 35032,
+            "cpuTime": 0.423145
+          },
+          {
+            "type": "renderer",
+            "id": 39360,
+            "cpuTime": 0.610018
+          },
+          {
+            "type": "renderer",
+            "id": 35192,
+            "cpuTime": 0.379434
+          },
+          {
+            "type": "renderer",
+            "id": 33856,
+            "cpuTime": 0.435455
+          },
+          {
+            "type": "renderer",
+            "id": 39428,
+            "cpuTime": 0.666889
+          },
+          {
+            "type": "renderer",
+            "id": 26736,
+            "cpuTime": 0.40363
+          },
+          {
+            "type": "renderer",
+            "id": 36972,
+            "cpuTime": 0.44874
+          },
+          {
+            "type": "renderer",
+            "id": 39464,
+            "cpuTime": 0.646389
+          },
+          {
+            "type": "renderer",
+            "id": 12396,
+            "cpuTime": 3.657932
+          },
+          {
+            "type": "GPU",
+            "id": 38648,
+            "cpuTime": 2.101085
+          },
+          {
+            "type": "network.mojom.NetworkService",
+            "id": 37324,
+            "cpuTime": 0.699773
+          }
+        ],
+        "browser_memory": [
+          {
+            "Id": 2416,
+            "WorkingSet64": 73142272,
+            "PrivateMemorySize64": 28934144
+          },
+          {
+            "Id": 12396,
+            "WorkingSet64": 142667776,
+            "PrivateMemorySize64": 56029184
+          },
+          {
+            "Id": 17996,
+            "WorkingSet64": 125714432,
+            "PrivateMemorySize64": 46084096
+          },
+          {
+            "Id": 26712,
+            "WorkingSet64": 131047424,
+            "PrivateMemorySize64": 45535232
+          },
+          {
+            "Id": 26736,
+            "WorkingSet64": 133574656,
+            "PrivateMemorySize64": 48128000
+          },
+          {
+            "Id": 33856,
+            "WorkingSet64": 134787072,
+            "PrivateMemorySize64": 46292992
+          },
+          {
+            "Id": 35032,
+            "WorkingSet64": 138018816,
+            "PrivateMemorySize64": 49573888
+          },
+          {
+            "Id": 35192,
+            "WorkingSet64": 130994176,
+            "PrivateMemorySize64": 45502464
+          },
+          {
+            "Id": 36972,
+            "WorkingSet64": 136572928,
+            "PrivateMemorySize64": 49098752
+          },
+          {
+            "Id": 37324,
+            "WorkingSet64": 50216960,
+            "PrivateMemorySize64": 23146496
+          },
+          {
+            "Id": 38648,
+            "WorkingSet64": 167038976,
+            "PrivateMemorySize64": 68513792
+          },
+          {
+            "Id": 39360,
+            "WorkingSet64": 126091264,
+            "PrivateMemorySize64": 45772800
+          },
+          {
+            "Id": 39428,
+            "WorkingSet64": 122257408,
+            "PrivateMemorySize64": 41799680
+          },
+          {
+            "Id": 39464,
+            "WorkingSet64": 125349888,
+            "PrivateMemorySize64": 45400064
+          }
+        ]
+      },
+      {
+        "at": "2026-10-13T10:24:48.534Z",
+        "containers": [
+          {
+            "BlockIO": "9.59MB / 639kB",
+            "CPUPerc": "0.94%",
+            "Container": "zt-guac-v2-accept-20261013-recovery2-bastion-1",
+            "ID": "b13b25e7cfe6",
+            "MemPerc": "0.78%",
+            "MemUsage": "7.344MiB / 939.7MiB",
+            "Name": "zt-guac-v2-accept-20261013-recovery2-bastion-1",
+            "NetIO": "4.2MB / 7.16MB",
+            "PIDs": "8"
+          },
+          {
+            "BlockIO": "36.9MB / 25.3MB",
+            "CPUPerc": "0.09%",
+            "Container": "zt-guac-v2-accept-20261013-recovery2-guacd-1",
+            "ID": "5199c9d1bfbf",
+            "MemPerc": "7.66%",
+            "MemUsage": "71.97MiB / 939.7MiB",
+            "Name": "zt-guac-v2-accept-20261013-recovery2-guacd-1",
+            "NetIO": "90.6kB / 149kB",
+            "PIDs": "103"
+          },
+          {
+            "BlockIO": "196MB / 92.2MB",
+            "CPUPerc": "0.00%",
+            "Container": "zt-guac-v2-accept-20261013-recovery2-target-1",
+            "ID": "c55d0130c49a",
+            "MemPerc": "50.74%",
+            "MemUsage": "97.43MiB / 192MiB",
+            "Name": "zt-guac-v2-accept-20261013-recovery2-target-1",
+            "NetIO": "47.1kB / 75.9kB",
+            "PIDs": "52"
+          },
+          {
+            "BlockIO": "23.3MB / 82.9MB",
+            "CPUPerc": "1.24%",
+            "Container": "zt-guac-v2-accept-20261013-recovery2-restored-postgres",
+            "ID": "868130c00ff0",
+            "MemPerc": "25.52%",
+            "MemUsage": "32.67MiB / 128MiB",
+            "Name": "zt-guac-v2-accept-20261013-recovery2-restored-postgres",
+            "NetIO": "2.81MB / 4.04MB",
+            "PIDs": "11"
+          }
+        ],
+        "browser_processes": [
+          {
+            "type": "browser",
+            "id": 2416,
+            "cpuTime": 2.343405
+          },
+          {
+            "type": "renderer",
+            "id": 17996,
+            "cpuTime": 0.676049
+          },
+          {
+            "type": "renderer",
+            "id": 26712,
+            "cpuTime": 0.384741
+          },
+          {
+            "type": "renderer",
+            "id": 35032,
+            "cpuTime": 0.436378
+          },
+          {
+            "type": "renderer",
+            "id": 39360,
+            "cpuTime": 0.69289
+          },
+          {
+            "type": "renderer",
+            "id": 35192,
+            "cpuTime": 0.395721
+          },
+          {
+            "type": "renderer",
+            "id": 33856,
+            "cpuTime": 0.449633
+          },
+          {
+            "type": "renderer",
+            "id": 39428,
+            "cpuTime": 0.749453
+          },
+          {
+            "type": "renderer",
+            "id": 26736,
+            "cpuTime": 0.418174
+          },
+          {
+            "type": "renderer",
+            "id": 36972,
+            "cpuTime": 0.463557
+          },
+          {
+            "type": "renderer",
+            "id": 39464,
+            "cpuTime": 0.727717
+          },
+          {
+            "type": "renderer",
+            "id": 12396,
+            "cpuTime": 3.67714
+          },
+          {
+            "type": "GPU",
+            "id": 38648,
+            "cpuTime": 2.276873
+          },
+          {
+            "type": "network.mojom.NetworkService",
+            "id": 37324,
+            "cpuTime": 0.724309
+          }
+        ],
+        "browser_memory": [
+          {
+            "Id": 2416,
+            "WorkingSet64": 73064448,
+            "PrivateMemorySize64": 28848128
+          },
+          {
+            "Id": 12396,
+            "WorkingSet64": 142872576,
+            "PrivateMemorySize64": 56090624
+          },
+          {
+            "Id": 17996,
+            "WorkingSet64": 122327040,
+            "PrivateMemorySize64": 41791488
+          },
+          {
+            "Id": 26712,
+            "WorkingSet64": 131276800,
+            "PrivateMemorySize64": 45584384
+          },
+          {
+            "Id": 26736,
+            "WorkingSet64": 131559424,
+            "PrivateMemorySize64": 45977600
+          },
+          {
+            "Id": 33856,
+            "WorkingSet64": 132775936,
+            "PrivateMemorySize64": 44134400
+          },
+          {
+            "Id": 35032,
+            "WorkingSet64": 138149888,
+            "PrivateMemorySize64": 49561600
+          },
+          {
+            "Id": 35192,
+            "WorkingSet64": 129552384,
+            "PrivateMemorySize64": 43708416
+          },
+          {
+            "Id": 36972,
+            "WorkingSet64": 134623232,
+            "PrivateMemorySize64": 46850048
+          },
+          {
+            "Id": 37324,
+            "WorkingSet64": 50176000,
+            "PrivateMemorySize64": 23105536
+          },
+          {
+            "Id": 38648,
+            "WorkingSet64": 185999360,
+            "PrivateMemorySize64": 87654400
+          },
+          {
+            "Id": 39360,
+            "WorkingSet64": 122159104,
+            "PrivateMemorySize64": 41783296
+          },
+          {
+            "Id": 39428,
+            "WorkingSet64": 120799232,
+            "PrivateMemorySize64": 40112128
+          },
+          {
+            "Id": 39464,
+            "WorkingSet64": 123117568,
+            "PrivateMemorySize64": 42741760
+          }
+        ]
+      },
+      {
+        "at": "2026-10-13T10:25:31.336Z",
+        "containers": [
+          {
+            "BlockIO": "9.59MB / 778kB",
+            "CPUPerc": "1.06%",
+            "Container": "zt-guac-v2-accept-20261013-recovery2-bastion-1",
+            "ID": "b13b25e7cfe6",
+            "MemPerc": "0.78%",
+            "MemUsage": "7.34MiB / 939.7MiB",
+            "Name": "zt-guac-v2-accept-20261013-recovery2-bastion-1",
+            "NetIO": "5.58MB / 8.11MB",
+            "PIDs": "8"
+          },
+          {
+            "BlockIO": "36.9MB / 26.4MB",
+            "CPUPerc": "0.12%",
+            "Container": "zt-guac-v2-accept-20261013-recovery2-guacd-1",
+            "ID": "5199c9d1bfbf",
+            "MemPerc": "7.29%",
+            "MemUsage": "68.51MiB / 939.7MiB",
+            "Name": "zt-guac-v2-accept-20261013-recovery2-guacd-1",
+            "NetIO": "96.3kB / 155kB",
+            "PIDs": "103"
+          },
+          {
+            "BlockIO": "196MB / 92.3MB",
+            "CPUPerc": "0.02%",
+            "Container": "zt-guac-v2-accept-20261013-recovery2-target-1",
+            "ID": "c55d0130c49a",
+            "MemPerc": "51.82%",
+            "MemUsage": "99.49MiB / 192MiB",
+            "Name": "zt-guac-v2-accept-20261013-recovery2-target-1",
+            "NetIO": "49.3kB / 77kB",
+            "PIDs": "52"
+          },
+          {
+            "BlockIO": "23.8MB / 89MB",
+            "CPUPerc": "1.26%",
+            "Container": "zt-guac-v2-accept-20261013-recovery2-restored-postgres",
+            "ID": "868130c00ff0",
+            "MemPerc": "24.66%",
+            "MemUsage": "31.56MiB / 128MiB",
+            "Name": "zt-guac-v2-accept-20261013-recovery2-restored-postgres",
+            "NetIO": "3.77MB / 5.46MB",
+            "PIDs": "11"
+          }
+        ],
+        "browser_processes": [
+          {
+            "type": "browser",
+            "id": 2416,
+            "cpuTime": 2.407509
+          },
+          {
+            "type": "renderer",
+            "id": 17996,
+            "cpuTime": 0.75912
+          },
+          {
+            "type": "renderer",
+            "id": 26712,
+            "cpuTime": 0.396784
+          },
+          {
+            "type": "renderer",
+            "id": 35032,
+            "cpuTime": 0.447899
+          },
+          {
+            "type": "renderer",
+            "id": 39360,
+            "cpuTime": 0.774614
+          },
+          {
+            "type": "renderer",
+            "id": 35192,
+            "cpuTime": 0.405413
+          },
+          {
+            "type": "renderer",
+            "id": 33856,
+            "cpuTime": 0.458612
+          },
+          {
+            "type": "renderer",
+            "id": 39428,
+            "cpuTime": 0.827898
+          },
+          {
+            "type": "renderer",
+            "id": 26736,
+            "cpuTime": 0.427476
+          },
+          {
+            "type": "renderer",
+            "id": 36972,
+            "cpuTime": 0.472326
+          },
+          {
+            "type": "renderer",
+            "id": 39464,
+            "cpuTime": 0.803176
+          },
+          {
+            "type": "renderer",
+            "id": 12396,
+            "cpuTime": 3.700116
+          },
+          {
+            "type": "GPU",
+            "id": 38648,
+            "cpuTime": 2.443651
+          },
+          {
+            "type": "network.mojom.NetworkService",
+            "id": 37324,
+            "cpuTime": 0.75078
+          }
+        ],
+        "browser_memory": [
+          {
+            "Id": 2416,
+            "WorkingSet64": 73252864,
+            "PrivateMemorySize64": 28889088
+          },
+          {
+            "Id": 12396,
+            "WorkingSet64": 143097856,
+            "PrivateMemorySize64": 56393728
+          },
+          {
+            "Id": 17996,
+            "WorkingSet64": 120934400,
+            "PrivateMemorySize64": 40062976
+          },
+          {
+            "Id": 26712,
+            "WorkingSet64": 128638976,
+            "PrivateMemorySize64": 42942464
+          },
+          {
+            "Id": 26736,
+            "WorkingSet64": 130547712,
+            "PrivateMemorySize64": 44826624
+          },
+          {
+            "Id": 33856,
+            "WorkingSet64": 131612672,
+            "PrivateMemorySize64": 42823680
+          },
+          {
+            "Id": 35032,
+            "WorkingSet64": 135790592,
+            "PrivateMemorySize64": 47198208
+          },
+          {
+            "Id": 35192,
+            "WorkingSet64": 127750144,
+            "PrivateMemorySize64": 41938944
+          },
+          {
+            "Id": 36972,
+            "WorkingSet64": 133451776,
+            "PrivateMemorySize64": 45395968
+          },
+          {
+            "Id": 37324,
+            "WorkingSet64": 50356224,
+            "PrivateMemorySize64": 23203840
+          },
+          {
+            "Id": 38648,
+            "WorkingSet64": 186343424,
+            "PrivateMemorySize64": 87851008
+          },
+          {
+            "Id": 39360,
+            "WorkingSet64": 120500224,
+            "PrivateMemorySize64": 39976960
+          },
+          {
+            "Id": 39428,
+            "WorkingSet64": 120733696,
+            "PrivateMemorySize64": 40083456
+          },
+          {
+            "Id": 39464,
+            "WorkingSet64": 123207680,
+            "PrivateMemorySize64": 42913792
+          }
+        ]
+      },
+      {
+        "at": "2026-10-13T10:26:13.271Z",
+        "containers": [
+          {
+            "BlockIO": "9.59MB / 909kB",
+            "CPUPerc": "0.93%",
+            "Container": "zt-guac-v2-accept-20261013-recovery2-bastion-1",
+            "ID": "b13b25e7cfe6",
+            "MemPerc": "0.78%",
+            "MemUsage": "7.352MiB / 939.7MiB",
+            "Name": "zt-guac-v2-accept-20261013-recovery2-bastion-1",
+            "NetIO": "6.99MB / 9.08MB",
+            "PIDs": "8"
+          },
+          {
+            "BlockIO": "36.9MB / 28.4MB",
+            "CPUPerc": "0.09%",
+            "Container": "zt-guac-v2-accept-20261013-recovery2-guacd-1",
+            "ID": "5199c9d1bfbf",
+            "MemPerc": "7.08%",
+            "MemUsage": "66.52MiB / 939.7MiB",
+            "Name": "zt-guac-v2-accept-20261013-recovery2-guacd-1",
+            "NetIO": "101kB / 160kB",
+            "PIDs": "103"
+          },
+          {
+            "BlockIO": "196MB / 92.3MB",
+            "CPUPerc": "0.02%",
+            "Container": "zt-guac-v2-accept-20261013-recovery2-target-1",
+            "ID": "c55d0130c49a",
+            "MemPerc": "51.88%",
+            "MemUsage": "99.61MiB / 192MiB",
+            "Name": "zt-guac-v2-accept-20261013-recovery2-target-1",
+            "NetIO": "51.5kB / 78.2kB",
+            "PIDs": "52"
+          },
+          {
+            "BlockIO": "25.6MB / 94.4MB",
+            "CPUPerc": "1.32%",
+            "Container": "zt-guac-v2-accept-20261013-recovery2-restored-postgres",
+            "ID": "868130c00ff0",
+            "MemPerc": "25.91%",
+            "MemUsage": "33.17MiB / 128MiB",
+            "Name": "zt-guac-v2-accept-20261013-recovery2-restored-postgres",
+            "NetIO": "4.66MB / 6.78MB",
+            "PIDs": "11"
+          }
+        ],
+        "browser_processes": [
+          {
+            "type": "browser",
+            "id": 2416,
+            "cpuTime": 2.470118
+          },
+          {
+            "type": "renderer",
+            "id": 17996,
+            "cpuTime": 0.837935
+          },
+          {
+            "type": "renderer",
+            "id": 26712,
+            "cpuTime": 0.405628
+          },
+          {
+            "type": "renderer",
+            "id": 35032,
+            "cpuTime": 0.458
+          },
+          {
+            "type": "renderer",
+            "id": 39360,
+            "cpuTime": 0.850527
+          },
+          {
+            "type": "renderer",
+            "id": 35192,
+            "cpuTime": 0.413379
+          },
+          {
+            "type": "renderer",
+            "id": 33856,
+            "cpuTime": 0.466652
+          },
+          {
+            "type": "renderer",
+            "id": 39428,
+            "cpuTime": 0.903549
+          },
+          {
+            "type": "renderer",
+            "id": 26736,
+            "cpuTime": 0.435821
+          },
+          {
+            "type": "renderer",
+            "id": 36972,
+            "cpuTime": 0.480019
+          },
+          {
+            "type": "renderer",
+            "id": 39464,
+            "cpuTime": 0.878673
+          },
+          {
+            "type": "renderer",
+            "id": 12396,
+            "cpuTime": 3.718459
+          },
+          {
+            "type": "GPU",
+            "id": 38648,
+            "cpuTime": 2.609051
+          },
+          {
+            "type": "network.mojom.NetworkService",
+            "id": 37324,
+            "cpuTime": 0.773313
+          }
+        ],
+        "browser_memory": [
+          {
+            "Id": 2416,
+            "WorkingSet64": 73277440,
+            "PrivateMemorySize64": 28909568
+          },
+          {
+            "Id": 12396,
+            "WorkingSet64": 143347712,
+            "PrivateMemorySize64": 56971264
+          },
+          {
+            "Id": 17996,
+            "WorkingSet64": 120897536,
+            "PrivateMemorySize64": 40103936
+          },
+          {
+            "Id": 26712,
+            "WorkingSet64": 128053248,
+            "PrivateMemorySize64": 42205184
+          },
+          {
+            "Id": 26736,
+            "WorkingSet64": 130617344,
+            "PrivateMemorySize64": 44838912
+          },
+          {
+            "Id": 33856,
+            "WorkingSet64": 131665920,
+            "PrivateMemorySize64": 42860544
+          },
+          {
+            "Id": 35032,
+            "WorkingSet64": 134967296,
+            "PrivateMemorySize64": 46080000
+          },
+          {
+            "Id": 35192,
+            "WorkingSet64": 127803392,
+            "PrivateMemorySize64": 41979904
+          },
+          {
+            "Id": 36972,
+            "WorkingSet64": 133525504,
+            "PrivateMemorySize64": 45420544
+          },
+          {
+            "Id": 37324,
+            "WorkingSet64": 50376704,
+            "PrivateMemorySize64": 23203840
+          },
+          {
+            "Id": 38648,
+            "WorkingSet64": 186343424,
+            "PrivateMemorySize64": 87851008
+          },
+          {
+            "Id": 39360,
+            "WorkingSet64": 120631296,
+            "PrivateMemorySize64": 40407040
+          },
+          {
+            "Id": 39428,
+            "WorkingSet64": 120852480,
+            "PrivateMemorySize64": 40263680
+          },
+          {
+            "Id": 39464,
+            "WorkingSet64": 123346944,
+            "PrivateMemorySize64": 42950656
+          }
+        ]
+      },
+      {
+        "at": "2026-10-13T10:26:55.023Z",
+        "containers": [
+          {
+            "BlockIO": "9.59MB / 1.04MB",
+            "CPUPerc": "1.11%",
+            "Container": "zt-guac-v2-accept-20261013-recovery2-bastion-1",
+            "ID": "b13b25e7cfe6",
+            "MemPerc": "0.78%",
+            "MemUsage": "7.355MiB / 939.7MiB",
+            "Name": "zt-guac-v2-accept-20261013-recovery2-bastion-1",
+            "NetIO": "8.36MB / 10MB",
+            "PIDs": "8"
+          },
+          {
+            "BlockIO": "36.9MB / 30.3MB",
+            "CPUPerc": "0.10%",
+            "Container": "zt-guac-v2-accept-20261013-recovery2-guacd-1",
+            "ID": "5199c9d1bfbf",
+            "MemPerc": "6.47%",
+            "MemUsage": "60.77MiB / 939.7MiB",
+            "Name": "zt-guac-v2-accept-20261013-recovery2-guacd-1",
+            "NetIO": "106kB / 165kB",
+            "PIDs": "103"
+          },
+          {
+            "BlockIO": "196MB / 92.4MB",
+            "CPUPerc": "0.01%",
+            "Container": "zt-guac-v2-accept-20261013-recovery2-target-1",
+            "ID": "c55d0130c49a",
+            "MemPerc": "52.58%",
+            "MemUsage": "101MiB / 192MiB",
+            "Name": "zt-guac-v2-accept-20261013-recovery2-target-1",
+            "NetIO": "53.6kB / 79.2kB",
+            "PIDs": "52"
+          },
+          {
+            "BlockIO": "25.9MB / 100MB",
+            "CPUPerc": "1.15%",
+            "Container": "zt-guac-v2-accept-20261013-recovery2-restored-postgres",
+            "ID": "868130c00ff0",
+            "MemPerc": "26.67%",
+            "MemUsage": "34.14MiB / 128MiB",
+            "Name": "zt-guac-v2-accept-20261013-recovery2-restored-postgres",
+            "NetIO": "5.57MB / 8.12MB",
+            "PIDs": "11"
+          }
+        ],
+        "browser_processes": [
+          {
+            "type": "browser",
+            "id": 2416,
+            "cpuTime": 2.533549
+          },
+          {
+            "type": "renderer",
+            "id": 17996,
+            "cpuTime": 0.911844
+          },
+          {
+            "type": "renderer",
+            "id": 26712,
+            "cpuTime": 0.413857
+          },
+          {
+            "type": "renderer",
+            "id": 35032,
+            "cpuTime": 0.465526
+          },
+          {
+            "type": "renderer",
+            "id": 39360,
+            "cpuTime": 0.924958
+          },
+          {
+            "type": "renderer",
+            "id": 35192,
+            "cpuTime": 0.421696
+          },
+          {
+            "type": "renderer",
+            "id": 33856,
+            "cpuTime": 0.473907
+          },
+          {
+            "type": "renderer",
+            "id": 39428,
+            "cpuTime": 0.979536
+          },
+          {
+            "type": "renderer",
+            "id": 26736,
+            "cpuTime": 0.444395
+          },
+          {
+            "type": "renderer",
+            "id": 36972,
+            "cpuTime": 0.489638
+          },
+          {
+            "type": "renderer",
+            "id": 39464,
+            "cpuTime": 0.953417
+          },
+          {
+            "type": "renderer",
+            "id": 12396,
+            "cpuTime": 3.737276
+          },
+          {
+            "type": "GPU",
+            "id": 38648,
+            "cpuTime": 2.774126
+          },
+          {
+            "type": "network.mojom.NetworkService",
+            "id": 37324,
+            "cpuTime": 0.79967
+          }
+        ],
+        "browser_memory": [
+          {
+            "Id": 2416,
+            "WorkingSet64": 73256960,
+            "PrivateMemorySize64": 28856320
+          },
+          {
+            "Id": 12396,
+            "WorkingSet64": 143499264,
+            "PrivateMemorySize64": 56926208
+          },
+          {
+            "Id": 17996,
+            "WorkingSet64": 121098240,
+            "PrivateMemorySize64": 40271872
+          },
+          {
+            "Id": 26712,
+            "WorkingSet64": 128040960,
+            "PrivateMemorySize64": 42156032
+          },
+          {
+            "Id": 26736,
+            "WorkingSet64": 130674688,
+            "PrivateMemorySize64": 44814336
+          },
+          {
+            "Id": 33856,
+            "WorkingSet64": 131756032,
+            "PrivateMemorySize64": 42823680
+          },
+          {
+            "Id": 35032,
+            "WorkingSet64": 134971392,
+            "PrivateMemorySize64": 46018560
+          },
+          {
+            "Id": 35192,
+            "WorkingSet64": 127893504,
+            "PrivateMemorySize64": 41943040
+          },
+          {
+            "Id": 36972,
+            "WorkingSet64": 133586944,
+            "PrivateMemorySize64": 45383680
+          },
+          {
+            "Id": 37324,
+            "WorkingSet64": 50339840,
+            "PrivateMemorySize64": 23146496
+          },
+          {
+            "Id": 38648,
+            "WorkingSet64": 186298368,
+            "PrivateMemorySize64": 88801280
+          },
+          {
+            "Id": 39360,
+            "WorkingSet64": 120864768,
+            "PrivateMemorySize64": 40443904
+          },
+          {
+            "Id": 39428,
+            "WorkingSet64": 121077760,
+            "PrivateMemorySize64": 40292352
+          },
+          {
+            "Id": 39464,
+            "WorkingSet64": 123564032,
+            "PrivateMemorySize64": 42987520
+          }
+        ]
+      }
+    ],
+    "sustained_production_capacity_claimed": false,
+    "all_ten_recordings_complete": true
+  },
+  "retention": {
+    "expired_file_removed": true,
+    "unexpired_file_kept": true,
+    "connection_and_audit_history_kept": true,
+    "kept_recording_replays": true
+  },
+  "status": "passed-real-recovery-and-fault-components"
+}

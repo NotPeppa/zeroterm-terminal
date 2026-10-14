@@ -1,0 +1,10 @@
+{
+  "owned_browser_fixture_removed": true,
+  "owned_postgres_removed": true,
+  "owned_builder_stopped": true,
+  "original_five_container_ids_unchanged": true,
+  "production_ready": false,
+  "temporary_ssh_key_revoked": true,
+  "local_tunnels_stopped": true,
+  "local_temporary_private_key_removed": true
+}

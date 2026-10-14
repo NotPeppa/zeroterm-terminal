@@ -1,0 +1,9 @@
+{
+  "plain_textarea_ctrl_v": "PLAIN_PASTE_OK",
+  "xterm_ctrl_v_paste_events": 0,
+  "xterm_ctrl_v_text_on_screen": false,
+  "xterm_ctrl_shift_v_text_on_screen": true,
+  "production_ready": false,
+  "application_image_id": "sha256:9e364e76791139f38cf008727f88f48cf5810a21b2a255b4f69843f22044c979",
+  "purpose": "controlled Ctrl+V diagnosis before the fix"
+}

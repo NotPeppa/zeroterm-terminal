@@ -1,0 +1,258 @@
+{
+  "production_ready": false,
+  "windows_nla_verified": false,
+  "native_os_ime_verified": false,
+  "fixture_server_id": "zt-guac-v2-accept-20261013-browser",
+  "engine_image_id": "sha256:689c462e27a23670c35bb3435022627f71144f5e04210bffea3b52ba7bac6a23",
+  "profiles": [
+    {
+      "label": "ssh-password",
+      "protocol": "ssh",
+      "connection_id": "5d71c9f1-d9b7-4dc4-b4ba-4946c3fcbf91",
+      "keyboard_target_roundtrip": true,
+      "unicode_input": true,
+      "non_bmp_input_supported": false,
+      "scaled_mouse_input": true,
+      "focus_release": true,
+      "fullscreen": true,
+      "resize_edge_input": true,
+      "canvas_sha256": "4ab8c7f5f8d8887a6e323acc98e6de05c19d5d3b655ce89f99c8f1c5a65adcd9",
+      "recording_id": "7dee314b-0a6d-448f-ac7a-3b1029017f76",
+      "offline_verified_replay": true
+    },
+    {
+      "label": "ssh-private-key",
+      "protocol": "ssh",
+      "connection_id": "e1df2551-f90e-4d5d-818a-e72b4b12d85e",
+      "keyboard_target_roundtrip": true,
+      "unicode_input": true,
+      "non_bmp_input_supported": false,
+      "scaled_mouse_input": true,
+      "focus_release": true,
+      "fullscreen": true,
+      "resize_edge_input": true,
+      "canvas_sha256": "75e07f12f5deeb9408cf148570033159020902658795a2193c8525af0b5ae746",
+      "recording_id": "479980ac-d074-48ed-a0c3-b60429dee16b",
+      "offline_verified_replay": true
+    },
+    {
+      "label": "ssh-encrypted-key",
+      "protocol": "ssh",
+      "connection_id": "6a8727f5-087b-4caa-82d7-961f72aeb5d9",
+      "keyboard_target_roundtrip": true,
+      "unicode_input": true,
+      "non_bmp_input_supported": false,
+      "scaled_mouse_input": true,
+      "focus_release": true,
+      "fullscreen": true,
+      "resize_edge_input": true,
+      "canvas_sha256": "aa244cb741362ad43f8179974c519b0c9fc5c0074bf473297ebf760da68c4bda",
+      "recording_id": "1e250222-3751-4d1f-b40d-18935ee77468",
+      "offline_verified_replay": true
+    },
+    {
+      "label": "rdp-tls",
+      "protocol": "rdp",
+      "connection_id": "92c6df71-8ec2-4fa6-958c-9ed0983abeb3",
+      "keyboard_target_roundtrip": true,
+      "unicode_input": false,
+      "non_bmp_input_supported": false,
+      "target_input_limit": "xrdp TLS fixture ignores Unicode keyboard events; Windows NLA/IME not verified",
+      "scaled_mouse_input": true,
+      "focus_release": true,
+      "fullscreen": true,
+      "resize_edge_input": true,
+      "canvas_sha256": "0fb9fa0632ad648d8fdabaf6ac1111384b373d7ab42b3a6f155736f551021e40",
+      "recording_id": "6bdfe710-8754-4007-aa29-237af7422b55",
+      "offline_verified_replay": true
+    },
+    {
+      "label": "vnc-none",
+      "protocol": "vnc",
+      "connection_id": "dbada388-50f7-4d27-8e00-24395ec40ebe",
+      "keyboard_target_roundtrip": true,
+      "unicode_input": true,
+      "non_bmp_input_supported": true,
+      "scaled_mouse_input": true,
+      "focus_release": true,
+      "fullscreen": true,
+      "resize_edge_input": true,
+      "canvas_sha256": "d856934829136703abae377b7bab9d77121554a52d7582a0d507ee0969651429",
+      "recording_id": "f0dbff9c-9d89-4021-a738-2dcb5e14be14",
+      "offline_verified_replay": true
+    },
+    {
+      "label": "vnc-password",
+      "protocol": "vnc",
+      "connection_id": "23c41062-88cd-4a3e-a8b1-bb3fb0b4eb88",
+      "keyboard_target_roundtrip": true,
+      "unicode_input": true,
+      "non_bmp_input_supported": true,
+      "scaled_mouse_input": true,
+      "focus_release": true,
+      "fullscreen": true,
+      "resize_edge_input": true,
+      "canvas_sha256": "0ea34dee3c63d190909136c58e2e5a2c20a5f911309d96498536fc3c1b27500a",
+      "recording_id": "31e4a1a4-a643-4ee6-8352-0aeba16a749d",
+      "offline_verified_replay": true
+    }
+  ],
+  "faults": {
+    "revocation": {
+      "closed_ms": 1357,
+      "recording_state": "partial"
+    },
+    "recording_permission": {
+      "closed": true,
+      "recording_state": "partial"
+    },
+    "periodic_checkpoint": {
+      "closed_without_further_user_input": true,
+      "autonomous_target_output": true,
+      "recording_state": "partial"
+    },
+    "guacd_outage": {
+      "rdp_vnc_unavailable": true,
+      "ssh_still_available": true,
+      "management_authenticated": true,
+      "replay_available": true
+    }
+  },
+  "application_image_id": "sha256:9e364e76791139f38cf008727f88f48cf5810a21b2a255b4f69843f22044c979",
+  "browser_version": "149.0.7827.55",
+  "https_trust": "only the independently obtained fixture proxy SPKI is excepted",
+  "unicode_keysyms": [
+    [
+      16797229,
+      1
+    ],
+    [
+      16797229,
+      0
+    ],
+    [
+      16905728,
+      1
+    ],
+    [
+      16905728,
+      0
+    ],
+    [
+      16797229,
+      1
+    ],
+    [
+      16797229,
+      0
+    ],
+    [
+      16905728,
+      1
+    ],
+    [
+      16905728,
+      0
+    ],
+    [
+      16797229,
+      1
+    ],
+    [
+      16797229,
+      0
+    ],
+    [
+      16905728,
+      1
+    ],
+    [
+      16905728,
+      0
+    ],
+    [
+      16797229,
+      1
+    ],
+    [
+      16797229,
+      0
+    ],
+    [
+      16905728,
+      1
+    ],
+    [
+      16905728,
+      0
+    ]
+  ],
+  "status": "passed-real-browser-component",
+  "mixed_protocol_smoke": {
+    "active_connections": 3,
+    "protocols": [
+      "ssh",
+      "rdp",
+      "vnc"
+    ],
+    "fourth_user_connection_rejected": true,
+    "resources": [
+      {
+        "BlockIO": "2.76MB / 4.1kB",
+        "CPUPerc": "0.00%",
+        "Container": "0bf71ed036582160f10684b169c1ababf8fcc5455855a5ffe8012c4a82071abf",
+        "ID": "0bf71ed03658",
+        "MemPerc": "0.53%",
+        "MemUsage": "5.008MiB / 939.7MiB",
+        "Name": "zt-guac-v2-accept-20261013-browser-proxy-1",
+        "NetIO": "4.23MB / 4.29MB",
+        "PIDs": "3"
+      },
+      {
+        "BlockIO": "11.3MB / 676kB",
+        "CPUPerc": "0.27%",
+        "Container": "12d48718cfc36641815ea5faed907fc7e2821370e79b47a9020717ff285e8ecf",
+        "ID": "12d48718cfc3",
+        "MemPerc": "1.01%",
+        "MemUsage": "9.469MiB / 939.7MiB",
+        "Name": "zt-guac-v2-accept-20261013-browser-bastion-1",
+        "NetIO": "5.83MB / 7.26MB",
+        "PIDs": "6"
+      },
+      {
+        "BlockIO": "19.8MB / 0B",
+        "CPUPerc": "0.03%",
+        "Container": "857e91088f6a07dd397edbf9df0ca85789b09d650707379cfb3cb37bbb5098e5",
+        "ID": "857e91088f6a",
+        "MemPerc": "5.95%",
+        "MemUsage": "55.89MiB / 939.7MiB",
+        "Name": "zt-guac-v2-accept-20261013-browser-guacd-1",
+        "NetIO": "276kB / 321kB",
+        "PIDs": "35"
+      },
+      {
+        "BlockIO": "32.5MB / 85.1MB",
+        "CPUPerc": "6.43%",
+        "Container": "0abeb26a07c4c16af03033ce6a63e862ca924427129342debe3666d315b8b4a6",
+        "ID": "0abeb26a07c4",
+        "MemPerc": "4.43%",
+        "MemUsage": "41.6MiB / 939.7MiB",
+        "Name": "zt-guac-v2-accept-20261013-browser-postgres-1",
+        "NetIO": "3.15MB / 4.93MB",
+        "PIDs": "10"
+      },
+      {
+        "BlockIO": "150MB / 31.4MB",
+        "CPUPerc": "0.00%",
+        "Container": "13924c1ab43dc581aade7f4dac9fa93b0ccd9e1e7cef3e7cacf122d3e379f138",
+        "ID": "13924c1ab43d",
+        "MemPerc": "81.87%",
+        "MemUsage": "157.2MiB / 192MiB",
+        "Name": "zt-guac-v2-accept-20261013-browser-target-1",
+        "NetIO": "84.7kB / 176kB",
+        "PIDs": "23"
+      }
+    ],
+    "capacity_acceptance_claimed": false
+  }
+}

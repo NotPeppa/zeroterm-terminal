@@ -1,0 +1,9 @@
+{
+  "source_sha256": "96d3d4db5fdd8fc2b75ee14dc4fc0f040063d8fac2713a263277be75ba21be23",
+  "production_ready": false,
+  "backend_unchanged_from_asset_group_acceptance": true,
+  "app_exit": 0,
+  "app_image_id": "sha256:767713cfbde0200082a080fde8b67c3f4284b7e592b4d803b93bb42e33523d02",
+  "status": "passed",
+  "finished_at": "2026-10-10T07:26:00Z"
+}

@@ -1,7 +1,7 @@
 use anyhow::{bail, Context, Result};
 use async_trait::async_trait;
-use bastion_domain::{Connection, ConnectionState, ErrorCode, GatewayAddress};
-use bastion_gateway::{GatewayBackend, NetworkPolicy, Target, TargetAuth, TargetEndpoint};
+use bastion_domain::{Connection, ConnectionState, ErrorCode};
+use bastion_gateway::{GatewayBackend, NetworkPolicy};
 use bastion_secrets::{hash_password, read_secret_file, KeyRing, Secret};
 use bastion_store::PgStore;
 use ipnet::IpNet;
@@ -49,12 +49,9 @@ struct Config {
     public_origin: Option<String>,
     #[serde(default)]
     web_root: Option<PathBuf>,
-    ssh_listen: SocketAddr,
-    ssh_public_host: Option<String>,
-    ssh_public_port: Option<u16>,
+    guacd: bastion_gateway::GuacdConfig,
     production: Option<crate::production::Production>,
     database_url_file: PathBuf,
-    ssh_host_key_file: PathBuf,
     active_kek_version: i64,
     kek_files: BTreeMap<String, PathBuf>,
     network: Policy,
@@ -65,53 +62,51 @@ struct Policy {
     allow: Vec<IpNet>,
     deny: Vec<IpNet>,
 }
+fn private_api_address(address: SocketAddr) -> bool {
+    address.port() != 0
+        && match address.ip() {
+            std::net::IpAddr::V4(ip) => ip.is_loopback() || ip.is_private(),
+            std::net::IpAddr::V6(ip) => ip.is_loopback() || ip.is_unique_local(),
+        }
+}
 impl Config {
     fn load(path: &Path) -> Result<Self> {
         let config: Self =
             toml::from_str(&std::fs::read_to_string(path).context("cannot read configuration")?)?;
-        if let Some(production) = &config.production {
-            production.validate()?;
-            let origin: axum::http::Uri = config
-                .public_origin
-                .as_deref()
-                .context("production HTTPS origin is required")?
-                .parse()
-                .context("invalid production origin")?;
-            if origin.scheme_str() != Some("https")
-                || origin
-                    .authority()
-                    .is_none_or(|authority| authority.as_str().contains('@'))
-                || origin.host().is_none_or(|host| host.is_empty())
-                || origin
-                    .path_and_query()
-                    .is_some_and(|path| path.as_str() != "/")
-            {
-                bail!("production origin must be exact HTTPS authority without userinfo, path or query");
-            }
-            if !config.api_listen.ip().is_loopback()
-                || config.api_listen.port() == 0
-                || config.ssh_listen.port() == 0
-                || !config
-                    .public_origin
-                    .as_ref()
-                    .is_some_and(|origin| origin.starts_with("https://"))
-                || !config.ssh_public_host.as_ref().is_some_and(|host| {
-                    bastion_api::valid_host(host)
-                        && !host
-                            .parse::<std::net::IpAddr>()
-                            .is_ok_and(|ip| ip.is_unspecified())
-                })
-                || config.ssh_public_port.is_none_or(|port| port == 0)
-            {
-                bail!("production requires loopback API behind HTTPS, explicit public SSH host/port and nonzero listeners");
-            }
-        } else if !config.api_listen.ip().is_loopback()
-            || !config.ssh_listen.ip().is_loopback()
-            || config.api_listen.port() == 0
-            || config.ssh_listen.port() == 0
+        let production = config
+            .production
+            .as_ref()
+            .context("browser-only service requires production configuration")?;
+        production.validate()?;
+        let origin: axum::http::Uri = config
+            .public_origin
+            .as_deref()
+            .context("HTTPS origin is required")?
+            .parse()
+            .context("invalid HTTPS origin")?;
+        if origin.scheme_str() != Some("https")
+            || origin.authority().is_none_or(|a| a.as_str().contains('@'))
+            || origin.host().is_none_or(|h| h.is_empty())
+            || origin.path_and_query().is_some_and(|p| p.as_str() != "/")
+            || !private_api_address(config.api_listen)
         {
-            bail!("M1 integration service must listen on loopback with explicit nonzero ports");
+            bail!("browser-only service requires a private API address and exact HTTPS authority");
         }
+        if config.guacd.version != "1.6.0"
+            || config.guacd.bridge_bind.port() != 0
+            || config.guacd.bridge_bind.ip().is_unspecified()
+            || config.guacd.allowed_source_ips.is_empty()
+            || config.guacd.address.port() == 0
+            || config.guacd.address.ip().is_unspecified()
+            || config
+                .guacd
+                .bridge_advertise_host
+                .parse::<std::net::IpAddr>()
+                .is_err()
+        {
+            bail!("guacd requires an explicit pinned engine and restricted private TCP bridge");
+        }
+        config.guacd.validate().map_err(store_error)?;
         for id in [&config.server_id, &config.gateway_id] {
             if id.is_empty() || id.len() > 128 || id.chars().any(char::is_control) {
                 bail!("invalid server or gateway identity");
@@ -224,11 +219,8 @@ pub async fn reset_user(path: PathBuf, username: String, stdin: bool) -> Result<
 }
 struct Backend {
     store: PgStore,
-    keys: Arc<KeyRing>,
-    network: Arc<NetworkPolicy>,
     registry: Arc<bastion_gateway::RuntimeRegistry>,
     recording: Option<bastion_gateway::RecordingConfig>,
-    legacy_unrecorded_shell: bool,
     shutdown: CancellationToken,
 }
 #[async_trait]
@@ -239,44 +231,40 @@ impl GatewayBackend for Backend {
     fn recording_config(&self) -> Option<bastion_gateway::RecordingConfig> {
         self.recording.clone()
     }
-    fn allows_unrecorded_shell(&self) -> bool {
-        self.legacy_unrecorded_shell
-    }
-    async fn begin_shell(
-        &self,
-        connection: &Connection,
-        upstream: u32,
-        recording: bastion_domain::RecordingCreate,
-    ) -> Result<Uuid, ErrorCode> {
+    async fn authorize(&self, connection: &Connection) -> Result<(), ErrorCode> {
         if self.shutdown.is_cancelled() {
-            return Err(ErrorCode::RecordingUnavailable);
+            return Err(ErrorCode::PolicyStoreUnavailable);
         }
-        Ok(self
-            .store
-            .begin_channel(
-                connection,
-                upstream,
-                bastion_domain::ChannelKind::Shell,
-                Some(recording),
-                Uuid::new_v4(),
-            )
-            .await?
-            .id)
+        self.store.authorize_connection(connection).await
     }
-    async fn activate_shell(
+    async fn transition(
+        &self,
+        id: Uuid,
+        state: ConnectionState,
+        failure: Option<ErrorCode>,
+    ) -> Result<(), ErrorCode> {
+        self.store.transition(id, state, failure).await
+    }
+    async fn begin_recording(
         &self,
         connection: &Connection,
-        channel: Uuid,
-        recording: Uuid,
+        recording: bastion_domain::RecordingCreate,
     ) -> Result<(), ErrorCode> {
         if self.shutdown.is_cancelled() {
             return Err(ErrorCode::RecordingUnavailable);
         }
-        self.store.authorize_connection(connection).await?;
-        self.store.activate_recording(recording).await?;
         self.store
-            .transition_channel(channel, bastion_domain::ChannelState::Starting)
-            .await
+            .create_recording(connection, recording, Uuid::new_v4())
+            .await?;
+        Ok(())
+    }
+    async fn activate_recording(
+        &self,
+        connection: &Connection,
+        recording: Uuid,
+    ) -> Result<(), ErrorCode> {
+        self.authorize(connection).await?;
+        self.store.activate_recording(recording).await
     }
     async fn checkpoint_recording(
         &self,
@@ -289,130 +277,16 @@ impl GatewayBackend for Backend {
             .checkpoint_recording(id, written, synced, bytes)
             .await
     }
-    async fn finish_shell(
-        &self,
-        channel: Uuid,
-        _recording: Uuid,
-        state: bastion_domain::RecordingState,
-        _bytes: i64,
-        checksum: Option<String>,
-        exit_code: Option<u32>,
-        exit_signal: Option<String>,
-        failure: Option<ErrorCode>,
-    ) -> Result<(), ErrorCode> {
-        self.store
-            .finish_channel_and_recording(
-                channel,
-                exit_code,
-                exit_signal.as_deref(),
-                failure,
-                Some(state),
-                checksum.as_deref(),
-            )
-            .await
-    }
-    async fn begin_channel(
-        &self,
-        connection: &Connection,
-        upstream: u32,
-        kind: bastion_domain::ChannelKind,
-    ) -> Result<Uuid, ErrorCode> {
-        if self.shutdown.is_cancelled() {
-            return Err(ErrorCode::PolicyStoreUnavailable);
-        }
-        let channel = self
-            .store
-            .begin_channel(connection, upstream, kind, None, Uuid::new_v4())
-            .await?;
-        self.store
-            .transition_channel(channel.id, bastion_domain::ChannelState::Starting)
-            .await?;
-        Ok(channel.id)
-    }
-    async fn mark_streaming(&self, channel: Uuid) -> Result<(), ErrorCode> {
-        self.store
-            .transition_channel(channel, bastion_domain::ChannelState::Streaming)
-            .await
-    }
-    async fn finish_channel(
-        &self,
-        channel: Uuid,
-        exit_code: Option<u32>,
-        exit_signal: Option<String>,
-        failure: Option<ErrorCode>,
-    ) -> Result<(), ErrorCode> {
-        self.store
-            .finish_channel_and_recording(
-                channel,
-                exit_code,
-                exit_signal.as_deref(),
-                failure,
-                None,
-                None,
-            )
-            .await
-    }
-    async fn consume(&self, id: Uuid, secret: &str) -> Result<(Connection, Target), ErrorCode> {
-        if self.shutdown.is_cancelled() {
-            return Err(ErrorCode::PolicyStoreUnavailable);
-        }
-        let connection = self.store.consume_ticket(id, secret).await?;
-        let snapshot = match self.store.target_snapshot(&connection).await {
-            Ok(value) => value,
-            Err(code) => {
-                let _ = self
-                    .store
-                    .transition(connection.id, ConnectionState::Failed, Some(code))
-                    .await;
-                return Err(code);
-            }
-        };
-        let public_keys = snapshot
-            .keys
-            .iter()
-            .map(|key| {
-                russh::keys::PublicKey::from_openssh(key)
-                    .map_err(|_| ErrorCode::TargetHostKeyUnknown)
-            })
-            .collect::<Result<Vec<_>, _>>()?;
-        Ok((
-            connection,
-            Target {
-                address: TargetEndpoint::Restricted {
-                    host: snapshot.host,
-                    port: snapshot.port,
-                    policy: self.network.clone(),
-                },
-                username: snapshot.username,
-                public_keys,
-                auth: TargetAuth::Encrypted {
-                    context: snapshot.context,
-                    envelope: snapshot.credential,
-                    keys: self.keys.clone(),
-                },
-            },
-        ))
-    }
-    async fn authorize(&self, connection: &Connection) -> Result<(), ErrorCode> {
-        self.store.authorize_connection(connection).await
-    }
-    async fn transition(
+    async fn finish_recording(
         &self,
         id: Uuid,
-        state: ConnectionState,
+        state: bastion_domain::RecordingState,
+        bytes: i64,
+        checksum: Option<String>,
         failure: Option<ErrorCode>,
     ) -> Result<(), ErrorCode> {
-        self.store.transition(id, state, failure).await
-    }
-    async fn channel_audit(
-        &self,
-        connection: &Connection,
-        kind: &str,
-        command_hash: Option<String>,
-        command_len: Option<usize>,
-    ) -> Result<(), ErrorCode> {
         self.store
-            .channel_audit(connection, kind, command_hash, command_len)
+            .finish_recording(id, state, bytes, checksum.as_deref(), failure)
             .await
     }
 }
@@ -448,7 +322,7 @@ async fn web_headers(
             .insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
     }
     for (name, value) in [
-        ("content-security-policy", "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; font-src 'self'; img-src 'self' data:; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"),
+        ("content-security-policy", "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; font-src 'self'; img-src 'self' data: blob:; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"),
         ("x-content-type-options", "nosniff"),
         ("referrer-policy", "no-referrer"),
         ("x-frame-options", "DENY"),
@@ -458,114 +332,82 @@ async fn web_headers(
     response
 }
 
-pub async fn serve(path: PathBuf) -> Result<()> {
-    serve_mode(path, false).await
-}
 pub async fn serve_production(path: PathBuf) -> Result<()> {
-    serve_mode(path, true).await
-}
-async fn serve_mode(path: PathBuf, production_mode: bool) -> Result<()> {
     let config = Config::load(&path)?;
-    if production_mode != config.production.is_some() {
-        bail!("serve requires production configuration; serve-m1 requires legacy configuration");
-    }
-    if let Some(production) = &config.production {
-        production.preflight()?;
-        for path in std::iter::once(&config.database_url_file)
-            .chain(std::iter::once(&config.ssh_host_key_file))
-            .chain(config.kek_files.values())
-        {
-            crate::production::private_path(path, false)?;
-        }
+    let production = config
+        .production
+        .as_ref()
+        .context("production configuration is required")?;
+    production.preflight()?;
+    for path in std::iter::once(&config.database_url_file).chain(config.kek_files.values()) {
+        crate::production::private_path(path, false)?;
     }
     let store = config.store().await?;
     store.check_identity().await.map_err(store_error)?;
     let mut lease = store.gateway_lock().await.map_err(store_error)?;
     store.recover_gateway().await.map_err(store_error)?;
     let keys = Arc::new(config.keys()?);
-    if production_mode
-        && store
-            .referenced_key_versions()
-            .await
-            .map_err(store_error)?
-            .iter()
-            .any(|version| !config.kek_files.contains_key(&version.to_string()))
+    if store
+        .referenced_key_versions()
+        .await
+        .map_err(store_error)?
+        .iter()
+        .any(|version| !config.kek_files.contains_key(&version.to_string()))
     {
         bail!("an in-use credential or recording KEK is missing; service is not ready");
     }
-    let encoded = read_secret_file(&config.ssh_host_key_file)?;
-    let key = russh::keys::decode_secret_key(encoded.expose(), None)?;
     let network = Arc::new(NetworkPolicy {
-        allow: config.network.allow,
-        deny: config.network.deny,
+        allow: config.network.allow.clone(),
+        deny: config.network.deny.clone(),
     });
-    let gateway = GatewayAddress {
-        id: config.gateway_id,
-        host: config
-            .ssh_public_host
-            .clone()
-            .unwrap_or_else(|| config.ssh_listen.ip().to_string()),
-        port: config.ssh_public_port.unwrap_or(config.ssh_listen.port()),
-        username: String::new(),
-    };
     let shutdown = CancellationToken::new();
-    let (registry, recording, file_max_bytes) = if let Some(production) = &config.production {
-        let l = &production.limits;
-        let limits = bastion_gateway::RuntimeLimits {
-            global_connections: l.connections_global as usize,
-            user_connections: l.connections_per_user as usize,
-            pending_connections: l.pending_connections as usize,
-            connection_channels: l.channels_per_connection as usize,
-            user_channels: l.channels_per_user as usize,
-            queue_bytes: l.queue_bytes as usize,
-            max_duration: Duration::from_secs(l.absolute_seconds),
-            idle_timeout: Duration::from_secs(l.idle_seconds),
-            stall_timeout: Duration::from_secs(l.stalled_seconds),
-        };
-        let registry =
-            Arc::new(bastion_gateway::RuntimeRegistry::with_limits(limits).map_err(store_error)?);
-        let recording = bastion_gateway::RecordingConfig {
-            server_id: config.server_id.clone(),
-            directory: production.recording_directory.clone(),
-            keys: keys.clone(),
-            retention: Duration::from_secs(u64::from(production.retention_days) * 86400),
-            min_free_bytes: production.minimum_free_bytes,
-        };
-        (registry, Some(recording), l.file_max_bytes)
-    } else {
-        (
-            Arc::new(bastion_gateway::RuntimeRegistry::new()),
-            None,
-            1024 * 1024 * 1024,
+    let l = &production.limits;
+    let limits = bastion_gateway::RuntimeLimits {
+        global_connections: l.connections_global as usize,
+        user_connections: l.connections_per_user as usize,
+        pending_connections: l.pending_connections as usize,
+        queue_bytes: l.queue_bytes as usize,
+        startup_timeout: Duration::from_secs(l.startup_seconds),
+        max_duration: Duration::from_secs(l.absolute_seconds),
+        idle_timeout: Duration::from_secs(l.idle_seconds),
+        stall_timeout: Duration::from_secs(l.stalled_seconds),
+    };
+    store
+        .configure_session_limits(
+            l.connections_global as usize,
+            l.connections_per_user as usize,
+            l.pending_connections as usize,
         )
+        .map_err(store_error)?;
+    let registry =
+        Arc::new(bastion_gateway::RuntimeRegistry::with_limits(limits).map_err(store_error)?);
+    let recording = bastion_gateway::RecordingConfig {
+        server_id: config.server_id.clone(),
+        directory: production.recording_directory.clone(),
+        keys: keys.clone(),
+        retention: Duration::from_secs(u64::from(production.retention_days) * 86400),
+        min_free_bytes: production.minimum_free_bytes,
     };
     let backend = Arc::new(Backend {
         store: store.clone(),
-        keys: keys.clone(),
-        network: network.clone(),
         registry,
-        recording,
-        legacy_unrecorded_shell: !production_mode,
+        recording: Some(recording),
         shutdown: shutdown.clone(),
     });
-    let mut api = bastion_api::ControlApi::new(
-        store.clone(),
-        keys.clone(),
-        gateway,
-        key.public_key().to_openssh()?,
-        network.clone(),
-    )?
-    .with_service_state(shutdown.clone(), production_mode, false)
-    .with_backend(backend.clone(), file_max_bytes);
-    if let Some(production) = &config.production {
-        api = api.with_recordings(production.recording_directory.clone());
-    }
-    if let Some(origin) = config.public_origin {
-        api = api.with_browser(origin, backend.clone(), shutdown.clone())?;
-    }
-    let api = Arc::new(api);
+    let api = Arc::new(
+        bastion_api::ControlApi::new(store.clone(), keys, network, config.guacd.clone())?
+            .with_service_state(shutdown.clone(), true, false)
+            .with_recordings(production.recording_directory.clone())
+            .with_browser(
+                config
+                    .public_origin
+                    .clone()
+                    .context("HTTPS origin required")?,
+                backend.clone(),
+                shutdown.clone(),
+            )?,
+    );
     let http_listener = TcpListener::bind(config.api_listen).await?;
-    let ssh_listener = TcpListener::bind(config.ssh_listen).await?;
     let signal_shutdown = shutdown.clone();
     let signal = tokio::spawn(async move {
         #[cfg(unix)]
@@ -603,7 +445,7 @@ async fn serve_mode(path: PathBuf, production_mode: bool) -> Result<()> {
         }
         let _ = lease.close().await;
     });
-    tracing::info!(api=%config.api_listen,ssh=%config.ssh_listen,production=production_mode,"bastion service started; production release readiness remains false");
+    tracing::info!(api=%config.api_listen,"browser-only bastion started; production release readiness remains false");
     let mut app = bastion_api::control_router(api);
     if let Some(root) = config.web_root {
         if !root.join("index.html").is_file() {
@@ -645,25 +487,17 @@ async fn serve_mode(path: PathBuf, production_mode: bool) -> Result<()> {
     .with_graceful_shutdown(shutdown.clone().cancelled_owned())
     .into_future();
     let shutdown_registry = backend.registry();
-    let ssh = bastion_gateway::run_backend(ssh_listener, key, backend, shutdown.clone());
     let mut http_task = tokio::spawn(http);
-    let mut ssh_task = tokio::spawn(ssh);
     let first = tokio::select! {
-        result = &mut http_task => { shutdown.cancel(); (Some(result), None) },
-        result = &mut ssh_task => { shutdown.cancel(); (None, Some(result)) },
-        _ = shutdown.cancelled() => (None, None),
+        result = &mut http_task => { shutdown.cancel(); Some(result) },
+        _ = shutdown.cancelled() => None,
     };
     let drain = async {
-        let http_result = match first.0 {
+        let result = match first {
             Some(result) => result,
             None => (&mut http_task).await,
         };
-        let ssh_result = match first.1 {
-            Some(result) => result,
-            None => (&mut ssh_task).await,
-        };
-        http_result.context("HTTP task failed")??;
-        ssh_result.context("SSH task failed")??;
+        result.context("HTTP task failed")??;
         shutdown_registry
             .drain(Duration::from_secs(10))
             .await
@@ -677,7 +511,6 @@ async fn serve_mode(path: PathBuf, production_mode: bool) -> Result<()> {
     let _ = ownership.await;
     if drained.is_err() {
         http_task.abort();
-        ssh_task.abort();
         if let Some(task) = metrics_task.as_mut() {
             task.abort();
         }
@@ -697,4 +530,29 @@ async fn serve_mode(path: PathBuf, production_mode: bool) -> Result<()> {
         bail!("gateway database ownership was lost; restart required");
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod listener_tests {
+    use super::private_api_address;
+    #[test]
+    fn internal_listener_requires_an_explicit_private_address() {
+        for address in [
+            "127.0.0.1:8080",
+            "172.30.63.2:8080",
+            "[::1]:8080",
+            "[fd00::2]:8080",
+        ] {
+            assert!(private_api_address(address.parse().unwrap()));
+        }
+        for address in [
+            "0.0.0.0:8080",
+            "172.30.63.2:0",
+            "192.0.2.2:8080",
+            "[::]:8080",
+            "[2001:db8::2]:8080",
+        ] {
+            assert!(!private_api_address(address.parse().unwrap()));
+        }
+    }
 }

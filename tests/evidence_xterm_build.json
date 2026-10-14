@@ -1,0 +1,11 @@
+{
+  "source_sha256": "f76c5502123afc9d59a5798891ac1229bd40cb55576705f39f5d24626228add0",
+  "production_ready": false,
+  "linux_workspace_tests": "passed (external fixtures ignored)",
+  "linux_tests_source_sha256": "51a9dcb361838220a4397b53f0af0637bff70fe1aed3336a99944bc0119be5ac",
+  "backend_unchanged_from_linux_tests": true,
+  "app_exit": 0,
+  "app_image_id": "sha256:ff267ec64c8e7ef728e2760b951370a21e4ccabdfeeca59f992d03013513c2fb",
+  "status": "passed",
+  "finished_at": "2026-10-10T09:42:36Z"
+}

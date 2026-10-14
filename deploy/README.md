@@ -1,20 +1,39 @@
-# ZeroTerm Bastion RFC-004 production runbook
+# RFC-005 operations
 
-1. Create service user and directories (owner-only):
-   ```sh
-   install -d -o zeroterm-bastion -g zeroterm-bastion -m 700 /etc/zeroterm-bastion/secrets /var/lib/zeroterm-bastion/recordings
-   ```
-2. Copy the binary, fill `production.example.toml` as `/etc/zeroterm-bastion/production.toml`, and create database URL, host key, and KEK files with mode `0600`; do not put secrets in TOML, argv, logs, or this repository.
-3. Apply schema explicitly, before service start: `bastion-server migrate --config /etc/zeroterm-bastion/production.toml`. The service never auto-migrates.
-4. Configure the TLS reverse proxy with a certificate for the exact `public_origin`; it must overwrite `X-Forwarded-For` and `X-Forwarded-Proto`, and keep `/metrics` private. The origin is HTTPS; SSH advertisement uses `ssh_public_host`/`ssh_public_port`, independent from `ssh_listen`.
-5. Start only after recording preflight succeeds: `systemctl enable --now zeroterm-bastion`. `/health/live` is liveness; `/health/ready` remains unavailable until identity, schema, recording directory and configured required recorder are available.
-6. Back up PostgreSQL plus a separately preserved JSON manifest, all in-use KEKs, encrypted credentials, approved host keys, and recordings. In a disposable restore run `bastion-server verify-backup --config /etc/zeroterm-bastion/production.toml --manifest /backup/manifest.json`; it checks identity/schema, exact object counts and key versions, every credential, host-key fingerprint and replayable recording without exposing secrets. Manifest shape:
+See [Docker deployment](docker.md) for the reviewed topology, fresh initialization, egress rules,
+explicit migration and owner/runtime role separation. Browser-only family 2 has no native SSH listener,
+M1/prototype mode, API-token file, exec/SFTP/copy API or channel recordings.
+
+1. Run as a dedicated non-root Linux user. Secrets and recordings directories are owner-only 0700,
+   secrets ordinary owner-only 0600 files. Runtime KEK mounts are read-only. TLS proxy is the only public
+   listener; the API binds its explicit private ingress address, and metrics binds loopback.
+2. Generate KEK and independent owner/runtime DB secrets for a **fresh database only**. Apply migration
+   explicitly with the owner connection; old schema families must fail without auto-drop or conversion.
+3. Require encrypted `ZTREC002` recording and readiness preflight before accepting sessions. Output is
+   acknowledged by the recorder before browser forwarding. Recorder failure stops the session; incomplete
+   files are partial/failed, never complete. No keyboard, passwords or connect arguments in recordings.
+4. Backup PostgreSQL, encrypted credentials, recordings, all in-use KEKs and both database-auth volumes
+   consistently, with a separately preserved manifest:
    ```json
-   {"server_id":"your-stable-server-id","schema_version":1,"credential_count":0,"recording_count":0,"host_key_count":0,"kek_versions":[1]}
+   {"server_id":"stable-server-id","schema_version":2,"credential_count":0,"recording_count":0,"target_pin_count":0,"kek_versions":[1]}
    ```
-   Replace counts with the consistent backup's real metadata. After restoring and before opening any listener, run `bastion-server recover-restore --config /etc/zeroterm-bastion/production.toml`: all restored login families and unused tickets are revoked, active runtime state is interrupted, and no tickets/jobs are resumed.
-7. Retention must not remove active recordings. Stop service admission with SIGTERM and allow the bounded ten-second drain. While the service is offline, run `bastion-server retain-recordings --config /etc/zeroterm-bastion/production.toml`. It holds gateway ownership, selects only inactive expired recordings, safely unlinks managed files, then marks metadata expired. It can run under low-free-space conditions, but unsafe ownership/permissions fail closed. Audit partition retention is handled only by the separate owner-only offline commands below, never by recording retention.
-8. Audit maintenance is a **separate explicit offline operation**, never a startup migration. Stop all gateways and other database clients first. Use a separate maintenance configuration whose `database_url_file` points to an owner-only URL file for the database/table owner; keep server/gateway identity and network fields unchanged. Run `bastion-server partition-audit --config /etc/zeroterm-bastion/maintenance.toml --offline` to apply the reviewed conversion outside the ordinary SQLx migration chain. Then run `bastion-server retain-audit --config /etc/zeroterm-bastion/maintenance.toml --offline --days 180` as controlled offline maintenance. Retention defaults to 180 days and accepts 1..3650. The store verifies maintenance ownership, schema, absence of other database sessions and registered partition identities, and acquires its own gateway transaction lock. Each DDL transaction retains the two-second budget; failures roll back rather than disabling the append-only triggers. Only whole registered monthly partitions whose upper bound has expired may be dropped, at most one per invocation. The default partition is **never dropped**; the CLI reports its row count for follow-up planning. Repeat deliberately to process another expired month. No runtime-role maintenance permission is granted by this CLI. Size the offline conversion window with a disposable restore first; large conversions may exceed the fixed transaction budget and must not be reported successful.
-9. KEK rotation: stop the service; keep all old keys in `kek_files`, add a newly generated owner0600 KEK file, update `active_kek_version`, then run `bastion-server rewrap-keys --config /etc/zeroterm-bastion/production.toml`. Credential ciphertext/nonces and recording files/DEKs remain unchanged; short CAS updates replace only KEK envelopes, and a concurrent change aborts rather than retries. Verify the resulting backup before removing any old KEK from active config, and retain old KEKs for every backup that still references them. On incident revoke affected devices and preserve corrupt/missing recording evidence; do not delete database rows or disable append-only audit triggers.
+   Fill counts from the actual consistent backup. `target_pin_count` counts approved SSH/RDP assets,
+   not a gateway SSH identity. `verify-backup --config ... --manifest ...` must verify contents in an
+   isolated restore before the service is exposed. `recover-restore --config ...` revokes restored login
+   families/tickets and interrupts active state; it never resumes connections.
+5. Stop admission and allow bounded drain before offline maintenance. `retain-recordings --config ...`
+   removes only inactive expired managed files with safe ownership, then marks metadata expired.
+   Do not delete active files/DB rows or disable append-only audit guards.
+6. Offline audit partition/retention commands remain explicit owner-only actions with `--offline`;
+   stop all gateways/other clients first, keep default partitions, and refresh runtime grants after schema
+   maintenance. Runtime must not gain DDL or audit UPDATE/DELETE privileges.
+7. KEK rotation: preserve all old keys used by recordings/backups, create a new owner0600 key, update
+   active version plus `kek_files`, run explicit `rewrap-keys --config ...`, then independently verify the
+   backup before retiring keys. Do not rewrite recording files or drop key versions still referenced.
+8. After container recreation/reboot, reinstall narrowly scoped host egress rules and **retest** before
+   enabling the public proxy. guacd must have only its private bridge, no DB/KEK/recording mounts, and no
+   access to host gateway, database or target-network services.
 
-The implementation deliberately reports `production_ready=false` until required recording, replay, recovery and release acceptance tests pass.
+`production_ready=false` until real browser Canvas/IME, Windows NLA, fault injection, recovery, backup,
+retention and full resource/capacity release acceptance are complete. Historical M1–M5 evidence is not
+schema-family-2 acceptance.

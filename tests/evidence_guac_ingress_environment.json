@@ -1,0 +1,86 @@
+{
+  "production_ready": false,
+  "host_memory_kib": {
+    "MemTotal": 962268,
+    "SwapTotal": 2578280
+  },
+  "deployment_source_sha256": {
+    "compose.yaml": "f6b9a61b95863d24edef772387f1e6f8f91524dc65075d83160b90ae1f2f6137",
+    "config/production.example.toml": "1ab2d968898b2920c64cfcf2d016aea5b914456399e7f2e765a6a55fbc2e3e9f",
+    "deploy/nginx.example.conf": "00a7572e86a972d715c3041738f564b8145845c255b8f514e203e33cf536ce7f"
+  },
+  "containers": [
+    {
+      "name": "/zt-guac-v2-next-20261009-a93f6e1b-browser7-bastion-1",
+      "image": "sha256:9e2153250baec10a90ebca92c304b953d6d26275fd4645a3efff73d770ab4f64",
+      "networks": [
+        "zt-guac-v2-next-20261009-a93f6e1b-browser7_app",
+        "zt-guac-v2-next-20261009-a93f6e1b-browser7_guac_bridge",
+        "zt-guac-v2-next-20261009-a93f6e1b-browser7_ingress"
+      ],
+      "published_ports": {},
+      "pid_limit": null
+    },
+    {
+      "name": "/zt-guac-v2-next-20261009-a93f6e1b-browser7-proxy-1",
+      "image": "sha256:43d9d8c1f8968f09df8c1aa6c136ecc617e62d64fe4c0b24c97de4eb210bd973",
+      "networks": [
+        "zt-guac-v2-next-20261009-a93f6e1b-browser7_ingress"
+      ],
+      "published_ports": {
+        "443/tcp": [
+          {
+            "HostIp": "127.0.0.1",
+            "HostPort": "43121"
+          }
+        ]
+      },
+      "pid_limit": null
+    },
+    {
+      "name": "/zt-guac-v2-next-20261009-a93f6e1b-browser7-guacd-1",
+      "image": "sha256:63926f22592fad15ee841e8e7488020a6b0f17a257205f06a725718415c01e1e",
+      "networks": [
+        "zt-guac-v2-next-20261009-a93f6e1b-browser7_guac_bridge"
+      ],
+      "published_ports": {},
+      "pid_limit": 256
+    },
+    {
+      "name": "/zt-guac-v2-next-20261009-a93f6e1b-browser7-target-1",
+      "image": "sha256:f0ffd1f99f4912c11b017a25a26844ec50c889897da9d71c8be6235ad4ebb2ab",
+      "networks": [
+        "zt-guac-v2-next-20261009-a93f6e1b-browser7_app"
+      ],
+      "published_ports": {},
+      "pid_limit": null
+    }
+  ],
+  "original_containers": [
+    {
+      "id": "dc50db74d046af96b3efa726ec6a01dea6687c814b64600224bcd14c9617a35e",
+      "name": "/zeroterm-test-proxy-1",
+      "status": "running"
+    },
+    {
+      "id": "3740c44fce2d03b190d058b89074b8d1d91f24f1e1cd470974ef6d362b894ea5",
+      "name": "/zeroterm-test-bastion-1",
+      "status": "running"
+    },
+    {
+      "id": "af33155853c68cd73d53ab5c6ff4f2f71a8cc13689428ab1f5b01bfc272d91df",
+      "name": "/zeroterm-test-postgres-1",
+      "status": "running"
+    },
+    {
+      "id": "ece98fbaf40e27bc31af17faa78405aac9c9699b5bc93bab285dbd548d8949ac",
+      "name": "/zeroterm-test-target-b-1",
+      "status": "running"
+    },
+    {
+      "id": "3800fb75a827c9a9202d1da4897a3fe43d09be41fc73040caffc89fd5937115a",
+      "name": "/zeroterm-test-target-a-1",
+      "status": "running"
+    }
+  ]
+}

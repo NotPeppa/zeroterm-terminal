@@ -1,0 +1,396 @@
+{
+  "status": "passed",
+  "wss": true,
+  "native_ssh_exec": true,
+  "native_sftp_sha256": true,
+  "recording_replay": true,
+  "recording_persisted": true,
+  "five_volume_cold_restore": true,
+  "hardware": {
+    "observed_cpu": 2,
+    "observed_mem_bytes": 985362432,
+    "observed_swap_active": false,
+    "transfer_bytes_per_file": 1073741824,
+    "concurrency": 4,
+    "release_baseline": "4 vCPU/8 GiB/SSD (not claimed)"
+  },
+  "faults": {
+    "app_kill": {
+      "ssh_close_seconds": 0.36934849398676306,
+      "connection_state": "interrupted",
+      "recording_state": "partial"
+    },
+    "postgres_outage": {
+      "ssh_close_seconds": 0.5240462319925427,
+      "connection_state": "interrupted",
+      "recording_state": "partial"
+    }
+  },
+  "web_checks": {
+    "schema": 1,
+    "status": "passed",
+    "phase": "normal_end_recording",
+    "started_at": "2026-10-06T17:41:17.125Z",
+    "declared": {
+      "transport": "HTTPS streamed SFTP + WSS, trusted private CA",
+      "asset_index": 0,
+      "concurrent_connections": 4,
+      "per_file_bytes": 1073741824,
+      "total_bytes_per_direction": 4294967296,
+      "upload_chunk_bytes": 32768,
+      "shell_echo_samples": 8,
+      "payload": "four protected fixture files, streamed once per HTTP upload",
+      "transfer_deadline_ms": 600000,
+      "device_revoke_threshold_ms": 3000,
+      "direct_sftp_baseline": "not measured by this runner",
+      "stable_shells": 4,
+      "victim_wss_connections": 1,
+      "release_acceptance_claimed": false,
+      "bounded_16mib_smoke": false,
+      "matched_direct_control": true
+    },
+    "checks": {
+      "websocket_security": {
+        "wrong_origin_http_status": 401,
+        "other_login_http_status": 401,
+        "valid_first_use_reached_session_ready": true,
+        "replay_http_status": 401
+      },
+      "shell": {
+        "unicode": true,
+        "cols": 132,
+        "rows": 37,
+        "target_dimensions_confirmed": true
+      },
+      "file_edit": {
+        "atomic_edit_succeeded": true,
+        "stale_metadata_http_status": 409,
+        "latest_hash_verified": true,
+        "other_login_http_status": 403
+      },
+      "recording": {
+        "recording_id": "a3e426b0-574f-4d52-bb5b-2dae349b71b1",
+        "connection_id": "173803c7-7e85-4c5b-9785-2ce5db271293",
+        "replay_sha256": "c6004c8b3901c6eb634bfb35f43bd62602d353105f0430daa846b13ae88cfdec",
+        "state": "complete",
+        "normal_end": true,
+        "sequence_verified": true,
+        "synced": true,
+        "unicode_output_verified": true,
+        "resize_verified": true,
+        "event_count": 34,
+        "replay_bytes": 4892
+      }
+    },
+    "performance": {
+      "shell_echo_samples": [
+        {
+          "phase": "upload",
+          "index": 0,
+          "rtt_ms": 17.77481100001023,
+          "started_ms": 166463.248174,
+          "finished_ms": 166481.02298500002,
+          "active_transfers_at_send": 4,
+          "bytes_progressed_at_send": [
+            65536,
+            65536,
+            32768,
+            32768
+          ]
+        },
+        {
+          "phase": "upload",
+          "index": 1,
+          "rtt_ms": 14.012321000016527,
+          "started_ms": 166481.509459,
+          "finished_ms": 166495.52178,
+          "active_transfers_at_send": 4,
+          "bytes_progressed_at_send": [
+            131072,
+            131072,
+            98304,
+            65536
+          ]
+        },
+        {
+          "phase": "upload",
+          "index": 2,
+          "rtt_ms": 23.596111999999266,
+          "started_ms": 166495.909462,
+          "finished_ms": 166519.505574,
+          "active_transfers_at_send": 4,
+          "bytes_progressed_at_send": [
+            393216,
+            393216,
+            360448,
+            327680
+          ]
+        },
+        {
+          "phase": "upload",
+          "index": 3,
+          "rtt_ms": 62.8078529999766,
+          "started_ms": 166519.63984000002,
+          "finished_ms": 166582.447693,
+          "active_transfers_at_send": 4,
+          "bytes_progressed_at_send": [
+            1245184,
+            1245184,
+            1212416,
+            1179648
+          ]
+        },
+        {
+          "phase": "download",
+          "index": 0,
+          "rtt_ms": 46.46138100000098,
+          "started_ms": 245958.99699800002,
+          "finished_ms": 246005.45837900002,
+          "active_transfers_at_send": 4,
+          "bytes_progressed_at_send": [
+            307194,
+            376826,
+            244402,
+            270330
+          ]
+        },
+        {
+          "phase": "download",
+          "index": 1,
+          "rtt_ms": 35.8724280000024,
+          "started_ms": 246007.381025,
+          "finished_ms": 246043.253453,
+          "active_transfers_at_send": 4,
+          "bytes_progressed_at_send": [
+            520186,
+            597954,
+            385042,
+            380914
+          ]
+        },
+        {
+          "phase": "download",
+          "index": 2,
+          "rtt_ms": 73.22144599998137,
+          "started_ms": 246043.42015700002,
+          "finished_ms": 246116.641603,
+          "active_transfers_at_send": 4,
+          "bytes_progressed_at_send": [
+            589818,
+            667570,
+            458752,
+            454626
+          ]
+        },
+        {
+          "phase": "download",
+          "index": 3,
+          "rtt_ms": 19.533563999983016,
+          "started_ms": 246116.825703,
+          "finished_ms": 246136.359267,
+          "active_transfers_at_send": 4,
+          "bytes_progressed_at_send": [
+            659426,
+            741282,
+            532458,
+            525842
+          ]
+        }
+      ],
+      "direct_control": {
+        "enabled": true,
+        "ready_written": true,
+        "signal_received": true,
+        "wait_seconds": 164.35366070900002,
+        "stable_shells": 4,
+        "source_files": true
+      },
+      "device_revoke": {
+        "started_ms": 166463.633527,
+        "http_ack_ms": 23.480956000013975,
+        "wss_close_ms": 34.56769399999757,
+        "active_transfers_at_start": 4,
+        "bytes_progressed_at_start": [
+          360448,
+          360448,
+          327680,
+          294912
+        ],
+        "post_revoke_http_status": 401,
+        "threshold_ms": 3000
+      },
+      "upload": {
+        "concurrency": 4,
+        "total_bytes": 4294967296,
+        "started_ms": 166447.717535,
+        "finished_ms": 245843.087409,
+        "full_wall_seconds": 79.395369874,
+        "bytes_per_second": 54095941.65020062,
+        "files": [
+          {
+            "index": 0,
+            "bytes": 1073741824,
+            "sha256": "4ed981953539a1ea3b18c3c833a63daa4af806120b9e4bff98d649986f28db10",
+            "source_sha256": "4ed981953539a1ea3b18c3c833a63daa4af806120b9e4bff98d649986f28db10",
+            "started_ms": 166447.965382,
+            "finished_ms": 245833.44435200002,
+            "seconds": 79.38548006
+          },
+          {
+            "index": 1,
+            "bytes": 1073741824,
+            "sha256": "a48892ebeeda6eb6c8ee6c114498e6a838829c1ebd6c83e898c4881576a18da6",
+            "source_sha256": "a48892ebeeda6eb6c8ee6c114498e6a838829c1ebd6c83e898c4881576a18da6",
+            "started_ms": 166452.586013,
+            "finished_ms": 245830.76347200002,
+            "seconds": 79.378182781
+          },
+          {
+            "index": 2,
+            "bytes": 1073741824,
+            "sha256": "11b5f2cb725897d00e9ef040443ac691b62a237f2a68d3f2da293f738c129076",
+            "source_sha256": "11b5f2cb725897d00e9ef040443ac691b62a237f2a68d3f2da293f738c129076",
+            "started_ms": 166453.74212900002,
+            "finished_ms": 245843.087409,
+            "seconds": 79.38934607199998
+          },
+          {
+            "index": 3,
+            "bytes": 1073741824,
+            "sha256": "a1ef0e84981703ae9cd249f3570d210d7ab980a7381ecb8fbd6686225ace7e4a",
+            "source_sha256": "a1ef0e84981703ae9cd249f3570d210d7ab980a7381ecb8fbd6686225ace7e4a",
+            "started_ms": 166454.707028,
+            "finished_ms": 245839.61697600002,
+            "seconds": 79.38491104500001
+          }
+        ]
+      },
+      "download": {
+        "concurrency": 4,
+        "total_bytes": 4294967296,
+        "started_ms": 245843.301382,
+        "finished_ms": 369037.89778199996,
+        "full_wall_seconds": 123.19459639999995,
+        "bytes_per_second": 34863276.64936448,
+        "files": [
+          {
+            "index": 0,
+            "bytes": 1073741824,
+            "sha256": "4ed981953539a1ea3b18c3c833a63daa4af806120b9e4bff98d649986f28db10",
+            "source_sha256": "4ed981953539a1ea3b18c3c833a63daa4af806120b9e4bff98d649986f28db10",
+            "started_ms": 245843.537503,
+            "finished_ms": 367187.366591,
+            "seconds": 121.34383033099998
+          },
+          {
+            "index": 1,
+            "bytes": 1073741824,
+            "sha256": "a48892ebeeda6eb6c8ee6c114498e6a838829c1ebd6c83e898c4881576a18da6",
+            "source_sha256": "a48892ebeeda6eb6c8ee6c114498e6a838829c1ebd6c83e898c4881576a18da6",
+            "started_ms": 245846.274156,
+            "finished_ms": 368265.65177999996,
+            "seconds": 122.41937804399996
+          },
+          {
+            "index": 2,
+            "bytes": 1073741824,
+            "sha256": "11b5f2cb725897d00e9ef040443ac691b62a237f2a68d3f2da293f738c129076",
+            "source_sha256": "11b5f2cb725897d00e9ef040443ac691b62a237f2a68d3f2da293f738c129076",
+            "started_ms": 245846.492838,
+            "finished_ms": 367376.75240899995,
+            "seconds": 121.53026004099998
+          },
+          {
+            "index": 3,
+            "bytes": 1073741824,
+            "sha256": "a1ef0e84981703ae9cd249f3570d210d7ab980a7381ecb8fbd6686225ace7e4a",
+            "source_sha256": "a1ef0e84981703ae9cd249f3570d210d7ab980a7381ecb8fbd6686225ace7e4a",
+            "started_ms": 245846.967806,
+            "finished_ms": 369037.89778199996,
+            "seconds": 123.19093042399999
+          }
+        ]
+      },
+      "echo_ms": {
+        "count": 8,
+        "p50": 23.596111999999266,
+        "p95": 73.22144599998137,
+        "max": 73.22144599998137
+      }
+    },
+    "cleanup": {
+      "remote_files_planned": 5,
+      "remote_files_verified_absent": 5,
+      "websocket_clients": 10,
+      "all_clients_closed": true,
+      "successful": true
+    },
+    "errors": [],
+    "finished_at": "2026-10-06T17:47:26.698Z",
+    "full_wall_seconds": 369.575059104
+  },
+  "direct_performance": {
+    "upload": {
+      "concurrency": 4,
+      "total_bytes": 4294967296,
+      "full_wall_seconds": 65.57949150697095,
+      "bytes_per_second": 65492537.336058095,
+      "files": [
+        {
+          "index": 0,
+          "bytes": 1073741824,
+          "sha256": "4ed981953539a1ea3b18c3c833a63daa4af806120b9e4bff98d649986f28db10"
+        },
+        {
+          "index": 1,
+          "bytes": 1073741824,
+          "sha256": "a48892ebeeda6eb6c8ee6c114498e6a838829c1ebd6c83e898c4881576a18da6"
+        },
+        {
+          "index": 2,
+          "bytes": 1073741824,
+          "sha256": "11b5f2cb725897d00e9ef040443ac691b62a237f2a68d3f2da293f738c129076"
+        },
+        {
+          "index": 3,
+          "bytes": 1073741824,
+          "sha256": "a1ef0e84981703ae9cd249f3570d210d7ab980a7381ecb8fbd6686225ace7e4a"
+        }
+      ]
+    },
+    "download": {
+      "concurrency": 4,
+      "total_bytes": 4294967296,
+      "full_wall_seconds": 70.43773570499616,
+      "bytes_per_second": 60975374.25092666,
+      "files": [
+        {
+          "index": 0,
+          "bytes": 1073741824,
+          "sha256": "4ed981953539a1ea3b18c3c833a63daa4af806120b9e4bff98d649986f28db10"
+        },
+        {
+          "index": 1,
+          "bytes": 1073741824,
+          "sha256": "a48892ebeeda6eb6c8ee6c114498e6a838829c1ebd6c83e898c4881576a18da6"
+        },
+        {
+          "index": 2,
+          "bytes": 1073741824,
+          "sha256": "11b5f2cb725897d00e9ef040443ac691b62a237f2a68d3f2da293f738c129076"
+        },
+        {
+          "index": 3,
+          "bytes": 1073741824,
+          "sha256": "a1ef0e84981703ae9cd249f3570d210d7ab980a7381ecb8fbd6686225ace7e4a"
+        }
+      ]
+    }
+  },
+  "throughput_ratios": {
+    "upload": 0.8259863466981164,
+    "download": 0.5717599453493252
+  },
+  "production_ready": false,
+  "project": "bastion-e2e-2d867264071c"
+}

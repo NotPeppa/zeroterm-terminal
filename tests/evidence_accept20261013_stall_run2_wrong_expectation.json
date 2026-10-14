@@ -1,0 +1,16 @@
+{
+  "production_ready": false,
+  "application_image_id": "sha256:e1c5419db24e98c4d5863c7f4c71fef4ec9a395807ae881fd168edf4eccd90d2",
+  "fixture_server_id": "zt-guac-v2-accept-20261013-stall",
+  "hold_ms": 90000,
+  "modes": {},
+  "status": "failed",
+  "error": "Error: controlled stall poll deadline exceeded\n    at poll (file:///D:/code/NotPeppa/zeroterm-terminal/tests/browser_stall.mjs:22:188)\n    at async ended (file:///D:/code/NotPeppa/zeroterm-terminal/tests/browser_stall.mjs:47:48)\n    at async file:///D:/code/NotPeppa/zeroterm-terminal/tests/browser_stall.mjs:78:22",
+  "api_samples": [
+    {
+      "resource": "/connections/5c72aac7-eda1-449d-8ded-b81327d67c62",
+      "ms": 689,
+      "state": "failed"
+    }
+  ]
+}

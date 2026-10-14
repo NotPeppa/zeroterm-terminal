@@ -1,5 +1,5 @@
 [Unit]
-Description=ZeroTerm RFC-004 bastion
+Description=ZeroTerm RFC-005 browser-only bastion
 After=network-online.target
 Wants=network-online.target
 

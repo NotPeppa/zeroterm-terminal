@@ -1,0 +1,6 @@
+
+running 1 test
+test cookie_bound_single_use_guacamole_and_removed_native_routes ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.14s
+

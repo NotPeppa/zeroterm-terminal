@@ -1,0 +1,43 @@
+{
+  "production_ready": false,
+  "host_memory_kib": {
+    "MemTotal": 962268,
+    "SwapTotal": 2578280
+  },
+  "builder_limits": {
+    "Memory": 402653184,
+    "MemorySwap": 1610612736,
+    "NanoCpus": 0,
+    "CpuPeriod": 100000,
+    "CpuQuota": 100000
+  },
+  "application_image_id": "sha256:7e9c8cc266a1e4e7a5f6817d37f8872c4eddd89c8f500113c501d5bf8104b83f",
+  "tests_image_id": "sha256:74fce52c24bcd125dcce71827ace30607fa02f6230d1e7c7569ac51e9d050ac9",
+  "original_containers": [
+    {
+      "id": "dc50db74d046af96b3efa726ec6a01dea6687c814b64600224bcd14c9617a35e",
+      "name": "/zeroterm-test-proxy-1",
+      "status": "running"
+    },
+    {
+      "id": "3740c44fce2d03b190d058b89074b8d1d91f24f1e1cd470974ef6d362b894ea5",
+      "name": "/zeroterm-test-bastion-1",
+      "status": "running"
+    },
+    {
+      "id": "af33155853c68cd73d53ab5c6ff4f2f71a8cc13689428ab1f5b01bfc272d91df",
+      "name": "/zeroterm-test-postgres-1",
+      "status": "running"
+    },
+    {
+      "id": "ece98fbaf40e27bc31af17faa78405aac9c9699b5bc93bab285dbd548d8949ac",
+      "name": "/zeroterm-test-target-b-1",
+      "status": "running"
+    },
+    {
+      "id": "3800fb75a827c9a9202d1da4897a3fe43d09be41fc73040caffc89fd5937115a",
+      "name": "/zeroterm-test-target-a-1",
+      "status": "running"
+    }
+  ]
+}

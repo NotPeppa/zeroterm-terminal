@@ -5,10 +5,6 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 
-[features]
-default = []
-dev-prototype = []
-
 [dependencies]
 base64.workspace = true
 bastion-domain.workspace = true
@@ -20,3 +16,4 @@ sqlx.workspace = true
 tracing.workspace = true
 tokio.workspace = true
 uuid.workspace = true
+ssh-key = { version = "=0.7.0-rc.11", features = ["encryption", "crypto"] }

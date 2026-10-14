@@ -1,0 +1,12 @@
+{
+  "source_sha256": "4818cdcc54e283cae2a922945a40ec8d0b7e884e009e20995501edb542769323",
+  "production_ready": false,
+  "app_exit": 0,
+  "app_image_id": "sha256:1a5b76c17ce14569080282c2a72941345e4c00baee0bade8710a0b657220d118",
+  "engine_exit": 0,
+  "engine_image_id": "sha256:689c462e27a23670c35bb3435022627f71144f5e04210bffea3b52ba7bac6a23",
+  "target2_exit": 0,
+  "target2_image_id": "sha256:64d4148fd0c2ee2bf8bf7530d29add5a5d07ee2ec2f12fbcfc77206e680b897b",
+  "status": "passed",
+  "finished_at": "2026-10-09T17:59:55Z"
+}

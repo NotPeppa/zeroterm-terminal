@@ -1,0 +1,14 @@
+{
+  "production_ready": false,
+  "windows_nla_verified": false,
+  "application_image_id": "sha256:9e364e76791139f38cf008727f88f48cf5810a21b2a255b4f69843f22044c979",
+  "status": "passed-real-browser-groups",
+  "group_create_rename_delete": true,
+  "group_selection_and_filters": true,
+  "text_only_group_name_rendering": true,
+  "stale_revision_rejected": true,
+  "delete_preserves_assets_accounts_and_grants": true,
+  "metadata_keeps_ssh_connection_active": true,
+  "recording_complete": true,
+  "page_errors": []
+}

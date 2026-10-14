@@ -1,0 +1,19 @@
+{
+  "backup_skipped_at_user_request": true,
+  "production_ready": false,
+  "app_image_id": "sha256:934faaf876a75870b40472f8693853530f3d41a7328740980fe9e1e71c896f1a",
+  "engine_image_id": "sha256:6867984082292f6b363d53554b005e286a811544067f8d777ea1fe7242a065fc",
+  "source_sha256": "ead06e84d7008626539a55c38ab41d1ddd165f3336b64a262afd16966b0ef284",
+  "before_counts": {
+    "users": 1,
+    "assets": 0,
+    "accounts": 0,
+    "credentials": 0,
+    "recordings": 0
+  },
+  "status": "updated",
+  "migration_version": 2,
+  "existing_database_container_preserved": true,
+  "persisted_data_unchanged": true,
+  "finished_at": "2026-10-09T10:22:19Z"
+}

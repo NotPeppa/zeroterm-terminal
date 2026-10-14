@@ -1,0 +1,85 @@
+{
+  "production_ready": false,
+  "windows_nla_verified": false,
+  "native_os_ime_verified": false,
+  "application_image_id": "sha256:309c53c6d447df7c820163c682a86bd640415374ab980fdd60944575cceb1d2b",
+  "engine_image_id": "sha256:63926f22592fad15ee841e8e7488020a6b0f17a257205f06a725718415c01e1e",
+  "fixture_server_id": "zt-guac-v2-next-20261009-a93f6e1b-browser3",
+  "baseline": [
+    {
+      "bytes": 31728,
+      "checksum": "7fd1e537ac636f533576947d7ba2029dd89afc32ada272c41660b037a382c168",
+      "connection_id": "6f5b88a4-b527-4fa8-806a-7bd4facdbeb2",
+      "format_version": 2,
+      "id": "b8e1cff7-c367-4e93-8585-a601e8c3f977",
+      "last_synced_seq": 38,
+      "last_written_seq": 38,
+      "retention_until": "2026-11-07T16:42:32.444337+00:00",
+      "state": "complete",
+      "target_protocol": "ssh"
+    },
+    {
+      "bytes": 19767,
+      "checksum": "fc5ad7a9290b1ae42217a2a062709f6fb492c5a9814bcb659ff676be2fb95db2",
+      "connection_id": "4a20066c-0016-4648-8a90-5edf4e960a8a",
+      "format_version": 2,
+      "id": "8c2ea0d8-e5a9-4134-ac5b-73da93dd5622",
+      "last_synced_seq": 80,
+      "last_written_seq": 80,
+      "retention_until": "2026-11-07T16:42:39.952171+00:00",
+      "state": "complete",
+      "target_protocol": "rdp"
+    },
+    {
+      "bytes": 6338,
+      "checksum": "dfa2e6ecfba5f2600bbbad52ed271a01d697c6e31d6f4910161acea4bbc66d64",
+      "connection_id": "263fb07a-dfc6-4111-ad8b-0607c25401bf",
+      "format_version": 2,
+      "id": "e402917a-67ee-4c7d-be00-f3f1163ce66d",
+      "last_synced_seq": 33,
+      "last_written_seq": 33,
+      "retention_until": "2026-11-07T16:42:48.669261+00:00",
+      "state": "complete",
+      "target_protocol": "vnc"
+    }
+  ],
+  "faults": {},
+  "restore": {
+    "cold_restore_separate_pg_cluster": true,
+    "manifest": {
+      "server_id": "zt-guac-v2-next-20261009-a93f6e1b-browser3",
+      "schema_version": 2,
+      "credential_count": 5,
+      "recording_count": 3,
+      "target_pin_count": 5,
+      "kek_versions": [
+        1
+      ]
+    },
+    "verify_backup": {
+      "exit": 0
+    },
+    "recover_restore": {
+      "exit": 0
+    },
+    "old_login_families_revoked": true,
+    "issued_tickets_revoked": true,
+    "old_cookie_rejected": true,
+    "three_protocol_replay": true
+  },
+  "rewrap": {
+    "credential_ciphertext_and_nonce_unchanged": true,
+    "recording_nonce_and_ciphertext_unchanged": true,
+    "new_key_only_backup_verified": true,
+    "missing_key_rejected": true,
+    "real_target_authentication": true,
+    "three_protocol_replay": true
+  },
+  "status": "failed",
+  "error": "Expected values to be strictly equal:\n\n201 !== 429\n",
+  "fixture_diagnosis": "Two earlier xrdp sessions were replaced by reuse of the same target login; ten simultaneously active sessions were not established.",
+  "observed_guacd_cgroup_after_failure": {
+    "pids_max": 256,
+    "pids_events": "max 0"
+  }
+}

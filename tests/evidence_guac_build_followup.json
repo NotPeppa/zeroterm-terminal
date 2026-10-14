@@ -1,0 +1,26 @@
+{
+  "production_ready": false,
+  "source_updates": {
+    "crates/bastion-store/src/pages.rs": "c7c794ddddadc8dc9da2d3a23bbcebf0b652a90766321d4ae75f13b6a1f147da",
+    "crates/bastion-api/src/control.rs": "26e94e693ccf40c8cc46e4485d1cb46d32d718dc118bb8da9d85fdac7daaff06",
+    "crates/bastion-api/src/control/recordings.rs": "8656a565d5d42bb5fcc83923de44fb3ef2dac4e54dabdca6b4951b2ff34c51d4",
+    "crates/bastion-store/tests/implicit_access.rs": "34a956bf5cc70e0b5acc04e6adb8581df07e00ad9220bf47a8564724b95ac927",
+    "crates/bastion-store/src/postgres.rs": "79ceee4197b460af602d873c8d67de065f51b9586f0f64951538dd74b27d11c8",
+    "crates/bastion-gateway/src/protocol/policy.rs": "f22e69f0bb1d737aaf9f0b26b9adb3a9b366b274c6d0a3069724968fd1419f1a",
+    "crates/bastion-gateway/src/protocol/recording.rs": "7e8f88e2078fc0b6cc7d91560701a73a6c1b3a6fb9a218b3b3b432102555e0aa",
+    "crates/bastion-gateway/src/protocol/web.rs": "c3f07662de2486588dcbcde4b923e07552a37d9b05ab08f774740b4c11e91d05",
+    "web/src/guac.ts": "48501a8993f69a73a935d94e77a625f558b982aaa2713d95bd52305bf9d31902",
+    "web/src/style.css": "10ae74cad1865a884c7830c9702249383d10860ea81c52ba6c7e64f44fcae927",
+    "crates/bastion-store/tests/lifecycle.rs": "902dd3867d544fd71299f63e7389d85544f7c48bae1dc9dd0d9afd7e3734ab62",
+    "web/src/workspaces.ts": "6cecd9b719e779a2fc0a5571730bd58206f6b20de5c44f512c2016c65c162453",
+    "crates/bastion-server/tests/websocket.rs": "00cbe67490c4837d1b35b45d67d5f3d5e2c125e1d628e09459225be825c40c2c",
+    "web/src/main.ts": "4b583b6ef92b4f693e3ccca322281a606f023b5c00b7086d6ec83b6ca220b245"
+  },
+  "phase": "tests",
+  "application_exit": 0,
+  "application_image_id": "sha256:7e9c8cc266a1e4e7a5f6817d37f8872c4eddd89c8f500113c501d5bf8104b83f",
+  "tests_exit": 0,
+  "tests_image_id": "sha256:74fce52c24bcd125dcce71827ace30607fa02f6230d1e7c7569ac51e9d050ac9",
+  "status": "passed",
+  "finished_at": "2026-10-08T15:10:48Z"
+}

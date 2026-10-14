@@ -1,0 +1,34 @@
+Server listening on 0.0.0.0 port 22.
+Server listening on :: port 22.
+Connection from 172.30.62.3 port 54606 on 172.30.62.2 port 22 rdomain ""
+Accepted password for fixture from 172.30.62.3 port 54606 ssh2
+User child is on pid 108
+Starting session: shell on pts/2 for fixture from 172.30.62.3 port 54606 id 0
+syslogin_perform_logout: logout() returned an error
+Close session: user fixture from 172.30.62.3 port 54606 id 0
+Received disconnect from 172.30.62.3 port 54606:11: Bye
+Disconnected from user fixture 172.30.62.3 port 54606
+Connection from 172.30.62.3 port 54616 on 172.30.62.2 port 22 rdomain ""
+Accepted key ED25519 SHA256:47rXtYnUWFuOyGBmhoZNZs4CmNmDE1dfZqMsoJ39m48 found at /home/fixture/.ssh/authorized_keys:1
+Postponed publickey for fixture from 172.30.62.3 port 54616 ssh2 [preauth]
+Accepted key ED25519 SHA256:47rXtYnUWFuOyGBmhoZNZs4CmNmDE1dfZqMsoJ39m48 found at /home/fixture/.ssh/authorized_keys:1
+Accepted publickey for fixture from 172.30.62.3 port 54616 ssh2: ED25519 SHA256:47rXtYnUWFuOyGBmhoZNZs4CmNmDE1dfZqMsoJ39m48
+User child is on pid 118
+Starting session: shell on pts/2 for fixture from 172.30.62.3 port 54616 id 0
+syslogin_perform_logout: logout() returned an error
+Close session: user fixture from 172.30.62.3 port 54616 id 0
+Received disconnect from 172.30.62.3 port 54616:11: Bye
+Disconnected from user fixture 172.30.62.3 port 54616
+Connection from 172.30.62.3 port 54624 on 172.30.62.2 port 22 rdomain ""
+Accepted key ED25519 SHA256:Z/WiZSXFKSMl9uRZW3gIq6v46P+rUl67Pz+Ibu5HGIk found at /home/fixture/.ssh/authorized_keys:2
+Postponed publickey for fixture from 172.30.62.3 port 54624 ssh2 [preauth]
+Accepted key ED25519 SHA256:Z/WiZSXFKSMl9uRZW3gIq6v46P+rUl67Pz+Ibu5HGIk found at /home/fixture/.ssh/authorized_keys:2
+Accepted publickey for fixture from 172.30.62.3 port 54624 ssh2: ED25519 SHA256:Z/WiZSXFKSMl9uRZW3gIq6v46P+rUl67Pz+Ibu5HGIk
+User child is on pid 128
+Starting session: shell on pts/2 for fixture from 172.30.62.3 port 54624 id 0
+syslogin_perform_logout: logout() returned an error
+Close session: user fixture from 172.30.62.3 port 54624 id 0
+Received disconnect from 172.30.62.3 port 54624:11: Bye
+Disconnected from user fixture 172.30.62.3 port 54624
+Connection from 172.30.62.3 port 40022 on 172.30.62.2 port 22 rdomain ""
+Connection closed by 172.30.62.3 port 40022 [preauth]

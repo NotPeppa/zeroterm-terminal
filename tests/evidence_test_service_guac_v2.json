@@ -1,0 +1,131 @@
+{
+  "project": "zeroterm-test-guac-v2",
+  "production_ready": false,
+  "app_image_id": "sha256:9e2153250baec10a90ebca92c304b953d6d26275fd4645a3efff73d770ab4f64",
+  "engine_image_id": "sha256:63926f22592fad15ee841e8e7488020a6b0f17a257205f06a725718415c01e1e",
+  "stage_validation": {
+    "https": true,
+    "schema_family": 2,
+    "login_verified": true,
+    "frontend_files": 3,
+    "official_guacamole_js": true,
+    "legacy_routes_removed": true,
+    "info": {
+      "features": {
+        "device_sessions": true,
+        "recording_replay": true,
+        "web_rdp": true,
+        "web_ssh": true,
+        "web_vnc": false
+      },
+      "production_ready": false,
+      "protocol_version": 2,
+      "recording": {
+        "available": true,
+        "format_version": 2,
+        "required": true
+      },
+      "schema_version": 2,
+      "server_id": "zeroterm-test-guac-v2",
+      "stream_protocol": "bastion.guac.v1"
+    }
+  },
+  "old_database_retained": true,
+  "old_data_imported": false,
+  "admin_credentials_reused_from_protected_test_configuration": true,
+  "status": "updated-test-service",
+  "public_validation": {
+    "https": true,
+    "schema_family": 2,
+    "login_verified": true,
+    "frontend_files": 3,
+    "official_guacamole_js": true,
+    "legacy_routes_removed": true,
+    "info": {
+      "features": {
+        "device_sessions": true,
+        "recording_replay": true,
+        "web_rdp": true,
+        "web_ssh": true,
+        "web_vnc": false
+      },
+      "production_ready": false,
+      "protocol_version": 2,
+      "recording": {
+        "available": true,
+        "format_version": 2,
+        "required": true
+      },
+      "schema_version": 2,
+      "server_id": "zeroterm-test-guac-v2",
+      "stream_protocol": "bastion.guac.v1"
+    }
+  },
+  "backup_manifest": {
+    "old_container_ids": {
+      "zeroterm-test-proxy-1": "dc50db74d046af96b3efa726ec6a01dea6687c814b64600224bcd14c9617a35e",
+      "zeroterm-test-bastion-1": "3740c44fce2d03b190d058b89074b8d1d91f24f1e1cd470974ef6d362b894ea5",
+      "zeroterm-test-postgres-1": "af33155853c68cd73d53ab5c6ff4f2f71a8cc13689428ab1f5b01bfc272d91df",
+      "zeroterm-test-target-a-1": "3800fb75a827c9a9202d1da4897a3fe43d09be41fc73040caffc89fd5937115a",
+      "zeroterm-test-target-b-1": "ece98fbaf40e27bc31af17faa78405aac9c9699b5bc93bab285dbd548d8949ac"
+    },
+    "volumes": [
+      "zeroterm-test_database-auth",
+      "zeroterm-test_recordings_user-delete-38d1ab",
+      "zeroterm-test_runtime-auth",
+      "zeroterm-test_secrets"
+    ],
+    "backup_sha256": {
+      "zeroterm-test_runtime-auth.tar.gz": "13f9199bd75599354e5380d661da6634d744aa9c0b3663af5d20a30c44083147",
+      "zeroterm-test_recordings_user-delete-38d1ab.tar.gz": "3f355edf20f77b8bfe933e1a1f5253cac95b44234be503ad84d023eb26b6d6c7",
+      "database.dump": "18527f81d9887f202bdf59627389ab2aa27c132af34249d59a5c1986e4100afe",
+      "zeroterm-test_database-auth.tar.gz": "ac921b049c9d76010f9f8a8e3b8d69dda0ca6c1f0a2a7a09c8bdf580ddef2b5b",
+      "zeroterm-test_secrets.tar.gz": "db36512f941dab53e6a281e07626f48e625461e5b920466b369eba7fc9ea0575"
+    }
+  },
+  "legacy_api_stopped": true,
+  "legacy_native_ssh_2222_stopped": true,
+  "old_container_ids_preserved": true,
+  "old_compose_entry_points_to_new_service": true,
+  "rollback_script": "/opt/zeroterm-test-guac-v2/rollback.sh",
+  "old_readme_preserved_in_backup": true,
+  "host_boot_service_installed": false,
+  "explicit_start_required_after_host_or_docker_restart": true,
+  "live_deployment_isolation": {
+    "positive_guacd_to_owned_app_ephemeral_canary": true,
+    "negative_tcp_probes": {
+      "app-http": 1,
+      "target-a-ssh": 1,
+      "target-b-ssh": 1,
+      "host-live-canary": 124
+    },
+    "guacd_only_private_bridge": true,
+    "only_https_published": true,
+    "production_ready": false
+  },
+  "legacy_backup_checksums_verified": true,
+  "legacy_pg_dump_readable": true,
+  "legacy_volume_archives_verified": true,
+  "legacy_container_status": {
+    "zeroterm-test-proxy-1": {
+      "id": "dc50db74d046af96b3efa726ec6a01dea6687c814b64600224bcd14c9617a35e",
+      "running": false
+    },
+    "zeroterm-test-bastion-1": {
+      "id": "3740c44fce2d03b190d058b89074b8d1d91f24f1e1cd470974ef6d362b894ea5",
+      "running": false
+    },
+    "zeroterm-test-postgres-1": {
+      "id": "af33155853c68cd73d53ab5c6ff4f2f71a8cc13689428ab1f5b01bfc272d91df",
+      "running": true
+    },
+    "zeroterm-test-target-a-1": {
+      "id": "3800fb75a827c9a9202d1da4897a3fe43d09be41fc73040caffc89fd5937115a",
+      "running": true
+    },
+    "zeroterm-test-target-b-1": {
+      "id": "ece98fbaf40e27bc31af17faa78405aac9c9699b5bc93bab285dbd548d8949ac",
+      "running": true
+    }
+  }
+}

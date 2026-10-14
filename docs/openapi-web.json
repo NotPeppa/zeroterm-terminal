@@ -1,162 +1,3423 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "Bastion Web API (RFC-004 M3 candidate)",
-    "version": "1.0.0",
-    "description": "Candidate browser/ZeroTerm control plane with v1 multi-channel extensions, device sessions, authenticated files and required recording replay. Capability availability is declared by /info, never inferred from this document. Production readiness remains false until integrated release acceptance passes. Detailed incremental contracts: M3-final-contract.md and websocket-v1.md."
+    "title": "Bastion Browser API (RFC-005 candidate)",
+    "version": "2.0.0",
+    "description": "Browser-only SSH/RDP/VNC through guacd; one connection, one stream, one recording. Availability is declared honestly by /info. Production readiness is false until independent engine and real-browser acceptance."
   },
-  "servers": [{"url": "/api/v1"}],
-  "security": [{"BrowserSession": []}],
+  "servers": [
+    {
+      "url": "/api/v1"
+    }
+  ],
+  "security": [
+    {
+      "BrowserSession": []
+    }
+  ],
   "paths": {
     "/info": {
       "get": {
-        "security": [], "summary": "Discover server and protocol versions",
-        "responses": {"200": {"description": "Public server identity; no assets or credentials", "content": {"application/json": {"schema": {"type": "object", "properties": {"server_id": {"type": "string"}, "protocol_version": {"const": 1}, "websocket_protocol_version": {"const": 1}, "ssh_protocol_version": {"const": 1}}}}}}}
+        "security": [],
+        "summary": "Discover server and protocol versions",
+        "responses": {
+          "200": {
+            "description": "Info",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Info"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
       }
     },
     "/auth/csrf": {
-      "get": {"security": [], "summary": "Bootstrap browser CSRF cookie/token", "responses": {"200": {"description": "Sets SameSite=Strict bastion_csrf cookie", "content": {"application/json": {"schema": {"type": "object", "required": ["csrf_token"], "properties": {"csrf_token": {"$ref": "#/components/schemas/Secret"}}}}}}, "403": {"$ref": "#/components/responses/Error"}}}
+      "get": {
+        "security": [],
+        "summary": "Bootstrap browser CSRF cookie/token",
+        "responses": {
+          "200": {
+            "description": "Sets SameSite=Strict bastion_csrf cookie",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "csrf_token"
+                  ],
+                  "properties": {
+                    "csrf_token": {
+                      "$ref": "#/components/schemas/Secret"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
     },
     "/auth/login": {
       "post": {
-        "security": [], "summary": "Log in with a client-type-bound session", "description": "Web clients send client_type=web, exact configured Origin and X-Bastion-CSRF. Web login sets HttpOnly cookies and never returns tokens in JSON. Omitted client_type defaults to zeroterm for M1 compatibility; native login must not send Cookie or Origin.",
-        "parameters": [{"$ref": "#/components/parameters/Origin"}, {"$ref": "#/components/parameters/Csrf"}],
-        "requestBody": {"required": true, "content": {"application/json": {"schema": {"type": "object", "additionalProperties": false, "required": ["username", "password", "device_label"], "properties": {"username": {"type": "string", "minLength": 1, "maxLength": 64}, "password": {"type": "string", "minLength": 1, "maxLength": 1024, "writeOnly": true}, "device_label": {"type": "string", "minLength": 1, "maxLength": 128}, "client_type": {"type": "string", "enum": ["web", "zeroterm"], "default": "zeroterm"}}}}}},
-        "responses": {"200": {"description": "No-store. Web: Secure (HTTPS), HttpOnly, SameSite=Strict bastion_session/bastion_refresh cookies; browser metadata response. Native: bearer token response.", "content": {"application/json": {"schema": {"anyOf": [{"$ref": "#/components/schemas/WebLoginResponse"}, {"$ref": "#/components/schemas/NativeLoginResponse"}]}}}}, "400": {"$ref": "#/components/responses/Error"}, "401": {"$ref": "#/components/responses/Error"}, "403": {"$ref": "#/components/responses/Error"}, "429": {"$ref": "#/components/responses/Error"}}
+        "security": [],
+        "summary": "Cookie-only browser login",
+        "description": "Exact Origin and CSRF; HttpOnly SameSite=Strict cookies only. No bearer token or client type. Refresh is manual, one-use and never automatically replayed.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Origin"
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "username",
+                  "password",
+                  "device_label"
+                ],
+                "properties": {
+                  "username": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1024,
+                    "writeOnly": true
+                  },
+                  "device_label": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "No-store; Secure HttpOnly SameSite=Strict session/refresh cookies, no JSON secrets",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebLoginResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
       }
     },
     "/auth/refresh": {
       "post": {
-        "security": [], "summary": "Rotate current refresh token", "description": "Web: refresh cookie, CSRF header and exact Origin, JSON {}. Native: JSON refresh_token without browser cookies/Origin. Token families cannot cross client type. Replaying a rotated token revokes its family.",
-        "parameters": [{"$ref": "#/components/parameters/Origin"}, {"$ref": "#/components/parameters/Csrf"}],
-        "requestBody": {"required": true, "content": {"application/json": {"schema": {"type": "object", "additionalProperties": false, "properties": {"refresh_token": {"$ref": "#/components/schemas/Secret"}}}}}},
-        "responses": {"200": {"description": "Rotated family cookies or native tokens, no-store", "content": {"application/json": {"schema": {"anyOf": [{"$ref": "#/components/schemas/WebLoginResponse"}, {"$ref": "#/components/schemas/NativeLoginResponse"}]}}}}, "400": {"$ref": "#/components/responses/Error"}, "401": {"$ref": "#/components/responses/Error"}, "403": {"$ref": "#/components/responses/Error"}, "429": {"$ref": "#/components/responses/Error"}}
+        "security": [],
+        "summary": "Rotate browser refresh cookies",
+        "description": "Exact Origin and CSRF; HttpOnly SameSite=Strict cookies only. No bearer token or client type. Refresh is manual, one-use and never automatically replayed.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Origin"
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [],
+                "properties": {}
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "No-store; Secure HttpOnly SameSite=Strict session/refresh cookies, no JSON secrets",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebLoginResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
       }
     },
     "/auth/logout": {
-      "post": {"summary": "Revoke current login and pending tickets", "description": "Clears browser session cookies and closes associated active connections. Native logout is idempotent.", "parameters": [{"$ref": "#/components/parameters/Origin"}, {"$ref": "#/components/parameters/Csrf"}], "responses": {"204": {"description": "Logged out"}, "401": {"$ref": "#/components/responses/Error"}, "403": {"$ref": "#/components/responses/Error"}}}
+      "post": {
+        "summary": "Revoke current login and pending tickets",
+        "description": "Revoke browser login, tickets and active connections; clear cookies.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Origin"
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Logged out"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
     },
     "/auth/logout-all": {
-      "post": {"summary": "Revoke all device logins", "parameters": [{"$ref": "#/components/parameters/Origin"}, {"$ref": "#/components/parameters/Csrf"}], "responses": {"204": {"description": "All device logins revoked"}, "401": {"$ref": "#/components/responses/Error"}, "403": {"$ref": "#/components/responses/Error"}}}
+      "post": {
+        "summary": "Revoke all device logins",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Origin"
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "All device logins revoked"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
     },
     "/me": {
-      "get": {"summary": "Read current user and login identity", "responses": {"200": {"description": "Current authenticated user", "content": {"application/json": {"schema": {"type": "object", "properties": {"user": {"$ref": "#/components/schemas/User"}, "login_session_id": {"type": "string", "format": "uuid"}, "policy_revision": {"type": "integer", "minimum": 1}, "csrf_token": {"$ref": "#/components/schemas/Secret"}}}}}}, "401": {"$ref": "#/components/responses/Error"}}}
+      "get": {
+        "summary": "Read current user and login identity",
+        "responses": {
+          "200": {
+            "description": "Current authenticated user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "user": {
+                      "$ref": "#/components/schemas/User"
+                    },
+                    "login_session_id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "policy_revision": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "csrf_token": {
+                      "$ref": "#/components/schemas/Secret"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/admin/users": {
+      "get": {
+        "summary": "List live users (admin-only)",
+        "description": "Excludes soft-deleted users. Disabled but undeleted users remain visible and continue reserving their normalized usernames. User response fields are unchanged; there is no deleted flag, recycle bin or restore route.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Live user page excluding soft-deleted identities",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "items",
+                    "next_cursor"
+                  ],
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/User"
+                      }
+                    },
+                    "next_cursor": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a new user identity (admin-only)",
+        "description": "Username is trimmed and ASCII-lowercased. A soft-deleted username may be reused, but creation always assigns a new UUID and the newly supplied password, with no inherited old Grants, login sessions or historical ownership. Disabled but undeleted users still reserve their usernames.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Origin"
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "username",
+                  "password",
+                  "role"
+                ],
+                "properties": {
+                  "username": {
+                    "type": "string",
+                    "description": "Normalized name is 1-64 ASCII characters, begins with an alphanumeric character and otherwise permits alphanumerics, underscore, dot and hyphen."
+                  },
+                  "password": {
+                    "type": "string",
+                    "writeOnly": true
+                  },
+                  "role": {
+                    "type": "string",
+                    "enum": [
+                      "admin",
+                      "operator",
+                      "auditor"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "New independent user identity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/admin/users/{id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/Id"
+        }
+      ],
+      "get": {
+        "summary": "Read a live user (admin-only)",
+        "description": "Missing or soft-deleted users return 404; disabled but undeleted users are still readable.",
+        "responses": {
+          "200": {
+            "description": "Current live user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update live user role or availability (admin-only)",
+        "description": "At least one of role/enabled is required. Role changes or disabling revoke old logins. Soft-deleted users cannot be updated or re-enabled.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Origin"
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          },
+          {
+            "$ref": "#/components/parameters/PositiveIfMatch"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "minProperties": 1,
+                "properties": {
+                  "role": {
+                    "type": "string",
+                    "enum": [
+                      "admin",
+                      "operator",
+                      "auditor"
+                    ]
+                  },
+                  "enabled": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated live user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "412": {
+            "$ref": "#/components/responses/Error"
+          },
+          "428": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Soft-delete one user (admin-only; never self)",
+        "description": "No request body. Requires browser session Cookie, exact configured Origin, matching X-Bastion-CSRF/cookie and quoted positive If-Match for the current live revision. Soft deletion hides the identity from the user list and makes user detail return 404; it denies further login, old access tokens, refresh, unconsumed tickets and runtime connections. Audit events, historical connections, recordings, approved host keys and old Grants remain associated with the old UUID. The username becomes available for a new independent account with a new UUID and password, without inherited Grants, sessions or historical ownership. There is no restoration, recycle bin, bulk deletion or CLI delete. Never automatically retry DELETE; RESULT_UNKNOWN requires reading server state, and REVISION_CONFLICT requires rereading the live revision. After 204, a failed list refresh is only a read failure: keep it visible and never repeat DELETE.",
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "description": "Exact configured same-origin browser URL.",
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          },
+          {
+            "name": "X-Bastion-CSRF",
+            "in": "header",
+            "required": true,
+            "description": "Must match the bastion_csrf Cookie.",
+            "schema": {
+              "$ref": "#/components/schemas/Secret"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/PositiveIfMatch"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Soft deletion confirmed with no response body; audit/history are retained"
+          },
+          "400": {
+            "description": "INVALID_ARGUMENT: malformed id or quoted positive If-Match",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "description": "PERMISSION_DENIED: non-admin or current login user; browser Origin/CSRF failures are also rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "RESOURCE_NOT_FOUND: user is missing or already soft-deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "REVISION_CONFLICT: current live revision does not match",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "PRECONDITION_REQUIRED: If-Match header is missing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/users/{id}/reset-password": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/Id"
+        }
+      ],
+      "post": {
+        "summary": "Reset a live user's password (admin-only)",
+        "description": "Revokes existing login sessions. Missing or soft-deleted users return 404 and cannot be restored by resetting a password.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Origin"
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          },
+          {
+            "$ref": "#/components/parameters/PositiveIfMatch"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "password"
+                ],
+                "properties": {
+                  "password": {
+                    "type": "string",
+                    "writeOnly": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Password replaced and logins revoked"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "412": {
+            "$ref": "#/components/responses/Error"
+          },
+          "428": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/admin/grants": {
+      "get": {
+        "summary": "List exact target Grants",
+        "description": "Admin-only exact asset/account grants, without operation permissions. Revoking a grant does not remove enabled administrator implicit access. Mutations use If-Match where updating/revoking; never replay unknown outcomes.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current Grant metadata, fixed full protocol set",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "items",
+                    "next_cursor"
+                  ],
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Grant"
+                      }
+                    },
+                    "next_cursor": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "post": {
+        "summary": "Create exact asset/account access",
+        "description": "Admin-only exact asset/account grants, without operation permissions. Revoking a grant does not remove enabled administrator implicit access. Mutations use If-Match where updating/revoking; never replay unknown outcomes.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Origin"
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GrantRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created Grant",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Grant"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/admin/grants/{id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/Id"
+        }
+      ],
+      "patch": {
+        "summary": "Update Grant availability/expiry",
+        "description": "Admin-only exact asset/account grants, without operation permissions. Revoking a grant does not remove enabled administrator implicit access. Mutations use If-Match where updating/revoking; never replay unknown outcomes.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Origin"
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Quoted current revision."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GrantPatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated Grant",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Grant"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "412": {
+            "$ref": "#/components/responses/Error"
+          },
+          "428": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Revoke one exact target Grant",
+        "description": "Admin-only exact asset/account grants, without operation permissions. Revoking a grant does not remove enabled administrator implicit access. Mutations use If-Match where updating/revoking; never replay unknown outcomes.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Origin"
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Quoted current revision."
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Grant revoked, audit persisted"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "412": {
+            "$ref": "#/components/responses/Error"
+          },
+          "428": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
     },
     "/assets": {
-      "get": {"summary": "List explicitly authorized assets and accounts", "parameters": [{"$ref": "#/components/parameters/Limit"}, {"$ref": "#/components/parameters/Cursor"}], "responses": {"200": {"description": "Effective capabilities; administrators still require grants", "content": {"application/json": {"schema": {"type": "object", "required": ["items"], "properties": {"items": {"type": "array", "items": {"$ref": "#/components/schemas/Asset"}}, "next_cursor": {"type": ["string", "null"]}, "policy_revision": {"type": "integer"}}}}}}, "401": {"$ref": "#/components/responses/Error"}, "403": {"$ref": "#/components/responses/Error"}}}
+      "get": {
+        "summary": "List enabled available assets and accounts",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/AssetGroupId"
+          },
+          {
+            "$ref": "#/components/parameters/Ungrouped"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Available exact authorized browser targets with immutable protocol and account labels; no per-operation permissions.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "items"
+                  ],
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Asset"
+                      }
+                    },
+                    "next_cursor": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "policy_revision": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
     },
     "/assets/{id}": {
-      "parameters": [{"$ref": "#/components/parameters/Id"}],
-      "get": {"summary": "Read authorized asset", "responses": {"200": {"description": "Asset details", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Asset"}}}}, "404": {"$ref": "#/components/responses/Error"}}}
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/Id"
+        }
+      ],
+      "get": {
+        "summary": "Read authorized asset",
+        "responses": {
+          "200": {
+            "description": "Asset details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Asset"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
     },
     "/sessions": {
       "post": {
-        "summary": "Issue one-use WebSocket session ticket", "description": "Browser cookies only; exact Origin and CSRF required. Target route and shell/exec/sftp capabilities are fixed in the stored ticket; issuance also creates a pending connection. Never automatically replay this operation.",
-        "parameters": [{"$ref": "#/components/parameters/Origin"}, {"$ref": "#/components/parameters/Csrf"}],
-        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/WebSessionRequest"}}}},
-        "responses": {"201": {"description": "One-time secret returned only here; Cache-Control:no-store", "headers": {"Cache-Control": {"schema": {"const": "no-store"}}}, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/WebSessionResponse"}}}}, "400": {"$ref": "#/components/responses/Error"}, "401": {"$ref": "#/components/responses/Error"}, "403": {"$ref": "#/components/responses/Error"}, "429": {"$ref": "#/components/responses/Error"}, "503": {"$ref": "#/components/responses/Error"}}
+        "summary": "Issue one-use WebSocket session ticket",
+        "description": "Cookie/Origin/CSRF only. Issue a 30-second single-use ticket bound to exact asset/account/login/revisions. Manual reconnection creates a fresh ticket; failures never restore or replay one.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Origin"
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebSessionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "One-time secret returned only here; Cache-Control:no-store",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebSessionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
       }
     },
     "/sessions/{id}/stream": {
-      "parameters": [{"$ref": "#/components/parameters/Id"}],
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/Id"
+        }
+      ],
       "get": {
-        "summary": "Upgrade to one-shell WebSocket v1", "description": "Exact Origin, authenticated owner and same login_session_id are required. No query parameters or Authorization. Sec-WebSocket-Protocol must contain exactly bastion.v1, <ws_token>; response selects only bastion.v1. Wrong transport, owner, secret, expiry and replay uniformly reject credentials; no ticket secrets appear in responses. Consumption is irrevocable after transaction commit. See websocket-v1.md.",
-        "parameters": [{"$ref": "#/components/parameters/Origin"}, {"name": "Sec-WebSocket-Protocol", "in": "header", "required": true, "schema": {"type": "string"}, "example": "bastion.v1, <ws_token>"}],
-        "responses": {"101": {"description": "WebSocket established; wait for session_ready, opened, pty_ready, ready"}, "400": {"$ref": "#/components/responses/Error"}, "401": {"$ref": "#/components/responses/Error"}, "503": {"$ref": "#/components/responses/Error"}}
+        "summary": "Upgrade one binary Guacamole stream",
+        "description": "Exact Origin and same login Cookie; Sec-WebSocket-Protocol exactly [bastion.guac.v1,ws_token], echo only bastion.guac.v1. No query, Authorization, token storage or logging. Binary UTF-8 chunks <=32768 bytes, incremental fatal decoder and Unicode-scalar lengths. Instructions <=8388608 bytes; permit direction-owned text/plain clipboard <=262144 decoded UTF-8 bytes (VNC input Latin-1 only), exclude clipboard transfer from recording; forbid audio/video/files/pipe creation, not owned display/clipboard blob/ack/end. No channel multiplexing or control JSON. SSH negotiates bastion.ssh.v1; RDP/VNC negotiate bastion.guac.v1. Wrong protocol cannot consume a valid ticket. See docs/ssh-xterm.md for binary terminal frames.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Origin"
+          },
+          {
+            "name": "Sec-WebSocket-Protocol",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "bastion.guac.v1, <ws_token>"
+          }
+        ],
+        "responses": {
+          "101": {
+            "description": "Binary UTF-8 Guacamole display/interaction stream"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
       }
-    },
-    "/connection-tickets": {
-      "post": {
-        "security": [{"BearerSession": []}], "summary": "Existing M1 SSH integration ticket endpoint", "description": "Compatibility endpoint; a ticket cannot authenticate a WebSocket. The formal /integrations/zeroterm/connection-tickets alias uses the same Bearer-only SSH issuance transaction.",
-        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/TicketRequest"}}}},
-        "responses": {"201": {"description": "Single-use SSH ticket, no-store", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/TicketResponse"}}}}, "403": {"$ref": "#/components/responses/Error"}, "429": {"$ref": "#/components/responses/Error"}}
-      }
-    },
-    "/integrations/zeroterm/connection-tickets": {
-      "post": {"security": [{"BearerSession": []}], "summary": "Issue a formal single-use ZeroTerm SSH ticket", "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/TicketRequest"}}}}, "responses": {"201": {"description": "Same transaction and response as the compatibility SSH ticket endpoint", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/TicketResponse"}}}}, "403": {"$ref": "#/components/responses/Error"}}}
     },
     "/me/sessions": {
-      "get": {"summary": "List own login devices without tokens", "responses": {"200": {"description": "items and next_cursor; each item has id, device_label, client_type, current, created_at, expires_at and revoked_at"}}}
+      "get": {
+        "summary": "List own login devices without tokens",
+        "responses": {
+          "200": {
+            "description": "Device identities and expiry/revocation, no token secrets."
+          }
+        }
+      }
     },
     "/me/sessions/{id}": {
-      "parameters": [{"$ref": "#/components/parameters/Id"}],
-      "delete": {"summary": "Revoke an owned device login and its tickets/connections", "parameters": [{"$ref": "#/components/parameters/Origin"}, {"$ref": "#/components/parameters/Csrf"}], "responses": {"204": {"description": "Device login revoked"}, "403": {"$ref": "#/components/responses/Error"}}}
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/Id"
+        }
+      ],
+      "delete": {
+        "summary": "Revoke an owned device login and its tickets/connections",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Origin"
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Device login revoked"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
     },
     "/recordings": {
-      "get": {"summary": "List owned or role-authorized recording metadata", "parameters": [{"$ref": "#/components/parameters/Limit"}, {"$ref": "#/components/parameters/Cursor"}], "responses": {"200": {"description": "Metadata page; no paths or key envelopes"}}}
+      "get": {
+        "summary": "List owned or role-authorized recording metadata",
+        "description": "Optional connection_id UUID filters directly by the recording's connection without widening ownership or role authorization; cursor scope binds this filter.",
+        "parameters": [
+          {
+            "name": "connection_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Metadata page; no paths or key envelopes"
+          }
+        }
+      }
     },
     "/recordings/{id}": {
-      "parameters": [{"$ref": "#/components/parameters/Id"}],
-      "get": {"summary": "Read authorized recording metadata", "responses": {"200": {"description": "id, channel_id, format_version, bytes, checksum, state, retention_until, last_written_seq and last_synced_seq"}, "404": {"$ref": "#/components/responses/Error"}}}
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/Id"
+        }
+      ],
+      "get": {
+        "summary": "Read authorized recording metadata",
+        "responses": {
+          "200": {
+            "description": "id, connection_id (direct, unique), target_protocol, format_version=2, bytes/checksum/state/retention and sequence checkpoints"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
     },
     "/recordings/{id}/content": {
-      "parameters": [{"$ref": "#/components/parameters/Id"}],
-      "get": {"summary": "Stream verified decrypted recording events", "description": "No Range, public paths or key delivery. Every read is audited. A verified prefix is not complete until the reader verifies final end, clean EOF and metadata checksum/bytes. Stream errors must remain visible.", "responses": {"200": {"description": "No-store authenticated NDJSON event stream", "content": {"application/x-ndjson": {"schema": {"type": "string"}}}}, "503": {"$ref": "#/components/responses/Error"}}}
-    },
-    "/connections/{id}/channels": {
-      "parameters": [{"$ref": "#/components/parameters/Id"}],
-      "get": {"summary": "Read authorized persisted channel lifecycles", "responses": {"200": {"description": "items with channel identity, kind, state, exit metadata and optional recording id"}}}
-    },
-    "/connections/{id}/files": {
-      "parameters": [{"$ref": "#/components/parameters/Id"}, {"name": "path", "in": "query", "required": true, "schema": {"type": "string", "minLength": 1, "maxLength": 4096}}, {"name": "operation", "in": "query", "schema": {"type": "string", "enum": ["list", "stat"], "default": "list"}}],
-      "get": {"summary": "Read target SFTP metadata on an owned active connection", "description": "The connection must belong to the exact current login and have sftp capability. list returns items (at most 1024), stat returns size/permissions/mtime/kind.", "responses": {"200": {"description": "Target metadata, never local gateway files"}, "403": {"$ref": "#/components/responses/Error"}}}
-    },
-    "/connections/{id}/files/operations": {
-      "parameters": [{"$ref": "#/components/parameters/Id"}],
-      "post": {"summary": "Perform a typed target SFTP operation", "description": "JSON operation is mkdir/remove with path, or rename with path and destination. Remove is regular-file only; rename is no-overwrite. No recursive deletion or command escape, and no automatic replay on uncertain outcome.", "requestBody": {"required": true, "content": {"application/json": {"schema": {"type": "object", "required": ["operation", "path"], "properties": {"operation": {"enum": ["mkdir", "remove", "rename"]}, "path": {"type": "string"}, "destination": {"type": "string"}}}}}}, "responses": {"204": {"description": "Target operation acknowledged"}, "403": {"$ref": "#/components/responses/Error"}}}
-    },
-    "/connections/{id}/files/content": {
-      "parameters": [{"$ref": "#/components/parameters/Id"}, {"name": "path", "in": "query", "required": true, "schema": {"type": "string", "minLength": 1, "maxLength": 4096}}],
-      "get": {"summary": "Download a bounded target regular-file stream", "description": "No Range. attachment/no-store with same-origin cookies. The browser may stream directly to disk; handing off a download is not proof of completion.", "responses": {"200": {"description": "32KiB bounded SFTP chunks", "content": {"application/octet-stream": {"schema": {"type": "string", "format": "binary"}}}}}},
-      "put": {"summary": "Stream a no-overwrite target upload", "description": "Raw octet-stream is not collected as JSON. Server writes a same-directory random temporary file, closes successfully, then commits with no-overwrite rename. Cancellation never promises rollback if the target side effect is uncertain.", "parameters": [{"$ref": "#/components/parameters/Origin"}, {"$ref": "#/components/parameters/Csrf"}], "requestBody": {"required": true, "content": {"application/octet-stream": {"schema": {"type": "string", "format": "binary"}}}}, "responses": {"201": {"description": "Committed upload; JSON bytes count"}, "409": {"$ref": "#/components/responses/Error"}}}
-    },
-    "/copy-jobs": {
-      "get": {"summary": "Read owned or authorized copy job metadata", "responses": {"200": {"description": "items and next_cursor"}}},
-      "post": {"summary": "Record an authorized copy request", "description": "Candidate discovery copy_jobs=false. Standard SFTPv3 lacks required atomic no-follow, so no target copy is run and an explicit failed unsupported job is returned. No unsafe fallback.", "responses": {"201": {"description": "Failed unsupported job, not a completed transfer"}}}
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/Id"
+        }
+      ],
+      "get": {
+        "summary": "Stream verified decrypted recording events",
+        "description": "Authenticated verified streaming NDJSON v2, no-store, no Range, no total 5-minute read timeout. meta(seq=0,elapsed_us=0,format_version=2,connection_id,target_protocol,width,height,dpi); output(seq,elapsed_us,data_base64) containing <=32768 bytes Guacamole display UTF-8; end(seq,elapsed_us,reason). Strict contiguous sequence, monotonic time, one end and clean EOF. Invalid/truncated UTF-8, partial/unknown format and checksum faults are visible errors, never complete. Offline Guacamole display, read-only, flush backpressure, pause/play/restart without full-file buffering or seeking.",
+        "responses": {
+          "200": {
+            "description": "No-store authenticated NDJSON event stream",
+            "content": {
+              "application/x-ndjson": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
     },
     "/connections": {
-      "get": {"summary": "List own connections; admin/auditor may list globally", "parameters": [{"$ref": "#/components/parameters/Limit"}, {"$ref": "#/components/parameters/Cursor"}], "responses": {"200": {"description": "Connection page", "content": {"application/json": {"schema": {"type": "object", "properties": {"items": {"type": "array", "items": {"$ref": "#/components/schemas/Connection"}}, "next_cursor": {"type": ["string", "null"]}}}}}}, "401": {"$ref": "#/components/responses/Error"}}}
+      "get": {
+        "summary": "List own connections; admin/auditor may list globally",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Connection page",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Connection"
+                      }
+                    },
+                    "next_cursor": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
     },
     "/connections/{id}": {
-      "parameters": [{"$ref": "#/components/parameters/Id"}],
-      "get": {"summary": "Read connection state and sanitized failure", "responses": {"200": {"description": "Target errors appear inside failure.code, not as HTTP 502 for this GET", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Connection"}}}}, "404": {"$ref": "#/components/responses/Error"}}}
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/Id"
+        }
+      ],
+      "get": {
+        "summary": "Read connection state and sanitized failure",
+        "responses": {
+          "200": {
+            "description": "Target errors appear inside failure.code, not as HTTP 502 for this GET",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Connection"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
     },
     "/connections/{id}/disconnect": {
-      "parameters": [{"$ref": "#/components/parameters/Id"}],
-      "post": {"summary": "Owner/admin requests disconnection", "parameters": [{"$ref": "#/components/parameters/Origin"}, {"$ref": "#/components/parameters/Csrf"}], "responses": {"202": {"description": "Closure requested"}, "403": {"$ref": "#/components/responses/Error"}, "404": {"$ref": "#/components/responses/Error"}}}
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/Id"
+        }
+      ],
+      "post": {
+        "summary": "Owner/admin requests disconnection",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Origin"
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Closure requested"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/admin/assets": {
+      "get": {
+        "summary": "List admin assets",
+        "responses": {
+          "200": {
+            "description": "Paged AdminAsset metadata (no secrets)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "items",
+                    "next_cursor"
+                  ],
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/AdminAsset"
+                      }
+                    },
+                    "next_cursor": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/AssetGroupId"
+          },
+          {
+            "$ref": "#/components/parameters/Ungrouped"
+          }
+        ]
+      },
+      "post": {
+        "summary": "Create immutable protocol endpoint; SSH trust may await first confirmation",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Origin"
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssetCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "AdminAsset",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminAsset"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/admin/assets/{id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/Id"
+        }
+      ],
+      "get": {
+        "summary": "Read asset routing and approved trust (no account secrets)",
+        "responses": {
+          "200": {
+            "description": "AdminAsset",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminAsset"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update asset except immutable protocol",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Origin"
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          },
+          {
+            "$ref": "#/components/parameters/PositiveIfMatch"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssetPatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "AdminAsset",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminAsset"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/admin/assets/{id}/rdp-certificate/scan": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/Id"
+        }
+      ],
+      "post": {
+        "summary": "Discover an RDP leaf certificate SHA-256 and security mode for explicit administrator confirmation",
+        "description": "Bodyless admin-only request with cookie, exact Origin, CSRF and positive If-Match, like SSH discovery. Resolves the saved asset through deny-first network policy, connects only the approved numeric address, negotiates X.224 for TLS or CredSSP and completes a TLS handshake whose server signature is verified, then closes without CredSSP or any RDP data: no target credentials are ever sent and nothing is stored. Limited to four concurrent discoveries and ten per administrator per minute, shared with SSH. Returns the leaf SHA-256, the protocol the server selected and the matching security mode (nla when the server selects CredSSP, tls otherwise), with the scanned revision. Confirm both with asset PATCH using this revision; changed revisions require rereading and rescanning. Every RDP session still verifies the approved pin on its own socket before authentication.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Origin"
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          },
+          {
+            "$ref": "#/components/parameters/PositiveIfMatch"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Discovered certificate fingerprint and security mode; nothing is stored",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RdpCertificateScan"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "412": {
+            "$ref": "#/components/responses/Error"
+          },
+          "428": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "502": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          },
+          "504": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/admin/assets/{id}/accounts": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/Id"
+        }
+      ],
+      "get": {
+        "summary": "List account metadata only",
+        "responses": {
+          "200": {
+            "description": "Paged AdminAccount metadata (no secrets)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "items",
+                    "next_cursor"
+                  ],
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/AdminAccount"
+                      }
+                    },
+                    "next_cursor": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          }
+        ]
+      },
+      "post": {
+        "summary": "Create target account with encrypted credential or VNC none",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Origin"
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "AdminAccount",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminAccount"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/admin/accounts/{id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/Id"
+        }
+      ],
+      "patch": {
+        "summary": "Update protocol-specific account metadata",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Origin"
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          },
+          {
+            "$ref": "#/components/parameters/PositiveIfMatch"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountPatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "AdminAccount",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminAccount"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/admin/accounts/{id}/credential": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/Id"
+        }
+      ],
+      "put": {
+        "summary": "Replace target credential once, without replay",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Origin"
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          },
+          {
+            "$ref": "#/components/parameters/PositiveIfMatch"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CredentialInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "AdminAccount",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminAccount"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/me/password": {
+      "post": {
+        "summary": "Change password and revoke existing login families",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Origin"
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "current_password",
+                  "new_password"
+                ],
+                "properties": {
+                  "current_password": {
+                    "type": "string",
+                    "writeOnly": true
+                  },
+                  "new_password": {
+                    "type": "string",
+                    "writeOnly": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Password changed"
+          }
+        }
+      }
+    },
+    "/audit-events": {
+      "get": {
+        "summary": "List sanitized role-authorized audit events",
+        "responses": {
+          "200": {
+            "description": "Paged sanitized events, no ticket or target secrets"
+          }
+        }
+      }
+    },
+    "/admin/assets/{id}/ssh-host-key/scan": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/Id"
+        }
+      ],
+      "post": {
+        "summary": "Discover SSH host keys for explicit administrator confirmation",
+        "description": "Bodyless admin-only request with cookie, exact Origin, CSRF and positive If-Match. Resolves the saved asset through deny-first network policy and scans only the approved numeric address, without target credentials or automatic trust updates. Limited to four concurrent scans and ten per administrator per minute. Returns SHA-256 fingerprints and the scanned asset revision. Confirm the chosen key using existing asset PATCH with this revision. Changed revisions require rereading and rescanning. The eventual SSH session still verifies the approved key on its own socket before authentication. Requires ssh-keyscan on the server.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Origin"
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          },
+          {
+            "$ref": "#/components/parameters/PositiveIfMatch"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Discovered keys; no approved key is changed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SshHostKeyScan"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "412": {
+            "$ref": "#/components/responses/Error"
+          },
+          "428": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "502": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          },
+          "504": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/admin/asset-groups": {
+      "get": {
+        "summary": "List asset groups (admin-only)",
+        "description": "Flat groups, including empty groups. Operators learn group metadata only through their exact-authorized /assets rows. No group-level authorization.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "items",
+                    "next_cursor"
+                  ],
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/AssetGroup"
+                      }
+                    },
+                    "next_cursor": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "412": {
+            "$ref": "#/components/responses/Error"
+          },
+          "428": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "post": {
+        "summary": "Create an asset group (admin-only)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Origin"
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssetGroupInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssetGroup"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "412": {
+            "$ref": "#/components/responses/Error"
+          },
+          "428": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/admin/asset-groups/{id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/Id"
+        }
+      ],
+      "get": {
+        "summary": "Read asset group (admin-only)",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssetGroup"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "412": {
+            "$ref": "#/components/responses/Error"
+          },
+          "428": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "patch": {
+        "summary": "Rename asset group (admin-only)",
+        "description": "Requires positive quoted If-Match, exact Origin, Cookie and CSRF. Names must be unique. Does not change asset routing, credentials or grants.",
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "description": "Exact configured same-origin browser URL.",
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          },
+          {
+            "name": "X-Bastion-CSRF",
+            "in": "header",
+            "required": true,
+            "description": "Must match the bastion_csrf Cookie.",
+            "schema": {
+              "$ref": "#/components/schemas/Secret"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/PositiveIfMatch"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssetGroupInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssetGroup"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "412": {
+            "$ref": "#/components/responses/Error"
+          },
+          "428": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete asset group (admin-only)",
+        "description": "No body. Requires positive quoted If-Match, exact Origin, Cookie and CSRF. Atomically moves member assets to ungrouped and increments their configuration revisions; routing revisions, accounts, credentials, grants, pending tickets and live connections remain valid. Assets are never deleted. Group deletion is audited. A confirmed write followed by refresh failure must not replay the write.",
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "description": "Exact configured same-origin browser URL.",
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          },
+          {
+            "name": "X-Bastion-CSRF",
+            "in": "header",
+            "required": true,
+            "description": "Must match the bastion_csrf Cookie.",
+            "schema": {
+              "$ref": "#/components/schemas/Secret"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/PositiveIfMatch"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Group removed, member assets retained as ungrouped; no response body"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "412": {
+            "$ref": "#/components/responses/Error"
+          },
+          "428": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
     }
   },
   "components": {
     "securitySchemes": {
-      "BrowserSession": {"type": "apiKey", "in": "cookie", "name": "bastion_session", "description": "HttpOnly SameSite=Strict Secure browser access session. Must never be placed in localStorage or substituted as bearer token."},
-      "BearerSession": {"type": "http", "scheme": "bearer", "description": "ZeroTerm client-type-bound opaque access token; not interchangeable with browser cookies."}
+      "BrowserSession": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "bastion_session",
+        "description": "HttpOnly SameSite=Strict Secure browser access session. Must never be placed in localStorage or substituted as bearer token."
+      }
     },
     "parameters": {
-      "Id": {"name": "id", "in": "path", "required": true, "schema": {"type": "string", "format": "uuid"}},
-      "Origin": {"name": "Origin", "in": "header", "schema": {"type": "string", "format": "uri"}, "description": "Required for browser state changes and upgrade; must exactly equal configured same-origin URL. Native requests omit it."},
-      "Csrf": {"name": "X-Bastion-CSRF", "in": "header", "schema": {"$ref": "#/components/schemas/Secret"}, "description": "Required for browser state changes; equals bastion_csrf cookie. Native requests omit it."},
-      "Limit": {"name": "limit", "in": "query", "schema": {"type": "integer", "minimum": 1, "maximum": 200, "default": 50}},
-      "Cursor": {"name": "cursor", "in": "query", "schema": {"type": "string", "maxLength": 4096}, "description": "Opaque cursor; stable ordering; do not synthesize."}
+      "Id": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "Origin": {
+        "name": "Origin",
+        "in": "header",
+        "schema": {
+          "type": "string",
+          "format": "uri"
+        },
+        "description": "Exact configured browser Origin; required on mutations and WebSocket upgrade.",
+        "required": true
+      },
+      "Csrf": {
+        "name": "X-Bastion-CSRF",
+        "in": "header",
+        "schema": {
+          "$ref": "#/components/schemas/Secret"
+        },
+        "description": "Matches bastion_csrf cookie; required on mutations.",
+        "required": true
+      },
+      "PositiveIfMatch": {
+        "name": "If-Match",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "pattern": "^\"[1-9][0-9]*\"$"
+        },
+        "example": "\"7\"",
+        "description": "Quoted positive current live revision (signed 64-bit integer). Missing header returns 428, invalid format returns 400, and a wrong live revision returns 412; no automatic retry."
+      },
+      "Limit": {
+        "name": "limit",
+        "in": "query",
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 200,
+          "default": 50
+        }
+      },
+      "Cursor": {
+        "name": "cursor",
+        "in": "query",
+        "schema": {
+          "type": "string",
+          "maxLength": 4096
+        },
+        "description": "Opaque cursor; stable ordering; do not synthesize."
+      },
+      "AssetGroupId": {
+        "name": "group_id",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "description": "Filters existing exact-authorized assets only. group_id and ungrouped=true cannot be combined."
+      },
+      "Ungrouped": {
+        "name": "ungrouped",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "boolean"
+        },
+        "description": "Filters existing exact-authorized assets only. group_id and ungrouped=true cannot be combined."
+      }
     },
     "responses": {
-      "Error": {"description": "Stable sanitized error; X-Request-Id correlates diagnostics. No secrets or target credentials.", "headers": {"X-Request-Id": {"schema": {"type": "string", "format": "uuid"}}, "Cache-Control": {"schema": {"const": "no-store"}}}, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}, "example": {"error": {"code": "PERMISSION_DENIED", "message": "没有该资产账号或能力的权限", "request_id": "44444444-4444-4444-8444-444444444444"}}}}}
+      "Error": {
+        "description": "Stable sanitized error; X-Request-Id correlates diagnostics. No secrets or target credentials.",
+        "headers": {
+          "X-Request-Id": {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "Cache-Control": {
+            "schema": {
+              "const": "no-store"
+            }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "error": {
+                "code": "PERMISSION_DENIED",
+                "message": "没有该资产账号的访问权限",
+                "request_id": "44444444-4444-4444-8444-444444444444"
+              }
+            }
+          }
+        }
+      }
     },
     "schemas": {
-      "Secret": {"type": "string", "minLength": 43, "maxLength": 43, "pattern": "^[A-Za-z0-9_-]{43}$"},
-      "Capability": {"type": "string", "enum": ["shell", "exec", "sftp"]},
-      "Purpose": {"type": "string", "enum": ["terminal", "sftp", "metrics", "server_tool"], "description": "Audit label only; confers no permission or read-only guarantee."},
-      "TicketTransport": {"type": "string", "enum": ["ssh", "websocket"]},
-      "User": {"type": "object", "required": ["id", "username", "role", "enabled", "revision"], "properties": {"id": {"type": "string", "format": "uuid"}, "username": {"type": "string"}, "role": {"type": "string", "enum": ["admin", "operator", "auditor"]}, "enabled": {"type": "boolean"}, "revision": {"type": "integer", "minimum": 1}}},
-      "WebLoginResponse": {"type": "object", "required": ["user", "login_session_id", "access_expires_at", "refresh_expires_at"], "properties": {"user": {"$ref": "#/components/schemas/User"}, "login_session_id": {"type": "string", "format": "uuid"}, "access_expires_at": {"type": "string", "format": "date-time"}, "refresh_expires_at": {"type": "string", "format": "date-time"}}},
-      "NativeLoginResponse": {"allOf": [{"$ref": "#/components/schemas/WebLoginResponse"}, {"type": "object", "required": ["access_token", "refresh_token"], "properties": {"access_token": {"$ref": "#/components/schemas/Secret"}, "refresh_token": {"$ref": "#/components/schemas/Secret"}}}]},
-      "Asset": {"type": "object", "required": ["id", "name", "accounts"], "properties": {"id": {"type": "string", "format": "uuid"}, "name": {"type": "string"}, "tags": {"type": "array", "items": {"type": "string"}}, "revision": {"type": "integer", "minimum": 1}, "accounts": {"type": "array", "items": {"type": "object", "required": ["id", "username", "capabilities"], "properties": {"id": {"type": "string", "format": "uuid"}, "username": {"type": "string"}, "capabilities": {"type": "array", "items": {"$ref": "#/components/schemas/Capability"}}}}}}},
-      "TicketRequest": {"type": "object", "additionalProperties": false, "required": ["asset_id", "account_id", "capabilities", "purpose"], "properties": {"asset_id": {"type": "string", "format": "uuid"}, "account_id": {"type": "string", "format": "uuid"}, "capabilities": {"type": "array", "minItems": 1, "maxItems": 3, "items": {"$ref": "#/components/schemas/Capability"}}, "purpose": {"$ref": "#/components/schemas/Purpose"}}},
-      "WebSessionRequest": {"$ref": "#/components/schemas/TicketRequest"},
-      "WebSessionResponse": {"type": "object", "required": ["protocol_version", "session_id", "ws_token", "connection_id", "expires_at", "capabilities"], "properties": {"protocol_version": {"const": 1}, "session_id": {"type": "string", "format": "uuid"}, "ws_token": {"$ref": "#/components/schemas/Secret"}, "connection_id": {"type": "string", "format": "uuid"}, "expires_at": {"type": "string", "format": "date-time"}, "capabilities": {"type": "array", "items": {"$ref": "#/components/schemas/Capability"}}}},
-      "TicketResponse": {"type": "object", "required": ["protocol_version", "ticket_id", "ticket_secret", "connection_id", "expires_at", "gateway", "capabilities"], "properties": {"protocol_version": {"const": 1}, "ticket_id": {"type": "string", "format": "uuid"}, "ticket_secret": {"$ref": "#/components/schemas/Secret"}, "connection_id": {"type": "string", "format": "uuid"}, "expires_at": {"type": "string", "format": "date-time"}, "capabilities": {"type": "array", "items": {"$ref": "#/components/schemas/Capability"}}, "gateway": {"type": "object", "properties": {"id": {"type": "string"}, "host": {"type": "string"}, "port": {"type": "integer", "minimum": 1, "maximum": 65535}, "username": {"type": "string", "pattern": "^zt1:"}}}}},
-      "Connection": {"type": "object", "required": ["id", "ticket_id", "asset_id", "account_id", "capabilities", "purpose", "transport", "protocol_version", "state", "created_at"], "properties": {"id": {"type": "string", "format": "uuid"}, "ticket_id": {"type": "string", "format": "uuid"}, "user_id": {"type": "string", "format": "uuid"}, "login_session_id": {"type": "string", "format": "uuid"}, "asset_id": {"type": "string", "format": "uuid"}, "account_id": {"type": "string", "format": "uuid"}, "capabilities": {"type": "array", "items": {"$ref": "#/components/schemas/Capability"}}, "purpose": {"$ref": "#/components/schemas/Purpose"}, "transport": {"$ref": "#/components/schemas/TicketTransport"}, "protocol_version": {"const": 1}, "state": {"type": "string", "enum": ["pending", "connecting", "active", "closing", "closed", "failed", "expired", "revoked", "interrupted"]}, "created_at": {"type": "string", "format": "date-time"}, "failure": {"oneOf": [{"type": "null"}, {"type": "object", "required": ["code"], "properties": {"code": {"$ref": "#/components/schemas/ErrorCode"}}}]}}},
-      "Error": {"type": "object", "required": ["error"], "properties": {"error": {"type": "object", "required": ["code", "message", "request_id"], "properties": {"code": {"$ref": "#/components/schemas/ErrorCode"}, "message": {"type": "string"}, "request_id": {"type": "string", "format": "uuid"}}}}},
-      "ErrorCode": {"type": "string", "enum": ["INVALID_ARGUMENT", "UNKNOWN_CAPABILITY", "UNAUTHENTICATED", "SESSION_EXPIRED", "LOGIN_SESSION_REVOKED", "USER_DISABLED", "PERMISSION_DENIED", "RESOURCE_NOT_FOUND", "SESSION_TICKET_INVALID", "SESSION_TICKET_USED", "SESSION_TICKET_EXPIRED", "SESSION_TICKET_STALE", "CLIENT_PROTOCOL_UNSUPPORTED", "RATE_LIMITED", "CONNECTION_LIMIT", "TARGET_HOST_KEY_UNKNOWN", "TARGET_HOST_KEY_CHANGED", "TARGET_ADDRESS_DENIED", "TARGET_UNREACHABLE", "TARGET_TIMEOUT", "TARGET_AUTH_FAILED", "CHANNEL_PERMISSION_DENIED", "TARGET_REQUEST_REJECTED", "RECORDING_UNAVAILABLE", "POLICY_STORE_UNAVAILABLE", "AUTH_OR_GATEWAY_FAILED", "PRECONDITION_REQUIRED", "REVISION_CONFLICT", "RESOURCE_CONFLICT", "INTERNAL_ERROR"], "description": "Serialization uses SESSION_TICKET_* and SESSION_EXPIRED; legacy TICKET_* and ACCESS_TOKEN_EXPIRED are accepted by the Rust deserializer. Error messages are display-only, never routing decisions."}
+      "Secret": {
+        "type": "string",
+        "minLength": 43,
+        "maxLength": 43,
+        "pattern": "^[A-Za-z0-9_-]{43}$"
+      },
+      "User": {
+        "type": "object",
+        "required": [
+          "id",
+          "username",
+          "role",
+          "enabled",
+          "revision"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "username": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "admin",
+              "operator",
+              "auditor"
+            ]
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "WebLoginResponse": {
+        "type": "object",
+        "required": [
+          "user",
+          "login_session_id",
+          "access_expires_at",
+          "refresh_expires_at"
+        ],
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/User"
+          },
+          "login_session_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "access_expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "refresh_expires_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Asset": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "protocol",
+          "accounts",
+          "group_id",
+          "group_name"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "protocol": {
+            "$ref": "#/components/schemas/TargetProtocol"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "accounts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Account"
+            }
+          },
+          "group_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "Single asset group; null means ungrouped. Organizational metadata only, never an authorization grant."
+          },
+          "group_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 128
+          }
+        },
+        "description": "Enabled administrators have implicit access; operators need exact grants; auditors cannot connect. SSH/RDP username is required; VNC username is null. Domain is RDP-only."
+      },
+      "WebSessionRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "asset_id",
+          "account_id",
+          "display"
+        ],
+        "properties": {
+          "asset_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "account_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "display": {
+            "$ref": "#/components/schemas/Display"
+          }
+        }
+      },
+      "WebSessionResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "session_id",
+          "connection_id",
+          "ws_token",
+          "expires_at",
+          "target_protocol",
+          "stream_protocol"
+        ],
+        "properties": {
+          "session_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "connection_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "ws_token": {
+            "$ref": "#/components/schemas/Secret"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "target_protocol": {
+            "$ref": "#/components/schemas/TargetProtocol"
+          },
+          "stream_protocol": {
+            "type": "string",
+            "enum": [
+              "bastion.ssh.v1",
+              "bastion.guac.v1"
+            ],
+            "description": "Server-selected target stream: SSH uses xterm terminal frames; RDP/VNC use Guacamole."
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "target_protocol": {
+                  "const": "ssh"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "stream_protocol": {
+                  "const": "bastion.ssh.v1"
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "stream_protocol": {
+                  "const": "bastion.guac.v1"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "Connection": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "asset_id",
+          "account_id",
+          "target_protocol",
+          "state",
+          "created_at",
+          "ticket_id",
+          "display",
+          "protocol_version",
+          "failure",
+          "user_id",
+          "login_session_id"
+        ],
+        "properties": {
+          "ticket_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "display": {
+            "$ref": "#/components/schemas/Display"
+          },
+          "protocol_version": {
+            "type": "integer",
+            "const": 2
+          },
+          "user_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "login_session_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "asset_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "account_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "target_protocol": {
+            "$ref": "#/components/schemas/TargetProtocol"
+          },
+          "state": {
+            "enum": [
+              "pending",
+              "connecting",
+              "active",
+              "closing",
+              "closed",
+              "failed",
+              "expired",
+              "revoked",
+              "interrupted"
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "failure": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "code"
+                ],
+                "properties": {
+                  "code": {
+                    "type": "string"
+                  },
+                  "message": {
+                    "type": "string"
+                  },
+                  "request_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": [
+              "code",
+              "message",
+              "request_id"
+            ],
+            "properties": {
+              "code": {
+                "$ref": "#/components/schemas/ErrorCode"
+              },
+              "message": {
+                "type": "string"
+              },
+              "request_id": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          }
+        }
+      },
+      "GrantRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "user_id",
+          "asset_id",
+          "account_id"
+        ],
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "asset_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "account_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "expires_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "GrantPatch": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "expires_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "Grant": {
+        "type": "object",
+        "required": [
+          "id",
+          "user_id",
+          "asset_id",
+          "account_id",
+          "enabled",
+          "expires_at",
+          "revision"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "asset_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "account_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "expires_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "description": "Exact asset/account binary access. Ordinary operators require an enabled, unexpired matching Grant; enabled admins have implicit access even after Grant deletion; auditors have none."
+      },
+      "ErrorCode": {
+        "type": "string",
+        "enum": [
+          "INVALID_ARGUMENT",
+          "UNAUTHENTICATED",
+          "SESSION_EXPIRED",
+          "LOGIN_SESSION_REVOKED",
+          "USER_DISABLED",
+          "PERMISSION_DENIED",
+          "RESOURCE_NOT_FOUND",
+          "SESSION_TICKET_INVALID",
+          "SESSION_TICKET_USED",
+          "SESSION_TICKET_EXPIRED",
+          "SESSION_TICKET_STALE",
+          "CLIENT_PROTOCOL_UNSUPPORTED",
+          "RATE_LIMITED",
+          "CONNECTION_LIMIT",
+          "TARGET_HOST_KEY_UNKNOWN",
+          "TARGET_HOST_KEY_CHANGED",
+          "TARGET_ADDRESS_DENIED",
+          "TARGET_UNREACHABLE",
+          "TARGET_TIMEOUT",
+          "TARGET_AUTH_FAILED",
+          "TARGET_REQUEST_REJECTED",
+          "RECORDING_UNAVAILABLE",
+          "POLICY_STORE_UNAVAILABLE",
+          "AUTH_OR_GATEWAY_FAILED",
+          "PRECONDITION_REQUIRED",
+          "REVISION_CONFLICT",
+          "RESOURCE_CONFLICT",
+          "INTERNAL_ERROR",
+          "TARGET_CERTIFICATE_MISMATCH",
+          "PROTOCOL_UNAVAILABLE"
+        ],
+        "description": "Serialization uses SESSION_TICKET_* and SESSION_EXPIRED; legacy TICKET_* and ACCESS_TOKEN_EXPIRED are accepted by the Rust deserializer. Error messages are display-only, never routing decisions."
+      },
+      "TargetProtocol": {
+        "type": "string",
+        "enum": [
+          "ssh",
+          "rdp",
+          "vnc"
+        ]
+      },
+      "Display": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "width",
+          "height",
+          "dpi"
+        ],
+        "properties": {
+          "width": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 3840,
+            "default": 1280
+          },
+          "height": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2160,
+            "default": 720
+          },
+          "dpi": {
+            "type": "integer",
+            "minimum": 48,
+            "maximum": 192,
+            "default": 96
+          }
+        }
+      },
+      "Info": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "protocol_version",
+          "stream_protocol",
+          "production_ready",
+          "features",
+          "recording",
+          "stream_protocols"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": 2
+          },
+          "protocol_version": {
+            "const": 2
+          },
+          "stream_protocol": {
+            "const": "bastion.guac.v1"
+          },
+          "production_ready": {
+            "const": false
+          },
+          "features": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "web_ssh",
+              "web_rdp",
+              "web_vnc",
+              "recording_replay",
+              "device_sessions"
+            ],
+            "properties": {
+              "web_ssh": {
+                "type": "boolean"
+              },
+              "web_rdp": {
+                "type": "boolean"
+              },
+              "web_vnc": {
+                "type": "boolean"
+              },
+              "recording_replay": {
+                "type": "boolean"
+              },
+              "device_sessions": {
+                "type": "boolean"
+              }
+            }
+          },
+          "recording": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "required",
+              "available",
+              "format_version"
+            ],
+            "properties": {
+              "required": {
+                "type": "boolean"
+              },
+              "available": {
+                "type": "boolean"
+              },
+              "format_version": {
+                "const": 2
+              }
+            }
+          },
+          "server_id": {
+            "type": "string"
+          },
+          "stream_protocols": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "ssh",
+              "rdp",
+              "vnc"
+            ],
+            "properties": {
+              "ssh": {
+                "type": "string",
+                "const": "bastion.ssh.v1"
+              },
+              "rdp": {
+                "type": "string",
+                "const": "bastion.guac.v1"
+              },
+              "vnc": {
+                "type": "string",
+                "const": "bastion.guac.v1"
+              }
+            }
+          }
+        }
+      },
+      "Account": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "label",
+          "username",
+          "domain",
+          "credential_kind"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1
+          },
+          "username": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "domain": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "credential_kind": {
+            "enum": [
+              "none",
+              "password",
+              "private_key"
+            ]
+          }
+        }
+      },
+      "AdminAccount": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "label",
+          "username",
+          "domain",
+          "credential_kind",
+          "asset_id",
+          "enabled",
+          "revision",
+          "credential_revision"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1
+          },
+          "username": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "domain": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "credential_kind": {
+            "enum": [
+              "none",
+              "password",
+              "private_key"
+            ]
+          },
+          "asset_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "credential_revision": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          }
+        }
+      },
+      "AssetCreate": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "host",
+          "port",
+          "protocol",
+          "tags"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "host": {
+            "type": "string",
+            "minLength": 1
+          },
+          "port": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 65535
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "security": {
+            "enum": [
+              "nla",
+              "tls"
+            ],
+            "default": "nla"
+          },
+          "ssh_host_key": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^(ssh-|ecdsa-)[^\\s]+ [A-Za-z0-9+/]+={0,2}(?: [^\\r\\n]+)?$",
+            "description": "Optional SSH host public key. Omit/null to await administrator fingerprint confirmation. Manual import remains supported; fingerprints and known_hosts are not key input. No session is issued until a key is approved."
+          },
+          "rdp_certificate_sha256": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[a-f0-9]{64}$",
+            "description": "Optional SHA-256 of leaf certificate DER. Omit/null to await administrator confirmation of a scan; manual import remains supported. No session is issued until a pin is approved, and sessions validate it on the same socket before target authentication."
+          },
+          "protocol": {
+            "$ref": "#/components/schemas/TargetProtocol"
+          },
+          "group_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "Single asset group; null means ungrouped. Organizational metadata only, never an authorization grant."
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "protocol": {
+                  "const": "ssh"
+                }
+              }
+            },
+            "then": {
+              "not": {
+                "anyOf": [
+                  {
+                    "required": [
+                      "security"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "rdp_certificate_sha256"
+                    ]
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "protocol": {
+                  "const": "rdp"
+                }
+              }
+            },
+            "then": {
+              "not": {
+                "required": [
+                  "ssh_host_key"
+                ]
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "protocol": {
+                  "const": "vnc"
+                }
+              }
+            },
+            "then": {
+              "not": {
+                "anyOf": [
+                  {
+                    "required": [
+                      "security"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "ssh_host_key"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "rdp_certificate_sha256"
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "AssetPatch": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "host": {
+            "type": "string",
+            "minLength": 1
+          },
+          "port": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 65535
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "security": {
+            "enum": [
+              "nla",
+              "tls"
+            ],
+            "default": "nla"
+          },
+          "ssh_host_key": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^(ssh-|ecdsa-)[^\\s]+ [A-Za-z0-9+/]+={0,2}(?: [^\\r\\n]+)?$",
+            "description": "Optional SSH host public key. Omit/null to await administrator fingerprint confirmation. Manual import remains supported; fingerprints and known_hosts are not key input. No session is issued until a key is approved."
+          },
+          "rdp_certificate_sha256": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[a-f0-9]{64}$",
+            "description": "Optional SHA-256 of leaf certificate DER. Omit/null to await administrator confirmation of a scan; manual import remains supported. No session is issued until a pin is approved, and sessions validate it on the same socket before target authentication."
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "group_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "Single asset group; null means ungrouped. Organizational metadata only, never an authorization grant."
+          }
+        },
+        "minProperties": 1,
+        "description": "protocol is immutable and rejected on PATCH. Trust and security fields are protocol-specific. Update requires If-Match."
+      },
+      "AdminAsset": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "host",
+          "port",
+          "tags",
+          "protocol",
+          "security",
+          "ssh_host_key",
+          "rdp_certificate_sha256",
+          "enabled",
+          "revision",
+          "group_id"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "host": {
+            "type": "string"
+          },
+          "port": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 65535
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "protocol": {
+            "$ref": "#/components/schemas/TargetProtocol"
+          },
+          "security": {
+            "enum": [
+              "nla",
+              "tls",
+              null
+            ]
+          },
+          "ssh_host_key": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Null for SSH means awaiting administrator confirmation; existing approved keys are preserved."
+          },
+          "rdp_certificate_sha256": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "group_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "Single asset group; null means ungrouped. Organizational metadata only, never an authorization grant."
+          }
+        }
+      },
+      "CredentialInput": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "type": {
+                "const": "none"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "type",
+              "password"
+            ],
+            "properties": {
+              "type": {
+                "const": "password"
+              },
+              "password": {
+                "type": "string",
+                "minLength": 1,
+                "writeOnly": true
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "type",
+              "key_pem",
+              "passphrase"
+            ],
+            "properties": {
+              "type": {
+                "const": "private_key"
+              },
+              "key_pem": {
+                "type": "string",
+                "minLength": 1,
+                "writeOnly": true
+              },
+              "passphrase": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "writeOnly": true
+              }
+            }
+          }
+        ],
+        "description": "none only VNC; password all protocols; private_key only SSH, currently OpenSSH-format Ed25519, unencrypted or AES-256-CTR with a valid passphrase. RSA failed the pinned engine's real authentication gate and is rejected; PKCS PEM, ECDSA and other ciphers are rejected. VNC classic password maximum eight UTF-8 bytes. Responses never include secret input."
+      },
+      "AccountCreate": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "label",
+          "username",
+          "domain",
+          "credential"
+        ],
+        "properties": {
+          "label": {
+            "type": "string",
+            "minLength": 1
+          },
+          "username": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "domain": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "credential": {
+            "$ref": "#/components/schemas/CredentialInput"
+          }
+        },
+        "description": "label required. SSH/RDP require nonempty username; VNC requires null username. domain only RDP (null otherwise). credential none only VNC, private_key only SSH."
+      },
+      "AccountPatch": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [],
+        "properties": {
+          "label": {
+            "type": "string",
+            "minLength": 1
+          },
+          "username": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "domain": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "enabled": {
+            "type": "boolean"
+          }
+        },
+        "minProperties": 1,
+        "description": "domain:null explicitly clears an RDP domain; obey immutable asset protocol constraints."
+      },
+      "SshHostKeyScan": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "asset_id",
+          "host",
+          "port",
+          "revision",
+          "approved_fingerprint",
+          "keys"
+        ],
+        "properties": {
+          "asset_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "host": {
+            "type": "string"
+          },
+          "port": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 65535
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "approved_fingerprint": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "keys": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 5,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "algorithm",
+                "fingerprint",
+                "public_key"
+              ],
+              "properties": {
+                "algorithm": {
+                  "type": "string"
+                },
+                "fingerprint": {
+                  "type": "string"
+                },
+                "public_key": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "RdpCertificateScan": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "asset_id",
+          "host",
+          "port",
+          "revision",
+          "approved_sha256",
+          "approved_security",
+          "sha256",
+          "selected_protocol",
+          "security"
+        ],
+        "properties": {
+          "asset_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "host": {
+            "type": "string"
+          },
+          "port": {
+            "type": "integer"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "approved_sha256": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "approved_security": {
+            "enum": [
+              "nla",
+              "tls",
+              null
+            ]
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$",
+            "description": "SHA-256 of the leaf certificate DER, the value to pin as rdp_certificate_sha256"
+          },
+          "selected_protocol": {
+            "type": "string",
+            "enum": [
+              "tls",
+              "nla",
+              "nla-ex"
+            ],
+            "description": "Security protocol the server selected in X.224 negotiation"
+          },
+          "security": {
+            "enum": [
+              "nla",
+              "tls"
+            ],
+            "description": "Security mode to save with the pin: nla when the server selected CredSSP"
+          }
+        }
+      },
+      "AssetGroupInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "description": "Trimmed server-side, no control characters; unique among groups."
+          }
+        }
+      },
+      "AssetGroup": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "revision"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      }
     }
   }
 }

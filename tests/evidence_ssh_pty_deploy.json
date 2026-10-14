@@ -1,0 +1,12 @@
+{
+  "production_ready": false,
+  "backup_skipped_per_user_preference": true,
+  "source_sha256": "5828c827abad13e6aef7bbab10998e4648fab8717d72554fcd7ca50e53123c3f",
+  "app_image_id": "sha256:5b6d3347431229ec847d22593777a5e45d7a466c54a240207c420c885a398484",
+  "source_directory": "/var/tmp/zt-guac-v2-ssh-pty-fix-20261010/source",
+  "change": "SSH Rust PTY + xterm.js; RDP/VNC Guacamole unchanged",
+  "status": "updated",
+  "postgres_and_guacd_not_recreated": true,
+  "no_database_migration": true,
+  "finished_at": "2026-10-10T13:34:54Z"
+}

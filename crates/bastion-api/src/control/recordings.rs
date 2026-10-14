@@ -37,7 +37,10 @@ pub(super) async fn metadata(
 fn basename(relative: &str) -> anyhow::Result<&str> {
     let mut components = FsPath::new(relative).components();
     if relative.contains('\\')
-        || !relative.ends_with(".ztrec")
+        || relative
+            .strip_suffix(".ztrec")
+            .and_then(|v| Uuid::parse_str(v).ok())
+            .is_none_or(|v| format!("{v}.ztrec") != relative)
         || !matches!(components.next(), Some(Component::Normal(_)))
         || components.next().is_some()
     {
@@ -57,6 +60,39 @@ fn root_fd(root: &FsPath) -> anyhow::Result<File> {
         anyhow::bail!("unsafe recording root");
     }
     Ok(file)
+}
+pub(super) async fn available(state: &ControlApi) -> bool {
+    #[cfg(not(unix))]
+    {
+        let _ = state;
+        false
+    }
+    #[cfg(unix)]
+    {
+        let Some(config) = state
+            .backend
+            .as_ref()
+            .and_then(|backend| backend.recording_config())
+        else {
+            return false;
+        };
+        let directory = config.directory;
+        static PROBES: std::sync::OnceLock<Arc<Semaphore>> = std::sync::OnceLock::new();
+        let probes = PROBES.get_or_init(|| Arc::new(Semaphore::new(1))).clone();
+        matches!(
+            tokio::time::timeout(Duration::from_secs(2), async move {
+                let permit = probes.acquire_owned().await.ok()?;
+                tokio::task::spawn_blocking(move || {
+                    let _permit = permit;
+                    root_fd(&directory).is_ok()
+                })
+                .await
+                .ok()
+            })
+            .await,
+            Ok(Some(true))
+        )
+    }
 }
 fn open_private(root: &FsPath, relative: &str) -> anyhow::Result<File> {
     let relative = basename(relative)?;
@@ -166,6 +202,11 @@ fn reader(
     keys: Arc<KeyRing>,
     server_id: String,
 ) -> anyhow::Result<RecordingReader<CheckedFile>> {
+    if material.relative_path != format!("{}.ztrec", material.metadata.id)
+        || material.metadata.format_version != 2
+    {
+        anyhow::bail!("recording path or format does not match its immutable identity");
+    }
     let file = open_private(&root, &material.relative_path)?;
     let expected = u64::try_from(material.metadata.bytes)?;
     if file.metadata()?.len() != expected {
@@ -174,7 +215,12 @@ fn reader(
     if material.metadata.state == RecordingState::Complete && material.metadata.checksum.is_none() {
         anyhow::bail!("complete recording lacks checksum");
     }
-    let context = RecordingContext::new(server_id, material.metadata.id);
+    let context = RecordingContext::new(
+        server_id,
+        material.metadata.id,
+        material.metadata.connection_id,
+        material.metadata.target_protocol,
+    );
     let envelope = RecordingEnvelope {
         wrapped_dek: material.wrapped_dek,
         wrap_nonce: material.wrap_nonce,
@@ -183,12 +229,15 @@ fn reader(
     let key = keys.open_recording_dek(&context, &envelope)?;
     let header = RecordingHeader {
         recording_id: material.metadata.id,
+        connection_id: material.metadata.connection_id,
+        target_protocol: material.metadata.target_protocol,
+        stream_protocol: STREAM_PROTOCOL.into(),
         nonce_prefix: material
             .nonce_prefix
             .try_into()
             .map_err(|_| anyhow::anyhow!("invalid recording nonce"))?,
     };
-    RecordingReader::new(
+    RecordingReader::detect_stream(
         CheckedFile {
             file,
             hash: Sha256::new(),
@@ -363,12 +412,13 @@ mod tests {
     use super::*;
     #[test]
     fn managed_storage_accepts_flat_names_only() {
-        assert!(basename("a.ztrec").is_ok());
+        assert!(basename("11111111-1111-4111-8111-111111111111.ztrec").is_ok());
         for path in [
             "../a.ztrec",
             "a/b.ztrec",
             "a\\b.ztrec",
             "/a.ztrec",
+            "a.ztrec",
             "a.txt",
             "",
         ] {

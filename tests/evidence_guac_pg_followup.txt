@@ -1,0 +1,44 @@
+Running server-postgres in new database zt_guac_v2_fdf6a19ea7e5481c84d4789034577b7e
+
+running 1 test
+test browser_ticket_races_snapshots_none_credentials_and_revocation ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.55s
+
+Running web_sessions in new database zt_guac_v2_176bda49fc0b4dd6abe3ec5b481bd2ab
+
+running 1 test
+test browser_owner_replay_expiry_and_revision_binding ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.65s
+
+Running lifecycle in new database zt_guac_v2_ceca5f5ea5f64285b079f5b0538e1a08
+
+running 1 test
+test connection_recording_activation_revision_recovery_and_devices ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.17s
+
+Running implicit_access in new database zt_guac_v2_618b59c8c3104f15a2edbf4472a7308f
+
+running 1 test
+test implicit_admin_exact_grants_owner_isolation_and_live_revocation ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.30s
+
+Running user_deletion in new database zt_guac_v2_7d98d8b289554b118d661f8f0cbe2cff
+
+running 1 test
+test deletion_revocation_history_reuse_and_races ... user deletion: migration, rollback, revocation, history, name reuse and concurrent identity guards passed
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.67s
+
+Running audit_partitions in new database zt_guac_v2_f748048b316a4379a98870a11eb2ad04
+
+running 1 test
+test offline_audit_upgrade_retention_append_only_roles_and_default_safety ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.31s
+
+All selected real PostgreSQL suites passed; browser/engine acceptance is separate

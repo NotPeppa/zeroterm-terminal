@@ -22,7 +22,7 @@ async fn insert(
     Ok(())
 }
 #[tokio::test]
-#[ignore = "requires isolated PostgreSQL owner fixture, stopped gateway and no other database sessions"]
+#[ignore = "requires BASTION_GUAC_STORE_FIXTURE or stdin: disposable zt-guac-v2- PostgreSQL schema2 owner fixture; no database is bundled"]
 async fn offline_audit_upgrade_retention_append_only_roles_and_default_safety() {
     let (fixture, url) = pg_fixture::load::<Fixture>();
     let store = PgStore::connect(url.expose(), &fixture.server_id, &fixture.gateway_id)

@@ -1,0 +1,46 @@
+{
+  "production_ready": false,
+  "windows_nla_verified": false,
+  "native_os_ime_verified": false,
+  "fixture_server_id": "zt-guac-v2-accept-20261013-browser",
+  "engine_image_id": "sha256:689c462e27a23670c35bb3435022627f71144f5e04210bffea3b52ba7bac6a23",
+  "profiles": [
+    {
+      "label": "ssh-password",
+      "protocol": "ssh",
+      "connection_id": "5d71c9f1-d9b7-4dc4-b4ba-4946c3fcbf91",
+      "keyboard_target_roundtrip": true,
+      "unicode_input": true,
+      "non_bmp_input_supported": false,
+      "scaled_mouse_input": true,
+      "focus_release": true,
+      "fullscreen": true,
+      "resize_edge_input": true,
+      "canvas_sha256": "4ab8c7f5f8d8887a6e323acc98e6de05c19d5d3b655ce89f99c8f1c5a65adcd9",
+      "recording_id": "7dee314b-0a6d-448f-ac7a-3b1029017f76",
+      "offline_verified_replay": true
+    },
+    {
+      "label": "ssh-private-key",
+      "protocol": "ssh",
+      "connection_id": "e1df2551-f90e-4d5d-818a-e72b4b12d85e",
+      "keyboard_target_roundtrip": true,
+      "unicode_input": true,
+      "non_bmp_input_supported": false,
+      "scaled_mouse_input": true,
+      "focus_release": true,
+      "fullscreen": true,
+      "resize_edge_input": true,
+      "canvas_sha256": "75e07f12f5deeb9408cf148570033159020902658795a2193c8525af0b5ae746",
+      "recording_id": "479980ac-d074-48ed-a0c3-b60429dee16b",
+      "offline_verified_replay": true
+    }
+  ],
+  "faults": {},
+  "application_image_id": "sha256:9e364e76791139f38cf008727f88f48cf5810a21b2a255b4f69843f22044c979",
+  "browser_version": "149.0.7827.55",
+  "https_trust": "only the independently obtained fixture proxy SPKI is excepted",
+  "unicode_keysyms": [],
+  "status": "failed",
+  "error": "page.evaluate: TypeError: Failed to fetch\n    at eval (eval at evaluate (:303:30), <anonymous>:3:24)\n    at UtilityScript.evaluate (<anonymous>:305:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)"
+}

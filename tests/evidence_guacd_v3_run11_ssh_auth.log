@@ -1,0 +1,23 @@
+Server listening on 0.0.0.0 port 22.
+Server listening on :: port 22.
+Connection from 172.30.62.2 port 47502 on 172.30.62.3 port 22 rdomain ""
+Accepted password for fixture from 172.30.62.2 port 47502 ssh2
+User child is on pid 67
+Starting session: shell on pts/2 for fixture from 172.30.62.2 port 47502 id 0
+syslogin_perform_logout: logout() returned an error
+Close session: user fixture from 172.30.62.2 port 47502 id 0
+Received disconnect from 172.30.62.2 port 47502:11: Bye
+Disconnected from user fixture 172.30.62.2 port 47502
+Connection from 172.30.62.2 port 47510 on 172.30.62.3 port 22 rdomain ""
+Accepted key ED25519 SHA256:C5LaN2ujGHFsKL6iqAmz1611qyZMoJqRNtRS4JwFGiI found at /home/fixture/.ssh/authorized_keys:1
+Postponed publickey for fixture from 172.30.62.2 port 47510 ssh2 [preauth]
+Accepted key ED25519 SHA256:C5LaN2ujGHFsKL6iqAmz1611qyZMoJqRNtRS4JwFGiI found at /home/fixture/.ssh/authorized_keys:1
+Accepted publickey for fixture from 172.30.62.2 port 47510 ssh2: ED25519 SHA256:C5LaN2ujGHFsKL6iqAmz1611qyZMoJqRNtRS4JwFGiI
+User child is on pid 77
+Starting session: shell on pts/2 for fixture from 172.30.62.2 port 47510 id 0
+syslogin_perform_logout: logout() returned an error
+Close session: user fixture from 172.30.62.2 port 47510 id 0
+Received disconnect from 172.30.62.2 port 47510:11: Bye
+Disconnected from user fixture 172.30.62.2 port 47510
+Connection from 172.30.62.2 port 42450 on 172.30.62.3 port 22 rdomain ""
+Connection closed by 172.30.62.2 port 42450 [preauth]

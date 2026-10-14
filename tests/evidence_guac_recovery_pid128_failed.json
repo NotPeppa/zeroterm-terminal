@@ -1,0 +1,84 @@
+{
+  "production_ready": false,
+  "windows_nla_verified": false,
+  "native_os_ime_verified": false,
+  "application_image_id": "sha256:309c53c6d447df7c820163c682a86bd640415374ab980fdd60944575cceb1d2b",
+  "engine_image_id": "sha256:63926f22592fad15ee841e8e7488020a6b0f17a257205f06a725718415c01e1e",
+  "fixture_server_id": "zt-guac-v2-next-20261009-a93f6e1b-browser2",
+  "baseline": [
+    {
+      "bytes": 31600,
+      "checksum": "16735ea2f18491b9a5906b1e902eb3e2235832fc1b0da9a314bfef69d1f7ecf7",
+      "connection_id": "755361aa-0220-4005-8cfc-d265414fd1f1",
+      "format_version": 2,
+      "id": "6fdc05d3-9f83-4295-942b-b587b07ce5ca",
+      "last_synced_seq": 38,
+      "last_written_seq": 38,
+      "retention_until": "2026-11-07T16:31:56.0301+00:00",
+      "state": "complete",
+      "target_protocol": "ssh"
+    },
+    {
+      "bytes": 19767,
+      "checksum": "f8d3f6cd2ac628f0fea461cedecec9d671c1c8333a6b933071c6f4d37372c7c3",
+      "connection_id": "07cd40d3-33fd-4f35-b5e6-04c783bcb265",
+      "format_version": 2,
+      "id": "8d73c341-ca4a-4e59-a185-0545d70aff3b",
+      "last_synced_seq": 80,
+      "last_written_seq": 80,
+      "retention_until": "2026-11-07T16:32:04.843296+00:00",
+      "state": "complete",
+      "target_protocol": "rdp"
+    },
+    {
+      "bytes": 6027,
+      "checksum": "0dd807ff1d7fcc5b6cf9e09440cc068111bc289ca5b084283c9d188d9836fcb8",
+      "connection_id": "6b153887-43a2-4920-a1d5-d29586b2813d",
+      "format_version": 2,
+      "id": "4b5ee5e9-e131-4433-845e-01941d3febee",
+      "last_synced_seq": 31,
+      "last_written_seq": 31,
+      "retention_until": "2026-11-07T16:32:13.612004+00:00",
+      "state": "complete",
+      "target_protocol": "vnc"
+    }
+  ],
+  "faults": {},
+  "restore": {
+    "cold_restore_separate_pg_cluster": true,
+    "manifest": {
+      "server_id": "zt-guac-v2-next-20261009-a93f6e1b-browser2",
+      "schema_version": 2,
+      "credential_count": 5,
+      "recording_count": 3,
+      "target_pin_count": 5,
+      "kek_versions": [
+        1
+      ]
+    },
+    "verify_backup": {
+      "exit": 0
+    },
+    "recover_restore": {
+      "exit": 0
+    },
+    "old_login_families_revoked": true,
+    "issued_tickets_revoked": true,
+    "old_cookie_rejected": true,
+    "three_protocol_replay": true
+  },
+  "rewrap": {
+    "credential_ciphertext_and_nonce_unchanged": true,
+    "recording_nonce_and_ciphertext_unchanged": true,
+    "new_key_only_backup_verified": true,
+    "missing_key_rejected": true,
+    "real_target_authentication": true,
+    "three_protocol_replay": true
+  },
+  "status": "failed",
+  "error": "page.waitForFunction: Timeout 50000ms exceeded.",
+  "observed_guacd_cgroup_after_failure": {
+    "pids_max": 128,
+    "pids_events": "max 1"
+  }
+}

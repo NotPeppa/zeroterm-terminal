@@ -1,0 +1,47 @@
+{
+  "production_ready": false,
+  "application_image_id": "sha256:96b8a405b1d60e4c0f4ada7606531979a12983e4bb98a9dce27d04b7c6b68b10",
+  "fixture_server_id": "zt-guac-v2-accept-20261013-rdpscan",
+  "expected_from_target": "7b79c1d7e5818d89ab98d2aa58722d164cfe333a11fd40bd634ef765bf318913",
+  "fixture_asset_pin": "7b79c1d7e5818d89ab98d2aa58722d164cfe333a11fd40bd634ef765bf318913",
+  "api_scan": {
+    "host": "target",
+    "port": 3389,
+    "selected_protocol": "tls",
+    "sha256": "7b79c1d7e5818d89ab98d2aa58722d164cfe333a11fd40bd634ef765bf318913"
+  },
+  "rejected": {
+    "ssh_port_is_not_rdp": {
+      "status": 503,
+      "code": "TARGET_PROTOCOL_UNAVAILABLE"
+    },
+    "closed_port": {
+      "status": 502,
+      "code": "TARGET_UNREACHABLE"
+    },
+    "unknown_field": {
+      "status": 400,
+      "code": "INVALID_ARGUMENT"
+    },
+    "empty_host": {
+      "status": 400,
+      "code": "INVALID_ARGUMENT"
+    }
+  },
+  "form_fills_pin_without_saving": true,
+  "login_lines_before": 0,
+  "login_lines_after": 0,
+  "status": "passed-rdp-certificate-discovery",
+  "xrdp_log_scan_lines": [
+    "[20261014-01:14:06] [INFO ] Socket 11: AF_INET6 connection received from ::ffff:172.30.78.4 port 46524",
+    "[20261014-01:14:06] [INFO ] Security protocol: configured [SSL], requested [SSL|HYBRID|RDP], selected [SSL]",
+    "[20261014-01:14:06] [ERROR] Processing [ITU-T T.125] Connect-Initial failed",
+    "[20261014-01:14:09] [INFO ] Socket 11: AF_INET6 connection received from ::ffff:172.30.78.4 port 46532",
+    "[20261014-01:14:09] [INFO ] Security protocol: configured [SSL], requested [SSL|HYBRID|RDP], selected [SSL]",
+    "[20261014-01:14:09] [ERROR] Processing [ITU-T T.125] Connect-Initial failed"
+  ],
+  "xrdp_sesman_log": [
+    "[20261014-01:13:01] [INFO ] starting xrdp-sesman with pid 21"
+  ],
+  "interpretation": "each scan reaches TLS negotiation and the client closes before MCS Connect-Initial, so no RDP security exchange or login starts; sesman, which authenticates logins, logged only its own startup"
+}

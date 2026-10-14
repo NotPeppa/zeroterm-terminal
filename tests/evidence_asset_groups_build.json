@@ -1,0 +1,10 @@
+{
+  "source_sha256": "b6e2e3314b0cb1262201aab7ccbe35bffb2a6eefb5bb473c04c671f58fe41a8e",
+  "production_ready": false,
+  "app_exit": 0,
+  "app_image_id": "sha256:905813a711416cfec057f1ab8d028dde060e24af3a0d4781de85afd5843f28d5",
+  "tests_exit": 0,
+  "tests_image_id": "sha256:ef805b7aeb1deaee5578e5e711c668e7a70673bbb2024f9767b370e29a422a35",
+  "status": "passed",
+  "finished_at": "2026-10-10T03:24:24Z"
+}

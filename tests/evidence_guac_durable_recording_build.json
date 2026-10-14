@@ -1,0 +1,13 @@
+{
+  "production_ready": false,
+  "source_updates": {
+    "crates/bastion-gateway/src/protocol/recording.rs": "c9d487b614e1d69bc4267f9f29453354ce4c1dfe8c845447084bf6d25c7f776f",
+    "crates/bastion-secrets/src/recording_tests.rs": "2b84adf8d5b428a9f886544bf354106c2d686be2245dff4b49424b66bae09d6d"
+  },
+  "application_exit": 0,
+  "application_image_id": "sha256:309c53c6d447df7c820163c682a86bd640415374ab980fdd60944575cceb1d2b",
+  "tests_exit": 0,
+  "tests_image_id": "sha256:6ef3387a7447a398d9a13f7cb626325941c65fe734cdd0a69d18b04b64580152",
+  "status": "passed",
+  "finished_at": "2026-10-08T16:23:43Z"
+}

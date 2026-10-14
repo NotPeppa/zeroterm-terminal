@@ -1,98 +1,94 @@
-# WebSocket v1 (RFC-004 M2–M3 candidate)
+# Guacamole browser stream (`bastion.guac.v1`)
 
-M2 shipped one authorized PTY/shell channel per WebSocket. The M3 candidate extends the same v1 wire with independently authorized shell, exec and raw SFTP channels; availability is advertised by `/info.features`, not inferred from this document. The server, never the browser, connects to the immutable target SSH account. Production readiness remains false until the integrated required-recording, HTTPS and release acceptance gates pass.
+SSH now uses [`bastion.ssh.v1` and xterm.js](ssh-xterm.md). The Guacamole
+instructions below apply to RDP/VNC and existing Guacamole recordings.
 
-## M3 channel extensions
+This is the schema/protocol-family-2 contract. All assets share one browser
+console route and encrypted ZTREC002 recording infrastructure.
+The complete HTTP schemas are in [OpenAPI](openapi-web.json); trust and lifecycle
+requirements are in [RFC-005](RFC-005-guacamole-browser.md).
 
-- `open` accepts `kind:"shell"|"exec"|"sftp"`; omitted kind remains shell for old clients. IDs are nonzero u32, must not be reused in a connection, and live channels share the configured 16/connection and 64/user limits across Web/SSH.
-- Exec startup: wait for `opened`, then send `{"v":1,"type":"exec_start","channel_id":2,"command_base64":"..."}`. Standard padded base64 preserves raw command bytes, at most 65,536 decoded bytes, excluding NUL. Only `exec_start` may exceed 8,192 UTF-8 bytes, with an absolute 98,304-byte control limit. All other control messages and server control messages retain 8,192 bytes. Binary frames retain the 32,768-byte payload limit.
-- Raw SFTP startup: wait for `opened`, then send `{"v":1,"type":"sftp_open","channel_id":3}`. Browser file management uses the authenticated HTTP SFTP API on the same owned/login-bound connection, not a JavaScript SFTP codec.
-- Shell startup still requires target-acknowledged PTY/shell and, when required, successful private recording creation/activation. Every output chunk is written and ACKed before forwarding. Inputs, exec outputs and SFTP bytes are not included in shell recording.
-- A channel close/error is isolated unless the underlying target transport, ownership/policy, connection lifetime or gateway fails. stdout and stderr remain distinguishable binary kinds 2 and 3, including invalid/split UTF-8. EOF must drain pending output and exit metadata.
-- `/info` has separate `ssh_*` and `web_*` features plus `recording.required/available/format_version`; a development M1 endpoint without recording cannot impersonate a production endpoint. Unsupported strict cross-host copy remains disabled.
+## Admission and handshake
 
-The following authentication and legacy-shell examples remain valid; M2-only statements below describe the earlier milestone rather than removing these candidate extensions.
+1. Cookie-authenticated `POST /api/v1/sessions` with exact Origin/CSRF supplies
+   only asset_id, account_id and bounded display dimensions.
+2. The response contains session_id, connection_id, ws_token, expires_at,
+   target_protocol and stream_protocol `bastion.guac.v1`.
+3. Connect to same-origin WSS `/api/v1/sessions/{session_id}/stream` with the same
+   login cookie, exact Origin and ordered subprotocols `[bastion.guac.v1,ws_token]`.
+   Only `bastion.guac.v1` is returned. No query string or Authorization header.
+4. Consumption is transactional, single-use, user/login-bound and checks the
+   actual clock after lock waits. Wrong identity/secret cannot consume the ticket.
+   Startup failure burns the ticket; manual reconnect obtains a new ticket.
 
-## Authenticate and create
+Rust constructs the select/args/connect handshake and target parameters from a
+revision-bound server snapshot. The browser cannot select addresses/protocols,
+submit credentials or join an existing daemon session. The engine requires
+`zt-target-ready`; SSH also requires `zt-ssh-display-only`. These are private
+engine capabilities, not browser instructions. Missing capabilities fail closed.
 
-1. `GET /api/v1/auth/csrf` obtains `csrf_token` and the readable `bastion_csrf` SameSite=Strict cookie.
-2. `POST /api/v1/auth/login` sends `{username,password,device_label,client_type:"web"}`, exact same-origin `Origin`, and `X-Bastion-CSRF: <csrf_token>`.
-3. The response sets HttpOnly SameSite=Strict `bastion_session` and `bastion_refresh` cookies (Secure on HTTPS). Browser response bodies do not contain access/refresh tokens. Native login defaults to `client_type:"zeroterm"` for M1 compatibility and returns bearer tokens instead. Database login families are client-type-bound: web cookies and native bearer tokens cannot authenticate or refresh in the other domain.
-4. `POST /api/v1/sessions` with the cookies, exact Origin, CSRF header, and `{asset_id,account_id,capabilities:["shell"],purpose:"terminal"}` returns 201:
+Stock ready/first drawing is not target establishment. Rust waits for the internal
+argument-free zt-target-ready marker, completes post-authorization, and atomically
+activates recording/connection before forwarding output or user input. The marker
+is never exposed or recorded. SSH parameter argv streams are suppressed in the
+engine and remain forbidden by Rust. TLS RDP readiness can legitimately show an
+OS logon screen; Windows NLA and successful OS account login need separate evidence.
 
-```json
-{"protocol_version":1,"session_id":"33333333-3333-4333-8333-333333333333","ws_token":"<base64url secret>","connection_id":"44444444-4444-4444-8444-444444444444","expires_at":"2026-10-04T08:00:30Z","capabilities":["shell"]}
-```
+## Binary framing and instruction policy
 
-Keep the secret only in memory; every response is `Cache-Control: no-store`. The token is 32 random bytes, base64url without padding (43 characters), valid for 30 seconds, and never a query parameter, log field, or persistent browser setting.
+Both directions carry binary UTF-8 data chunks, at most 32 KiB per WebSocket
+message/frame. Chunk boundaries have no relationship to Unicode or Guacamole
+instruction boundaries. Use a separate streaming fatal UTF-8 decoder per stream
+and the official Guacamole Parser. Guacamole element lengths count Unicode
+characters, rather than UTF-8 bytes or UTF-16 code units. Invalid UTF-8, truncated
+EOF, invalid lengths or exceeded limits close the connection without truncation,
+replay or dropped input.
 
-```javascript
-const socket = new WebSocket(
-  `${location.origin.replace(/^http/, 'ws')}/api/v1/sessions/${session.session_id}/stream`,
-  ['bastion.v1', session.ws_token],
-);
-socket.binaryType = 'arraybuffer';
-```
+Accumulated output instructions are limited to 8 MiB; input instructions use the
+smaller 8 KiB ceiling. Forwarding queues are bounded to 256 KiB per direction.
+Drawing streams and text/plain clipboard streams may use blob/end with validated
+direction-owned IDs. Clipboard is limited to 256 KiB decoded UTF-8 and four open
+streams per direction. Browser blobs are ACK-paced after bounded buffer acceptance; complete text is
+validated before forwarding in UTF-8-aligned blobs. The gateway ACK is not target
+application acceptance. Standard VNC clipboard
+rejects non-Latin-1 Unicode; all protocols reject NUL and malformed text.
+RDP target support for non-BMP text is separate from the UTF-8 stream: the old
+xrdp fixture supports BMP Chinese but cannot handle emoji clipboard text.
+Keyboard, mouse, bounded size and validated sync/ACK instructions are permitted.
+Files/filesystem, audio/video, printer/drive, pipe, nested instructions,
+argv, connect/select/args/join and unknown stream ownership are rejected.
+Native paste, toolbar paste/copy and a permission-independent text editor are
+available. Clipboard streams are excluded from recordings; replay never accesses
+the system clipboard. Text echoed in target display remains in recorded images.
 
-The upgrade must carry the authenticated owner's **same login_session_id**, exact same-origin Origin, and `Sec-WebSocket-Protocol: bastion.v1, <ws_token>`. The selected response subprotocol is only `bastion.v1` (never echo the secret). No Authorization header, query string, or client-supplied routing is accepted. WebSocket credential/ownership rejection is deliberately uniform; policy store outage remains 503. Cookie login requires HTTPS except explicitly configured loopback development HTTP. The built frontend requires HTTPS even on loopback; only Vite DEV permits that HTTP exception. This milestone has no required recording and is not a production deployment.
+Initial display is 1280x720 at 96 DPI; ceilings are 3840x2160 and 48..192 DPI.
+SSH/RDP resize is engine-driven. VNC uses local scaling with converted mouse
+coordinates when remote resizing is unavailable.
 
-## Text control messages
+## Lifecycle and recording
 
-Each text message is a UTF-8 JSON object with mandatory `v:1` and snake_case `type`. Text size is at most **8192 UTF-8 bytes**. Unknown non-critical fields may be ignored; unknown types are rejected. All channel IDs are nonzero unsigned 32-bit integers, independent of target SSH IDs. The M2 session state machine accepts one shell channel; do not open a second one or restart an exited shell in the same session.
+Defaults: ten global connections, three per user, twenty pending tickets per
+user; 45-second startup, 30-minute interactive idle, eight-hour absolute duration
+and 30-second stalls. Only actual keyboard/mouse input refreshes idle time.
+Sync, drawing, resizing and WebSocket heartbeats do not.
 
-| Direction | type | Additional fields |
-|---|---|---|
-| client | open | channel_id |
-| client | pty | channel_id, term, cols, rows |
-| client | shell | channel_id |
-| client | resize | channel_id, cols, rows |
-| client | eof | channel_id |
-| client | close | channel_id |
-| client | ping | none |
-| server | session_ready | connection_id (UUID) |
-| server | opened | channel_id |
-| server | pty_ready | channel_id |
-| server | ready | channel_id |
-| server | exit | channel_id, optional exit_code (u32), optional exit_signal (string) |
-| server | closed | channel_id |
-| server | error | optional channel_id, code (stable error code) |
-| server | pong | none |
+The encrypted recording writer must ACK write+flush before any display chunk
+is sent to the browser. Periodic fsync/checkpoints are separate from per-chunk
+ACKs. Any required-recording failure closes the connection and leaves partial or
+failed metadata, never complete. Credentials and keyboard input are not recorded.
 
-`term` is 1–128 UTF-8 bytes without control characters. `cols` and `rows` are integers in **1..4096**. No terminal modes or environment fields are part of M2. `ping/pong` measure browser-to-bastion latency, not target latency.
+Revocation, logout, route/target change and pagehide release keys, close tunnel/
+bridge/daemon sockets and dispose timers/display. Late callbacks cannot affect
+a newer session. No automatic reconnect, session sharing or disconnect recovery.
+Replay is offline, read-only and streaming; full end, EOF and checksum verification
+are required before showing completion.
 
-```json
-{"v":1,"type":"open","channel_id":1}
-{"v":1,"type":"pty","channel_id":1,"term":"xterm-256color","cols":80,"rows":24}
-{"v":1,"type":"shell","channel_id":1}
-{"v":1,"type":"resize","channel_id":1,"cols":120,"rows":40}
-{"v":1,"type":"exit","channel_id":1,"exit_code":7}
-```
+## Verification
 
-Wait for `session_ready` (target authentication), then `opened`, then `pty_ready`, then `ready` before sending terminal input. `pty_ready` and `ready` mean the target accepted the request, not just the gateway. `eof` half-closes stdin; output and exit information must still drain before `closed`. `close` closes the channel; WebSocket loss terminates the connection. On reconnect issue a new session: never reuse the token or automatically replay input.
-
-## Binary messages
-
-One WebSocket binary message contains one six-byte header followed by **0..32768 raw payload bytes**. There is no length field, compression, JSON wrapper, base64, UTF-8 conversion, or newline rewrite.
-
-| Offset | Size | Meaning |
-|---|---|---|
-| 0 | 1 | version u8, exactly 1 |
-| 1 | 1 | kind u8: input=1, output=2, stderr=3 |
-| 2 | 4 | nonzero channel_id u32, big-endian |
-| 6 | remaining | raw data payload |
-
-Client-to-server accepts only kind 1; server-to-client accepts kinds 2 and 3. Messages shorter than 6 or longer than 32774 bytes, channel 0, unknown kind, wrong direction, and unsupported versions are rejected. Empty payloads are valid. Preserve chunk bytes, including invalid UTF-8 and split UTF-8 sequences; feed server output directly to xterm's byte input. Domain decoding failures attempt a bounded stable `error` frame before shutdown; a transport-level over-limit/invalid WebSocket frame may be rejected by the WebSocket library before domain decoding and terminate without that application error.
-
-Rust domain exports `ClientControl`, `ServerControl` (serde `type` tag), `ClientFrame::Control/ Data`, `ServerFrame::Control/ Data`, and `DataStream::Output/ Stderr`. Both frame types provide `decode_text`, `decode_binary`, `encode_text`, `encode_binary`; control types expose `validate`. `encode_text` on Data or `encode_binary` on Control returns INVALID_ARGUMENT. Limits are exported as `WEBSOCKET_VERSION`, `MAX_CONTROL_BYTES`, `MAX_DATA_BYTES`, `BINARY_HEADER_BYTES`.
-
-## Persistence and failure
-
-`connection_tickets` and `connections` both store `transport` (`ssh` or `websocket`) and `protocol_version=1` with PostgreSQL CHECK constraints and a composite FK requiring matching transport/version. Migration 0002 preserves existing rows as SSH v1 and existing login sessions as zeroterm. `server_settings.schema_version=1` remains the compatible schema family; SQLx's migration ledger tracks the additive migration.
-
-SSH ticket wrappers and WebSocket session methods share issuance and consumption transactions. Fixed lock order is policy → user/login → asset/account → ticket. After locks, actual `clock_timestamp()` expiry, current user/login/grants, gateway and revisions are rechecked. Correct consumption atomically transitions issued→consumed and pending→connecting once and persists audits; target connect failures never restore the ticket. Wrong secrets, wrong owner/login or wrong transport do not consume or revoke the legitimate ticket.
-
-Current error serialization uses SESSION_TICKET_INVALID, SESSION_TICKET_USED, SESSION_TICKET_EXPIRED, SESSION_TICKET_STALE and SESSION_EXPIRED. Legacy TICKET_* and ACCESS_TOKEN_EXPIRED values remain accepted on deserialization, including historical stored failure_code. Other stable codes include CLIENT_PROTOCOL_UNSUPPORTED, CHANNEL_PERMISSION_DENIED, TARGET_REQUEST_REJECTED, RECORDING_UNAVAILABLE, POLICY_STORE_UNAVAILABLE and target faults. The HTTP contract is in [openapi-web.json](openapi-web.json); RFC-004 remains the full roadmap rather than a claim that all endpoints/recording/exec/SFTP features are implemented.
-
-## Checks
-
-`cargo test -p bastion-domain` covers byte preservation, header/direction/length checks, control validation and legacy error aliases. `cargo test -p bastion-store --test web_sessions -- --ignored` requires a Unix isolated PostgreSQL fixture (`BASTION_M1_FIXTURE`, same shape as tests/m1_smoke.py). That integration check covers twenty-consumer races, cross-transport/client authentication, owner/login binding, wrong-secret non-consumption, CHECK/FK constraints, actual expiry after row-lock waits, revisions, logout/revocation and refresh replay. Do not run against production data.
+Rust and frontend unit tests exercise parsers, boundaries and policy. Real isolated
+PostgreSQL tests cover ticket/identity/revision races, grants and lifecycle.
+Engine-only tests cover target identity and actual egress; they do not substitute
+for the full Rust API/recording/browser path. Real browser Canvas/IME/input tests,
+Windows NLA, failure/recovery, backup and capacity acceptance remain release gates.
+[Execution evidence](guacamole-execution.md) records actual runs and limitations;
+production_ready remains false until all gates are independently satisfied.

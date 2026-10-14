@@ -1,0 +1,11 @@
+{
+  "production_ready": false,
+  "patch": "RDP certificate discovery endpoint and form scan button",
+  "base": "source2 (app2)",
+  "app3_seconds": 171.3,
+  "app3_image_id": "sha256:96b8a405b1d60e4c0f4ada7606531979a12983e4bb98a9dce27d04b7c6b68b10",
+  "tests3_seconds": 293.5,
+  "tests3_image_id": "sha256:451d845c7668dd326fc44423c4864df482020c89c3ef9533079a035e5d6aeec1",
+  "status": "passed",
+  "finished_at": "2026-10-13T16:07:34Z"
+}

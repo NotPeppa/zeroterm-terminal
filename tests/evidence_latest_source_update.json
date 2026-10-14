@@ -1,0 +1,44 @@
+{
+  "origin": "https://3.129.249.195",
+  "project": "zeroterm-test-guac-v2",
+  "server_id": "zeroterm-test-guac-v2",
+  "schema_version": 2,
+  "production_ready": false,
+  "deployed_at": "2026-10-13T08:51:59Z",
+  "source": "local working tree (4 files changed vs previous deployment)",
+  "changed_files": [
+    "crates/bastion-store/src/pages.rs",
+    "web/src/api.ts",
+    "web/src/main.ts",
+    "web/tests/asset-create.mjs"
+  ],
+  "change_summary": "grant list resolves user/asset/account names instead of raw UUIDs; the create-grant dialog picks from existing users, assets and that asset's accounts",
+  "app_image_id": "sha256:6f6bbd560228a2c1316ca428356b4c0f59c23e4a9830a2086ab1aa59fb8e6d7d",
+  "previous_app_image_id": "sha256:8180490f44c876936a615a67a46a4076b8aaa7aacc0a526f9a81a48ff709a19e",
+  "engine_image_id": "sha256:689c462e27a23670c35bb3435022627f71144f5e04210bffea3b52ba7bac6a23",
+  "build_seconds": 180,
+  "migration_applied": false,
+  "database_and_engine_not_recreated": true,
+  "legacy_containers_unchanged": true,
+  "data_counts_before": "1|4|6|6|0|2",
+  "data_counts_after": "1|4|6|6|0|2",
+  "local_checks": {
+    "cargo check -p bastion-server": "passed",
+    "npm run check (tsc --noEmit)": "passed",
+    "node --test tests/*.mjs": "155 passed, 0 failed",
+    "web/tests/asset-create.mjs": "93 passed, 0 failed"
+  },
+  "live_verification": {
+    "health_ready": "ok",
+    "login_verified": true,
+    "frontend_bundle_changed": true,
+    "frontend_entry": "/assets/index-DW4ehTkR.js",
+    "grant_name_resolution": {
+      "username": "admin",
+      "asset_name": "Jakarta",
+      "account_label": "root"
+    },
+    "temporary_grant_revoked_then_removed": true,
+    "grants_after_verification": 0
+  }
+}

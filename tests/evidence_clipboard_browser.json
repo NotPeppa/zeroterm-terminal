@@ -1,0 +1,59 @@
+{
+  "production_ready": false,
+  "windows_nla_verified": false,
+  "native_os_ime_verified": false,
+  "application_image_id": "sha256:1a5b76c17ce14569080282c2a72941345e4c00baee0bade8710a0b657220d118",
+  "engine_image_id": "sha256:689c462e27a23670c35bb3435022627f71144f5e04210bffea3b52ba7bac6a23",
+  "profiles": [
+    {
+      "label": "ssh-password",
+      "protocol": "ssh",
+      "target_paste_roundtrip": true,
+      "unicode_clipboard": true,
+      "connection_id": "3be49caa-2b55-449f-acae-7fa9913c523a",
+      "non_bmp_clipboard": true,
+      "multiple_upload_blobs": true,
+      "target_copy_roundtrip": true,
+      "explicit_system_clipboard_copy": true,
+      "clipboard_transfer_excluded_from_recording": true
+    },
+    {
+      "label": "rdp-tls",
+      "protocol": "rdp",
+      "target_paste_roundtrip": true,
+      "unicode_clipboard": true,
+      "connection_id": "53afa75c-c40f-4843-bc8f-09fc74354448",
+      "target_clipboard_limit": "Debian xrdp 0.9.x clipboard uses UCS-2; non-BMP target interoperability is not claimed",
+      "non_bmp_clipboard": false,
+      "multiple_upload_blobs": true,
+      "target_copy_roundtrip": true,
+      "explicit_system_clipboard_copy": true,
+      "clipboard_transfer_excluded_from_recording": true
+    },
+    {
+      "label": "vnc-none",
+      "protocol": "vnc",
+      "target_paste_roundtrip": true,
+      "unicode_clipboard": false,
+      "connection_id": "a0008215-4f3f-4e73-b740-4bcbe6a1c3a9",
+      "non_bmp_clipboard": false,
+      "multiple_upload_blobs": false,
+      "target_copy_roundtrip": true,
+      "explicit_system_clipboard_copy": true,
+      "clipboard_transfer_excluded_from_recording": true
+    },
+    {
+      "label": "vnc-password",
+      "protocol": "vnc",
+      "target_paste_roundtrip": true,
+      "unicode_clipboard": false,
+      "connection_id": "32dc1b8d-9de4-404d-822c-5f5538628c70",
+      "non_bmp_clipboard": false,
+      "multiple_upload_blobs": false,
+      "target_copy_roundtrip": true,
+      "explicit_system_clipboard_copy": true,
+      "clipboard_transfer_excluded_from_recording": true
+    }
+  ],
+  "status": "passed-real-clipboard-components"
+}

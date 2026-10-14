@@ -5,10 +5,6 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 
-[features]
-default = []
-dev-prototype = ["bastion-store/dev-prototype"]
-
 [dependencies]
 anyhow.workspace = true
 async-trait.workspace = true
@@ -18,14 +14,15 @@ bastion-domain.workspace = true
 bastion-secrets.workspace = true
 bastion-store.workspace = true
 bytes.workspace = true
-russh.workspace = true
 tokio.workspace = true
 tokio-util.workspace = true
 tracing.workspace = true
 uuid.workspace = true
-russh-sftp = "=2.3.0"
 serde.workspace = true
 serde_json.workspace = true
 base64.workspace = true
 chrono.workspace = true
 libc.workspace = true
+zeroize.workspace = true
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+russh = { version = "=0.64.1", default-features = false, features = ["ring", "rsa"] }

@@ -1,0 +1,54 @@
+{
+  "production_ready": false,
+  "project": "zt-guac-v2-4ac385e6-5f70-4cc0-a1de-c664a4dc3274",
+  "database": "zt_guac_v2_b6f57a5bebc2",
+  "engine_image_id": "sha256:63926f22592fad15ee841e8e7488020a6b0f17a257205f06a725718415c01e1e",
+  "target_protocol_acceptance": false,
+  "windows_nla_verified": false,
+  "browser_canvas_ime_verified": false,
+  "recording_directory_degradation_verified": {
+    "info_unavailable": {
+      "features": {
+        "device_sessions": true,
+        "recording_replay": false,
+        "web_rdp": false,
+        "web_ssh": false,
+        "web_vnc": false
+      },
+      "production_ready": false,
+      "protocol_version": 2,
+      "recording": {
+        "available": false,
+        "format_version": 2,
+        "required": true
+      },
+      "schema_version": 2,
+      "server_id": "zt-guac-v2-4ac385e6-5f70-4cc0-a1de-c664a4dc3274",
+      "stream_protocol": "bastion.guac.v1"
+    },
+    "health_unready": 503,
+    "restored": true
+  },
+  "independent_proxy_namespace_and_untrusted_forwarding_denied": true,
+  "status": "passed-deployment-smoke",
+  "info": {
+    "features": {
+      "device_sessions": true,
+      "recording_replay": true,
+      "web_rdp": false,
+      "web_ssh": true,
+      "web_vnc": false
+    },
+    "production_ready": false,
+    "protocol_version": 2,
+    "recording": {
+      "available": true,
+      "format_version": 2,
+      "required": true
+    },
+    "schema_version": 2,
+    "server_id": "zt-guac-v2-4ac385e6-5f70-4cc0-a1de-c664a4dc3274",
+    "stream_protocol": "bastion.guac.v1"
+  },
+  "existing_test_containers_unchanged": true
+}

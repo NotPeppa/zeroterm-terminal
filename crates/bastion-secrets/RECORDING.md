@@ -1,155 +1,94 @@
-# RFC-004 recording codec (`bastion-secrets::recording`)
+# RFC-005 encrypted recording codec (`ZTREC002`)
 
-This module implements recording-only key envelopes and the fixed `ZTREC001`
-format. Existing credential purposes and serialized AAD are unchanged. No new
-dependency, database integration, filesystem opening or asynchronous queue is
-introduced here.
+One connection owns one recording directly, through a UNIQUE connection_id foreign
+key. SSH/RDP/VNC share this codec and the same offline Guacamole player. There is
+no old-format reader or data conversion. Filesystem permissions, fsync, database
+checkpoints, checksum, authorization and retention belong to the gateway/API caller.
+The gateway excludes clipboard creation/blob/end and client-owned transfer ACKs
+from recorded display output. Clipboard text visible in target images is still
+recorded as display. Replay never exposes clipboard operations.
 
-## Credential KEK rotation companion
+## Identity and keys
 
-```rust
-KeyRing::rewrap_credential_dek(&self, context: &CipherContext, envelope: &Envelope)
-    -> anyhow::Result<Envelope>
-```
-
-Authenticates and validates the existing credential via unchanged `open`, then
-unwraps the same DEK under its old KEK and rewraps it under the active KEK using
-a fresh wrap nonce. `ciphertext`, data `nonce`, identity, kind and revision are
-unchanged. The credential AAD tuples and both existing purpose strings remain
-unchanged. DEK and temporary decoded credential are zeroized. The caller must
-atomically persist only `wrapped_dek`, `wrap_nonce`, and `key_version` using the
-original envelope/version as a concurrency guard; never bump credential
-revision for a KEK-only rotation. Keep old KEKs configured until every envelope
-using them has been rotated and verified. Missing old key, wrong context,
-malformed envelope or tampered ciphertext are rejected, not silently migrated.
-
-## Public interfaces
-
-All fallible methods return `anyhow::Result<T>`; errors can be downcast to
-`RecordingError`.
+RecordingContext binds server_id, recording_id, connection_id, target_protocol and
+format version 2. RecordingHeader binds recording_id, connection_id, target_protocol
+and a random 16-byte nonce_prefix. The recording DEK is fresh, opaque and zeroized;
+KEK wrapping uses recording-specific authenticated data, separate from credentials.
 
 ```rust
-RecordingContext { server_id: String, recording_id: Uuid }
-RecordingContext::new(server_id: impl Into<String>, recording_id: Uuid) -> Self
-RecordingHeader { recording_id: Uuid, nonce_prefix: [u8; 16] }
-RecordingHeader::new(recording_id: Uuid) -> Self // random prefix
-RecordingEnvelope { wrapped_dek: Vec<u8>, wrap_nonce: Vec<u8>, key_version: i64 }
-// RecordingKey is opaque, non-cloneable, redacted, and zeroized on drop.
-
-KeyRing::new_recording_dek(&self, &RecordingContext)
-    -> Result<(RecordingKey, RecordingEnvelope)>
-KeyRing::wrap_recording_dek(&self, &RecordingContext, &RecordingKey)
-    -> Result<RecordingEnvelope>
-KeyRing::open_recording_dek(&self, &RecordingContext, &RecordingEnvelope)
-    -> Result<RecordingKey>
-KeyRing::rewrap_recording_dek(&self, &RecordingContext, &RecordingEnvelope)
-    -> Result<RecordingEnvelope>
-
-RecordingWriter<W: std::io::Write>::new(W, RecordingHeader, RecordingKey)
-    -> Result<Self>
-RecordingWriter::header(&self) -> &RecordingHeader
-RecordingWriter::writer_mut(&mut self) -> &mut W
-RecordingWriter::bytes_written(&self) -> u64
-RecordingWriter::append_ndjson(&mut self, plaintext: &[u8]) -> Result<RecordingAck>
-RecordingWriter::finish(self) -> Result<W>
-RecordingAck { chunk_seq: u64, bytes_written: u64 }
-
-RecordingReader<R: std::io::Read>::new(R, expected: &RecordingHeader, RecordingKey)
-    -> Result<Self>
-RecordingReader::header(&self) -> &RecordingHeader
-RecordingReader::next_chunk(&mut self) -> Result<Option<VerifiedChunk>>
-RecordingReader::into_inner(self) -> R
-VerifiedChunk { chunk_seq: u64, plaintext: Zeroizing<Vec<u8>> }
+RecordingContext::new(server_id, recording_id, connection_id, target_protocol)
+RecordingHeader::new(recording_id, connection_id, target_protocol)
+KeyRing::new_recording_dek(&context)
+KeyRing::open_recording_dek(&context, &envelope)
+KeyRing::rewrap_recording_dek(&context, &envelope)
 ```
 
-`RecordingAck` means `write_all` and `flush` succeeded, **not** `fsync`.
-`bytes_written` includes the header and all acknowledged complete frames.
-Callers own create-new owner-only/no-follow file opening, bounded queues,
-250ms batching, 5-second timeouts, periodic sync, final sync, checksum, metadata
-last-written/last-synced boundaries, and fail-closed channel shutdown. A codec
-must never be recreated to retry a failed append; any error poisons that writer.
-`writer_mut` is only for syncing or observing the sink: never seek/write through
-it. New writers require a fresh recording DEK/prefix and an empty create-new
-sink. There is deliberately no initial-sequence, append-existing or resume API.
+Rewrap authenticates the existing envelope and wraps the same DEK under the active
+KEK without rewriting file bytes. Credential-only rewrap also preserves payload,
+identity and revision. Keep every referenced KEK until rotation and verification
+finish; persist changed envelopes atomically with concurrency/version checks.
 
-The reader requires both the expected UUID and 16-byte nonce prefix from trusted
-metadata. It releases only authenticated, complete and validated event lines.
-A released chunk is a **verified prefix**, not proof of a complete recording.
-Call until `Ok(None)`: clean EOF requires a final `end` event. Even truncation at
-a whole-frame boundary fails when the final `end` is missing. Check the stored
-final bytes/checksum separately, and terminate the HTTP stream with a visible
-verification error on any mismatch rather than silently returning a clean
-response. Header integrity is established by the first frame's AEAD; a header
-alone is incomplete. A malicious rewrite of both database and file by the
-trusted gateway administrator is outside the stated RFC checksum guarantees.
+## Container and authenticated events
 
-## Wire and event validation
+The file begins with eight-byte ZTREC002 magic, a big-endian u32 JSON-header length
+and a bounded header (1..16 KiB). It identifies format_version=2, recording_id,
+connection_id, target_protocol, algorithm XChaCha20-Poly1305 and nonce_prefix.
+The complete header hash is authenticated by each encrypted chunk. Chunk frames
+contain contiguous big-endian u64 sequence, big-endian u32 ciphertext length and
+ciphertext including the authentication tag. Plaintext is at most 256 KiB.
 
-Integers are big-endian. Header JSON has exactly `format_version:1`, canonical
-UUID `recording_id`, `algorithm:"XChaCha20-Poly1305"` and unpadded base64url
-`nonce_prefix`. Header maximum is 16 KiB; ciphertext maximum is 256 KiB + 16-byte
-tag. The nonce is prefix + big-endian chunk sequence. AAD is the exact ASCII
-`zt-record-v1` + SHA256(magic + encoded header length + **original header bytes**)
-+ raw UUID + big-endian chunk sequence. Chunk sequence begins at zero and is
-continuous. Recording wrapping AAD is the JSON array
-`["zt-recording-wrap-v1", server_id, recording_id]`; rewrapping changes only the
-KEK envelope, not the DEK, file, nonce prefix or chunk sequence.
+Plaintext contains complete NDJSON lines with contiguous event seq and monotonic
+elapsed_us. Only these events are permitted:
 
-Every plaintext is one or more complete JSON lines ending in LF. Blank lines,
-unknown event types/fields, invalid JSON/UTF-8, event sequence gaps and decreasing
-`elapsed_us` fail validation. Required shapes (each line ends in LF):
+- meta first: seq=0, elapsed_us=0, format_version=2, connection_id,
+  target_protocol, width, height and dpi matching authenticated identity/bounds.
+- output: seq, elapsed_us and data_base64 encoding at most 32 KiB of approved
+  Guacamole display bytes. Unicode/instructions may span output events.
+- end last: seq, elapsed_us and a bounded reason; no events may follow it.
 
-```json
-{"seq":0,"elapsed_us":0,"type":"meta","format_version":1,"term":"xterm-256color","cols":80,"rows":24}
-{"seq":1,"elapsed_us":123,"type":"output","stream":"stdout","data_base64":"aGVsbG8NCg=="}
-{"seq":2,"elapsed_us":124,"type":"resize","cols":100,"rows":30}
-{"seq":3,"elapsed_us":125,"type":"exit","exit_code":0}
-{"seq":4,"elapsed_us":126,"type":"end","reason":"closed"}
-```
+Only post-handshake server display output and timing are recorded. Target
+credentials, connect arguments and keyboard/mouse input are excluded. Guacamole
+output must end on a valid UTF-8/instruction boundary. No terminal-event format,
+channel association, resume API, plaintext guacd recording or arbitrary seek index.
 
-The first event must be `meta`, with nonempty `term` and positive dimensions.
-`output` accepts `stdout` or `stderr`, standard padded base64 and 1..=32 KiB raw
-bytes; no per-chunk UTF-8 decoding is performed. `resize` requires positive
-dimensions. `exit` has exactly one non-null `exit_code` (u32) or `exit_signal`
-(nonempty string); the other can be absent or null. `end` requires a nonempty
-reason and forbids later events. Event sequence and chunk sequence are separate.
+## Write ACKs and failure handling
 
-## Error classification
+RecordingWriter::new requires a fresh create-new empty sink, fresh DEK and nonce
+prefix. append_ndjson validates events, encrypts, write_all+flushes and only then
+returns RecordingAck {chunk_seq, bytes_written}. This ACK is not an fsync promise.
+The gateway waits for it before forwarding output, performs periodic fsync and
+checkpoint updates, and prepares/syncs metadata before atomic activation.
 
-- `UnknownKey(version)`: configured ring lacks the envelope KEK, before opening
-  file content. Never try another key or credential-purpose AAD.
-- `Integrity`: DEK unwrap or frame AEAD authentication failed.
-- `Truncated`: incomplete header/frame or clean EOF without final `end`.
-- `Invalid(static_reason)`: malformed/unsupported header, trusted metadata
-  mismatch, length/sequence bounds or event schema violation.
-- `Io(error)`: underlying source/sink failed.
-- `Poisoned`: any use following a reader/writer failure; seal and stop, never
-  resume under that recording key/sequence.
+Any append failure permanently poisons the writer. Never retry a partial write or
+reuse sequence/nonces. finish requires end and flush; the caller then fsyncs,
+persists checksum/final metadata and ACKs finalization. Open/write/flush/fsync/
+checkpoint/finalization failure closes required-recording sessions and leaves
+partial/failed state. Process interruption is recovered as partial/failed.
 
-Map integrity/invalid to corrupt, incomplete tails to partial, and missing KEKs
-to an explicit operational failure. The caller decides database status naming;
-no failure permits unrecorded shell output or publicly exposed file paths.
+## Read and offline replay
 
-## Focused checks and vector
+RecordingReader::new authenticates against the expected database header and DEK.
+next_chunk returns only authenticated bounded plaintext. Tampering, mismatched
+metadata, unknown keys, sequence errors, truncation and invalid events poison the
+reader. Only next_chunk == Ok(None) after end and clean EOF verifies the codec.
+The caller additionally verifies full-file bytes and SHA-256 checksum.
 
-Run `cargo test -p bastion-secrets recording`. The golden codec test pins header,
-nonce/AAD layout and a deterministic encrypted file vector. Its UUID is
-`00112233-4455-6677-8899-aabbccddeeff`, key is 32 bytes of `42` hex, and prefix is
-16 bytes of `10` hex. These fixed values exist only in tests; production uses
-OS randomness. The complete two-frame vector (standard base64) is:
+API playback rechecks authorization, uses owner-only no-follow file access, serves
+no-store streamed NDJSON without Range and marks failures explicitly. The browser
+uses a read-only offline Guacamole Client with display.flush backpressure, supports
+play/pause/restart, and waits for end plus clean verified EOF before completion.
+It never establishes a target connection or accepts remote input.
 
-```text
-WlRSRUMwMDEAAACTeyJmb3JtYXRfdmVyc2lvbiI6MSwicmVjb3JkaW5nX2lkIjoiMDAxMTIyMzMtNDQ1NS02Njc3LTg4OTktYWFiYmNjZGRlZWZmIiwiYWxnb3JpdGhtIjoiWENoYUNoYTIwLVBvbHkxMzA1Iiwibm9uY2VfcHJlZml4IjoiRUJBUUVCQVFFQkFRRUJBUUVCQVFFQSJ9AAAAAAAAAAAAAABtK2gnM7Ps9b+mWSkoKCzyCSSgK+UyCklQkR2mkSQBd5efSnamPo335vEBM9DtGxBomOR9SoHV/QvYAV4KzufSMCOVL8xkMHE3PNh1H4pL9mIXPCvTkXXWQQ0jj/sZBZ9b7DMeGNJluNyaM4mC4wAAAAAAAAABAAAASL/T8EmKSr6OFkdfcGUJbQWVhMLEfqLflOT10KfbHcD/LJlEK5+O5qn0HXG5md11CVVH1OhzMD1my+2VzBNjH6vpt8484CKi/A==
-```
+## Checks
 
-Its plaintext frames are respectively:
+Codec tests cover all-byte tampering/truncation, header/identity binding, old-magic
+rejection, key rotation, event sequence, fragmented Unicode, maximum chunks and
+write/flush failure without ACK. Real gateway fault/recovery/retention/backup and
+browser acceptance are separately required; see
+[execution evidence](../../docs/guacamole-execution.md).
+# SSH terminal update
 
-```json
-{"seq":0,"elapsed_us":0,"type":"meta","format_version":1,"term":"xterm","cols":80,"rows":24}
-{"seq":1,"elapsed_us":1,"type":"end","reason":"closed"}
-```
-
-Each is one line followed by LF. Tests additionally cover arbitrary output bytes, stderr/resize/
-exit, multi-event batches, every truncated prefix and flipped byte, header and
-metadata mismatch, bounds, poisoned I/O, unknown KEKs, purpose/identity binding
-and rewrapping without touching the file.
+ZTREC002 now binds an optional `stream_protocol` in the authenticated header and
+matching encrypted meta. Omission identifies existing Guacamole output; SSH text
+uses `bastion.ssh.v1` frames and a read-only xterm player. See
+[current SSH recording contract](../../docs/ssh-xterm.md).

@@ -1,8 +1,8 @@
 //! Opt-in remote PostgreSQL acceptance. Credentials arrive only through stdin.
 //! Creates its own database; never migrates the supplied maintenance database.
-use bastion_domain::Role;
+use bastion_domain::{Role, TargetProtocol};
 use bastion_secrets::{hash_password, Secret};
-use bastion_store::PgStore;
+use bastion_store::{AssetCreate, PgStore};
 use serde::Deserialize;
 use serde_json::json;
 use sqlx::{
@@ -70,31 +70,30 @@ fn run_test(exe: PathBuf, envelope: &Secret) -> Result<(), String> {
 }
 async fn test_database(options: &PgConnectOptions) -> Result<(), String> {
     let url = Secret::new(options.to_url_lossy().to_string());
-    let store = PgStore::connect(url.expose(), "remote-pg-acceptance", "main")
+    let store = PgStore::connect(url.expose(), "zt-guac-v2-remote-pg-acceptance", "main")
         .await
         .map_err(store_error)?;
     let result=async {
         store.migrate().await.map_err(store_error)?;
         store.migrate().await.map_err(store_error)?;
         let count:i64=sqlx::query_scalar("SELECT count(*) FROM _sqlx_migrations WHERE success").fetch_one(&store.pool).await.map_err(db_error)?;
-        if count!=5{return Err("expected five successful migrations".into());}
-        println!("Migrations 0001–0005 and repeat migration: passed");
+        if count!=1{return Err("expected one successful fresh schema2 migration".into());}
+        println!("Fresh schema2 migration and repeat migration: passed");
         let password=Secret::random();let phc=hash_password(password.expose()).map_err(|_|"test password hashing failed".to_string())?;
         let admin=store.bootstrap_admin("acceptance-admin",&phc,Uuid::new_v4()).await.map_err(store_error)?;
-        let login=store.login(&admin,&phc,"remote acceptance",Uuid::new_v4()).await.map_err(store_error)?;
-        let actor=store.authenticate(&login.access_token).await.map_err(store_error)?;
+        let login=store.login_web(&admin,&phc,"remote acceptance",Uuid::new_v4()).await.map_err(store_error)?;
+        let actor=store.authenticate_web(&login.access_token).await.map_err(store_error)?;
         let operator=store.create_user(&actor,"acceptance-operator",&phc,Role::Operator,Uuid::new_v4()).await.map_err(store_error)?;
-        let asset=store.create_asset(&actor,"database-only fixture","127.0.0.1",22,&[],Uuid::new_v4()).await.map_err(store_error)?;
-        // Inert schema-valid ciphertext: these tests never connect or decrypt a target credential.
-        let credential=Uuid::new_v4();let account=Uuid::new_v4();
-        sqlx::query("INSERT INTO credentials(id,kind,revision,ciphertext,nonce,wrapped_dek,wrap_nonce,key_version) VALUES($1,'password',1,$2,$3,$4,$5,1)").bind(credential).bind(vec![0u8;17]).bind(vec![0u8;24]).bind(vec![0u8;48]).bind(vec![0u8;24]).execute(&store.pool).await.map_err(db_error)?;
-        sqlx::query("INSERT INTO target_accounts(id,asset_id,username,credential_id) VALUES($1,$2,'fixture-only',$3)").bind(account).bind(asset.id).bind(credential).execute(&store.pool).await.map_err(db_error)?;
-        let fixture=Secret::new(json!({"database_url":url.expose(),"fixture":{"server_id":"remote-pg-acceptance","gateway_id":"main","username":"acceptance-admin","password":password.expose(),"asset_id":asset.id,"account_id":account,"operator_id":operator.id}}).to_string());
+        let asset=store.create_asset(&actor,&AssetCreate{group_id:None,name:"database-only fixture".into(),host:"127.0.0.1".into(),port:5900,tags:vec![],protocol:TargetProtocol::Vnc,security:None,ssh_host_key:None,rdp_certificate_sha256:None},Uuid::new_v4()).await.map_err(store_error)?;
+        // VNC none has SQL NULL credentials; these tests never connect to a target.
+        let account=Uuid::new_v4();
+        sqlx::query("INSERT INTO target_accounts(id,asset_id,label,username,credential_id) VALUES($1,$2,'fixture-only',NULL,NULL)").bind(account).bind(asset.id).execute(&store.pool).await.map_err(db_error)?;
+        let fixture=Secret::new(json!({"database_url":url.expose(),"fixture":{"server_id":"zt-guac-v2-remote-pg-acceptance","gateway_id":"main","username":"acceptance-admin","password":password.expose(),"asset_id":asset.id,"account_id":account,"operator_id":operator.id}}).to_string());
         let tests:Vec<PathBuf>=std::env::args_os().skip(1).map(PathBuf::from).collect();
-        if tests.len()!=2 || tests.iter().any(|path|!path.is_file()){return Err("pass exactly the built postgres and web_sessions test binaries".into());}
+        if tests.len()!=3 || tests.iter().any(|path|!path.is_file()){return Err("pass exactly the built postgres, web_sessions and user_deletion test binaries".into());}
         let mut failures=0;
         for (index,exe) in tests.into_iter().enumerate(){
-            println!("Real PostgreSQL fixture suite {}/2",index+1);
+            println!("Real PostgreSQL fixture suite {}/3",index+1);
             if run_test(exe,&fixture).is_err(){failures+=1;}
         }
         let encrypted:bool=sqlx::query_scalar("SELECT ssl FROM pg_stat_ssl WHERE pid=pg_backend_pid()").fetch_one(&store.pool).await.map_err(db_error)?;

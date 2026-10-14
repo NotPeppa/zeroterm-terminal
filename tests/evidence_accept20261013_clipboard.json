@@ -1,0 +1,94 @@
+{
+  "production_ready": false,
+  "runs": [
+    {
+      "production_ready": false,
+      "windows_nla_verified": false,
+      "native_os_ime_verified": false,
+      "application_image_id": "sha256:9e364e76791139f38cf008727f88f48cf5810a21b2a255b4f69843f22044c979",
+      "engine_image_id": "sha256:689c462e27a23670c35bb3435022627f71144f5e04210bffea3b52ba7bac6a23",
+      "profiles": [
+        {
+          "label": "rdp-tls",
+          "protocol": "rdp",
+          "target_paste_roundtrip": true,
+          "unicode_clipboard": true,
+          "connection_id": "e098213f-90e5-48f6-843c-ffaf2eae534a",
+          "target_clipboard_limit": "Debian xrdp 0.9.x clipboard uses UCS-2; non-BMP target interoperability is not claimed",
+          "non_bmp_clipboard": false,
+          "multiple_upload_blobs": true,
+          "target_copy_roundtrip": true,
+          "explicit_system_clipboard_copy": true,
+          "clipboard_transfer_excluded_from_recording": true
+        }
+      ],
+      "status": "passed-real-clipboard-components"
+    },
+    {
+      "production_ready": false,
+      "windows_nla_verified": false,
+      "native_os_ime_verified": false,
+      "application_image_id": "sha256:9e364e76791139f38cf008727f88f48cf5810a21b2a255b4f69843f22044c979",
+      "engine_image_id": "sha256:689c462e27a23670c35bb3435022627f71144f5e04210bffea3b52ba7bac6a23",
+      "profiles": [
+        {
+          "label": "vnc-none",
+          "protocol": "vnc",
+          "target_paste_roundtrip": true,
+          "unicode_clipboard": false,
+          "connection_id": "ef0f9c15-e10d-4f1d-9c97-017ebf4fdcf4",
+          "non_bmp_clipboard": false,
+          "multiple_upload_blobs": false,
+          "target_copy_roundtrip": true,
+          "explicit_system_clipboard_copy": true,
+          "clipboard_transfer_excluded_from_recording": true
+        }
+      ],
+      "status": "passed-real-clipboard-components"
+    },
+    {
+      "production_ready": false,
+      "windows_nla_verified": false,
+      "native_os_ime_verified": false,
+      "application_image_id": "sha256:9e364e76791139f38cf008727f88f48cf5810a21b2a255b4f69843f22044c979",
+      "engine_image_id": "sha256:689c462e27a23670c35bb3435022627f71144f5e04210bffea3b52ba7bac6a23",
+      "profiles": [
+        {
+          "label": "vnc-password",
+          "protocol": "vnc",
+          "target_paste_roundtrip": true,
+          "unicode_clipboard": false,
+          "connection_id": "578b3a84-f840-40ee-a237-9ec3c7a0fed4",
+          "non_bmp_clipboard": false,
+          "multiple_upload_blobs": false,
+          "target_copy_roundtrip": true,
+          "explicit_system_clipboard_copy": true,
+          "clipboard_transfer_excluded_from_recording": true
+        }
+      ],
+      "status": "passed-real-clipboard-components"
+    },
+    {
+      "production_ready": false,
+      "windows_nla_verified": false,
+      "native_os_ime_verified": false,
+      "application_image_id": "sha256:e1c5419db24e98c4d5863c7f4c71fef4ec9a395807ae881fd168edf4eccd90d2",
+      "engine_image_id": "sha256:689c462e27a23670c35bb3435022627f71144f5e04210bffea3b52ba7bac6a23",
+      "profiles": [
+        {
+          "label": "ssh-password",
+          "protocol": "ssh",
+          "target_paste_roundtrip": true,
+          "unicode_clipboard": true,
+          "connection_id": "55805e03-6233-4dc7-8da4-9a6049a85eba",
+          "non_bmp_clipboard": true,
+          "multiple_upload_blobs": true,
+          "target_copy_roundtrip": true,
+          "explicit_system_clipboard_copy": true,
+          "clipboard_transfer_excluded_from_recording": true
+        }
+      ],
+      "status": "passed-real-clipboard-components"
+    }
+  ]
+}

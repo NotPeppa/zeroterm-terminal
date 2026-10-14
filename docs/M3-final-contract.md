@@ -47,8 +47,9 @@
 - `GET /connections` 与 `GET /audit-events`：服务端支持时间范围、actor、resource、action、state、transport 过滤；过滤器纳入 cursor scope。
 - `GET /recordings/{id}` 与 `GET /recordings/{id}/content`：所有者/admin/auditor 读取；当前用户必须仍启用且 login session 有效，但不要求历史目标 Grant。内容是服务端鉴权、解密、校验后的 `application/x-ndjson`，`no-store`、无 Range、无公开文件路径、无 KEK/DEK 下发。
 - `POST /integrations/zeroterm/connection-tickets`：正式路由到现有 SSH ticket 事务；保留旧兼容路径。响应字段为 `protocol_version,ticket_id,ticket_secret,connection_id,gateway,capabilities,expires_at`。
-- Web `POST /sessions` 允许 `shell|exec|sftp` 能力；purpose 仍只用于审计，不用于授权决策。
+- Web `POST /sessions` 发送 `{asset_id,account_id,purpose}`，不选择能力。启用 admin 无 Grant 访问所有启用资产账号；operator 凭有效精确 Grant 取得终端/exec/SFTP 全部访问；auditor 无目标访问。purpose 仅用于审计。v1 `capabilities` 可省略且已弃用，省略/合法已知窄数组归一化 full，显式空/长度 >3/未知/null 拒绝；新账号/Grant/票据元数据固定 `["shell","exec","sftp"]`，历史 Connection 与旧已签发 pending/live 快照不回填；消费、运行期和通道启动继续按旧窄快照约束，重新申请票据并重连才获得 full，Web 与后端须同步发布。删除 Grant 不移除 admin 隐式访问。
 - 浏览器文件操作使用服务端 SFTP：目录/元数据 JSON；download GET、upload PUT 流式；上传服务端随机临时文件成功关闭后 rename，默认 no-overwrite，无自动重试。
+- 在线编辑（增量）：PUT 同时带 `expected_size` 与 `expected_mtime` 时为原地替换。目标必须仍是同一普通文件（开始与提交前两次核对大小和 mtime，不符返回 `RESOURCE_CONFLICT`）；临时文件继承原权限位，先持久化 `file.replace_requested` 审计（仅路径 SHA-256 与字节数，失败则放弃），再用 `posix-rename@openssh.com` 原子替换；目标不支持该扩展时返回 `TARGET_REQUEST_REJECTED`，不退回删除再改名。SFTP 无 compare-and-swap，最终核对与替换之间的并发修改仍可能被覆盖；属主、ACL、扩展属性和硬链接不保留；mtime 精度为秒。Web 仅对 ≤1 MiB 的 UTF-8 普通文件提供编辑，混合换行拒绝，CRLF 文件按 CRLF 写回。
 - exec 保留原始 command bytes，最大 64 KiB，拒绝 NUL；控制消息允许约 96 KiB 的 exec-start，普通控制帧保持 8192 UTF-8 bytes；返回 stdout/stderr 原始 bytes 与 exit/exit-signal。
 - 最小 copy job 的 API 形状已冻结，但首版能力发现为 `copy_jobs:false`：标准 SFTPv3 没有原子 no-follow open，无法满足本项目安全保证时必须拒绝并返回稳定的 `TARGET_REQUEST_REJECTED`/unsupported 状态；不能以 lstat 后 open 的竞态实现冒充安全复制。
 
@@ -77,7 +78,7 @@ shell 启动顺序：短事务创建 channel + recording(preparing) + audit → 
 
 ## 7. ZeroTerm 客户端
 
-相邻 `ZeroTerm` 已有 `BastionManager`、`ManagedConnection/ManagedSession`、Tauri profile/catalog UI、HostAuth::Bastion 与 CLI bastion 流程。本轮只收口兼容：正式 `/info` feature gate、正式 SSH ticket、严格 server_id/HTTPS/CA/SSH fingerprint、能力检查和 reconnect 新 ticket。ticket/token 不进入 Vault、sync、argv、日志或 IPC 返回值；用户手动输入的登录密码仅允许一次瞬时 JS→Rust 输入 IPC，前端立即清空，Rust 使用 Zeroizing，禁止缓存、日志或响应回传；Managed 连接禁止 ProxyJump、forward、agent、direct-copy 逃逸；Android/iOS 不改。
+相邻 `ZeroTerm` 已有 `BastionManager`、`ManagedConnection/ManagedSession`、Tauri profile/catalog UI、HostAuth::Bastion 与 CLI bastion 流程。本轮只收口兼容：正式 `/info` feature gate、正式 SSH ticket、严格 server_id/HTTPS/CA/SSH fingerprint、目标访问与功能发现检查和 reconnect 新 ticket。ticket/token 不进入 Vault、sync、argv、日志或 IPC 返回值；用户手动输入的登录密码仅允许一次瞬时 JS→Rust 输入 IPC，前端立即清空，Rust 使用 Zeroizing，禁止缓存、日志或响应回传；Managed 连接禁止 ProxyJump、forward、agent、direct-copy 逃逸；Android/iOS 不改。
 
 ## 8. 发布阻断
 

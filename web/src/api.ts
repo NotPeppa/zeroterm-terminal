@@ -1,28 +1,28 @@
-import { requireHTTPS } from './protocol.ts';
+import { requireHTTPS, DEFAULT_DISPLAY, validateDisplay, type DisplaySize } from './protocol.ts';
 
-export type Capability = 'shell' | 'exec' | 'sftp';
+export type TargetProtocol = 'ssh' | 'rdp' | 'vnc';
 export type Role = 'admin' | 'operator' | 'auditor';
 export type User = { id: string; username: string; role: Role; enabled: boolean; revision: number };
 export type Me = { user: User; login_session_id: string; policy_revision: number; csrf_token: string };
-export type Account = { id: string; username: string; capabilities: Capability[] };
-export type Asset = { id: string; name: string; tags?: string[]; accounts: Account[] };
+export type Account = { id: string; label: string; username: string | null; domain: string | null; credential_kind: 'none' | 'password' | 'private_key' };
+export type Asset = { id: string; name: string; protocol: TargetProtocol; tags?: string[]; group_id: string | null; group_name: string | null; accounts: Account[] };
+export type AssetGroup = { id: string; name: string; revision: number; parent_id: string | null; sort_order: number };
 export type Page<T> = { items: T[]; next_cursor: string | null; policy_revision?: number };
-export type AssetPage = Page<Asset> & { policy_revision: number };
-export type Ticket = { protocol_version: number; session_id: string; ws_token: string; connection_id: string; expires_at: string; capabilities: Capability[] };
-export type Info = { server_id?: string; protocol_version: number; websocket_protocol_version?: number; minimum_client_protocol_version: number; production_ready: boolean; features?: Partial<Record<'web_terminal' | 'web_exec' | 'web_sftp' | 'recording_replay' | 'copy_jobs' | 'device_sessions', boolean>>; recording?: { required: boolean; available?: boolean; format_version: number } };
-export type AdminAsset = { id: string; name: string; host: string; port: number; tags: string[]; enabled: boolean; revision: number };
-export type AdminAccount = { id: string; asset_id: string; username: string; enabled: boolean; revision: number; credential_kind: string; credential_revision: number };
-export type Credential = { type: 'password'; password: string } | { type: 'private_key'; key_pem: string; passphrase: string | null };
-export type HostKey = { id: string; asset_id: string; algorithm: string; public_key: string; fingerprint: string; state: string; revision: number };
-export type Grant = { id: string; user_id: string; asset_id: string; account_id: string; capabilities: Capability[]; enabled: boolean; expires_at: string | null; revision: number };
-export type Connection = { id: string; asset_id: string; account_id: string; state: string; transport?: string; created_at: string; capabilities: Capability[]; failure?: { code: string; message?: string; request_id?: string }; user_id?: string; login_session_id?: string };
+/** Client-facing asset page also carries the visible group forest, for the ZeroTerm-style tree. */
+export type AssetPage = Page<Asset> & { policy_revision: number; groups?: AssetGroup[] };
+export type Ticket = { session_id: string; ws_token: string; connection_id: string; expires_at: string; target_protocol: TargetProtocol; stream_protocol: 'bastion.guac.v1' | 'bastion.ssh.v1' };
+export type Info = { server_id?: string; schema_version: 2; protocol_version: 2; stream_protocol: 'bastion.guac.v1'; production_ready: false; features: Record<'web_ssh' | 'web_rdp' | 'web_vnc' | 'recording_replay' | 'device_sessions', boolean>; recording: { required: boolean; available: boolean; format_version: 2 } };
+export type AdminAsset = { id: string; name: string; host: string; port: number; protocol: TargetProtocol; security: 'nla' | 'tls' | null; ssh_host_key: string | null; rdp_certificate_sha256: string | null; tags: string[]; group_id: string | null; enabled: boolean; revision: number };
+export type AdminAccount = Account & { asset_id: string; enabled: boolean; revision: number; credential_revision: number | null };
+export type RdpCertificateScan = { asset_id: string; host: string; port: number; revision: number; approved_sha256: string | null; approved_security: 'nla' | 'tls' | null; sha256: string; selected_protocol: 'tls' | 'nla' | 'nla-ex'; security: 'nla' | 'tls' };
+export type SshHostKeyScan = { asset_id: string; host: string; port: number; revision: number; approved_fingerprint: string | null; keys: { public_key: string; fingerprint: string; algorithm: string }[] };
+export type Credential = { type: 'none' } | { type: 'password'; password: string } | { type: 'private_key'; key_pem: string; passphrase: string | null };
+export type AccountInput = { label: string; username: string | null; domain: string | null; credential: Credential };
+export type Grant = { id: string; user_id: string; asset_id: string; account_id: string; enabled: boolean; expires_at: string | null; revision: number; username?: string; asset_name?: string; account_label?: string };
+export type Connection = { id: string; ticket_id: string; asset_id: string; account_id: string; state: string; target_protocol: TargetProtocol; display: DisplaySize; protocol_version: 2; created_at: string; failure: { code: string; message?: string; request_id?: string } | null; user_id: string | null; login_session_id: string | null };
 export type Audit = Record<string, unknown> & { id: string };
 export type DeviceSession = { id: string; device_label: string; current: boolean; created_at: string; expires_at?: string; revoked_at?: string | null };
 export type Recording = { id: string; state?: string; status?: string; format_version?: number; connection_id?: string; [key: string]: unknown };
-export type FileMetadata = { size?: number | null; permissions?: number | null; mtime?: number | null; kind: 'file' | 'directory' | 'symlink' | 'other' };
-export type DirectoryEntry = { name: string; metadata: FileMetadata };
-export type CopyRequest = { source_asset_id: string; source_account_id: string; source_path: string; destination_asset_id: string; destination_account_id: string; destination_path: string; bytes_total?: number };
-export type CopyJob = { id: string; state: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled' | 'interrupted'; [key: string]: unknown };
 export type Query = Record<string, string | number | undefined>;
 export function queryString(query: Query = {}): string {
   const params = new URLSearchParams();
@@ -33,7 +33,11 @@ export class ApiError extends Error {
   code: string; requestId: string; status: number;
   constructor(code: string, message: string, requestId = '', status = 0) { super(message); this.name = 'ApiError'; this.code = code; this.requestId = requestId; this.status = status; }
 }
-export type RequestOptions = { method?: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE'; body?: unknown; rawBody?: BodyInit; contentType?: string; revision?: number; signal?: AbortSignal; stream?: boolean };
+export function validateInfo(info: Info): Info {
+  if (!info || info.schema_version !== 2 || info.protocol_version !== 2 || info.stream_protocol !== 'bastion.guac.v1' || info.production_ready !== false || info.recording?.format_version !== 2 || typeof info.recording.required !== 'boolean' || typeof info.recording.available !== 'boolean' || !['web_ssh', 'web_rdp', 'web_vnc', 'recording_replay', 'device_sessions'].every(key => typeof info.features?.[key as keyof Info['features']] === 'boolean')) throw new ApiError('CLIENT_PROTOCOL_UNSUPPORTED', '需要完整的 Guacamole v2 能力发现；当前版本不能宣称生产验收。');
+  return info;
+}
+export type RequestOptions = { method?: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE'; body?: unknown; revision?: number; signal?: AbortSignal; stream?: boolean };
 export class ApiClient {
   private csrf = '';
   private transport: typeof fetch;
@@ -57,12 +61,10 @@ export class ApiClient {
       if (!Number.isSafeInteger(options.revision) || options.revision <= 0) throw new ApiError('INVALID_REVISION', '修订号必须为正整数。');
       headers.set('If-Match', `"${options.revision}"`);
     }
-    if (options.body !== undefined && options.rawBody !== undefined) throw new ApiError('INVALID_BODY', 'JSON 与原始请求体不能混用。');
     if (options.body !== undefined) headers.set('Content-Type', 'application/json');
-    if (options.rawBody !== undefined) headers.set('Content-Type', options.contentType ?? 'application/octet-stream');
     let response: Response;
     try {
-      response = await this.transport(url.href, { method, headers, body: options.rawBody ?? (options.body === undefined ? undefined : JSON.stringify(options.body)), credentials: 'include', mode: 'same-origin', cache: 'no-store', redirect: 'error', signal: options.signal ? AbortSignal.any([options.signal, AbortSignal.timeout(options.stream ? 300000 : 15000)]) : AbortSignal.timeout(options.stream ? 300000 : 15000) });
+      response = await this.transport(url.href, { method, headers, body: options.body === undefined ? undefined : JSON.stringify(options.body), credentials: 'include', mode: 'same-origin', cache: 'no-store', redirect: 'error', signal: options.stream ? options.signal : options.signal ? AbortSignal.any([options.signal, AbortSignal.timeout(15000)]) : AbortSignal.timeout(15000) });
     } catch (error) {
       if (options.signal?.aborted && !mutation) throw error;
       throw new ApiError(mutation ? 'RESULT_UNKNOWN' : 'NETWORK_OR_TIMEOUT', mutation ? '请求中断；结果未知。请读取服务端状态，不会自动重试或重放。' : '读取失败或超时。');
@@ -83,58 +85,92 @@ export class ApiClient {
   }
   async loadCsrf(signal?: AbortSignal) { const result = await this.json<{ csrf_token: string }>('/api/v1/auth/csrf', { signal }); if (!result?.csrf_token) throw new ApiError('INVALID_RESPONSE', '缺少 CSRF token。'); this.csrf = result.csrf_token; }
   async loadMe(signal?: AbortSignal) { const result = await this.json<Me>('/api/v1/me', { signal }); if (!result?.user || typeof result.user.username !== 'string' || !result.login_session_id || !Number.isSafeInteger(result.policy_revision) || !result.csrf_token) throw new ApiError('INVALID_RESPONSE', '身份响应不完整。'); this.csrf = result.csrf_token; return result; }
-  info(signal?: AbortSignal) { return this.json<Info>('/api/v1/info', { signal }); }
-  login(body: { username: string; password: string; device_label: string; client_type: 'web' }, signal?: AbortSignal) { return this.json('/api/v1/auth/login', { method: 'POST', body, signal }); }
+  async info(signal?: AbortSignal) { return validateInfo(await this.json<Info>('/api/v1/info', { signal })); }
+  login(body: { username: string; password: string; device_label: string }, signal?: AbortSignal) { return this.json('/api/v1/auth/login', { method: 'POST', body, signal }); }
   logout(all = false, signal?: AbortSignal) { return this.json<void>(`/api/v1/auth/${all ? 'logout-all' : 'logout'}`, { method: 'POST', body: {}, signal }); }
   refresh(signal?: AbortSignal) { return this.json<void>('/api/v1/auth/refresh', { method: 'POST', body: {}, signal }); }
   changePassword(current_password: string, new_password: string, signal?: AbortSignal) { return this.json<void>('/api/v1/me/password', { method: 'POST', body: { current_password, new_password }, signal }); }
   async assets(query?: Query, signal?: AbortSignal) { return validateAssets(await this.json<AssetPage>(`/api/v1/assets${queryString(query)}`, { signal })); }
-  async session(asset_id: string, account_id: string, capability: Capability, purpose: 'terminal' | 'sftp' | 'server_tool' = 'terminal', signal?: AbortSignal) { return validateTicket(await this.json<Ticket>('/api/v1/sessions', { method: 'POST', body: { asset_id, account_id, capabilities: [capability], purpose }, signal }), capability); }
+  async asset(id: string, signal?: AbortSignal) { const asset = await this.json<Asset>(`/api/v1/assets/${encodeURIComponent(id)}`, { signal }); const value = validateAssets({ items: [asset], next_cursor: null, policy_revision: 1 }).items[0]; if (value.id !== id) throw new ApiError('INVALID_RESPONSE', '目标资产响应不匹配。'); return value; }
+  async session(asset_id: string, account_id: string, display: DisplaySize = DEFAULT_DISPLAY, signal?: AbortSignal) { validateDisplay(display); return validateTicket(await this.json<Ticket>('/api/v1/sessions', { method: 'POST', body: { asset_id, account_id, display }, signal })); }
   connection(id: string, signal?: AbortSignal) { return this.json<Connection>(`/api/v1/connections/${encodeURIComponent(id)}`, { signal }); }
   connections(query?: Query, signal?: AbortSignal) { return this.json<Page<Connection>>(`/api/v1/connections${queryString(query)}`, { signal }); }
-  channels(id: string, signal?: AbortSignal) { return this.json<Page<Record<string, unknown>>>(`/api/v1/connections/${encodeURIComponent(id)}/channels`, { signal }); }
   disconnect(id: string, signal?: AbortSignal) { return this.json<void>(`/api/v1/connections/${encodeURIComponent(id)}/disconnect`, { method: 'POST', body: {}, signal }); }
   audit(query?: Query, signal?: AbortSignal) { return this.json<Page<Audit>>(`/api/v1/audit-events${queryString(query)}`, { signal }); }
   devices(signal?: AbortSignal) { return this.json<Page<DeviceSession>>('/api/v1/me/sessions', { signal }); }
   revokeDevice(id: string, signal?: AbortSignal) { return this.json<void>(`/api/v1/me/sessions/${encodeURIComponent(id)}`, { method: 'DELETE', signal }); }
-  files(connection: string, path: string, signal?: AbortSignal) { return this.json<{ items: DirectoryEntry[] }>(`/api/v1/connections/${encodeURIComponent(connection)}/files${queryString({ path, operation: 'list' })}`, { signal }); }
-  statFile(connection: string, path: string, signal?: AbortSignal) { return this.json<FileMetadata>(`/api/v1/connections/${encodeURIComponent(connection)}/files${queryString({ path, operation: 'stat' })}`, { signal }); }
-  fileOperation(connection: string, body: { operation: 'mkdir' | 'remove' | 'rename'; path: string; destination?: string }, signal?: AbortSignal) { return this.json<void>(`/api/v1/connections/${encodeURIComponent(connection)}/files/operations`, { method: 'POST', body, signal }); }
-  download(connection: string, path: string, signal?: AbortSignal) { return this.response(`/api/v1/connections/${encodeURIComponent(connection)}/files/content${queryString({ path })}`, { signal, stream: true }); }
-  upload(connection: string, path: string, file: File, signal?: AbortSignal) { return this.json<{ bytes: number }>(`/api/v1/connections/${encodeURIComponent(connection)}/files/content${queryString({ path })}`, { method: 'PUT', rawBody: file, signal, stream: true }); }
   recordings(query?: Query, signal?: AbortSignal) { return this.json<Page<Recording>>(`/api/v1/recordings${queryString(query)}`, { signal }); }
-  copyJobs(query?: Query, signal?: AbortSignal) { return this.json<Page<CopyJob>>(`/api/v1/copy-jobs${queryString(query)}`, { signal }); }
-  createCopyJob(body: CopyRequest, signal?: AbortSignal) { return this.json<CopyJob>('/api/v1/copy-jobs', { method: 'POST', body, signal }); }
-  cancelCopyJob(id: string, signal?: AbortSignal) { return this.json<CopyJob>(`/api/v1/copy-jobs/${encodeURIComponent(id)}/cancel`, { method: 'POST', body: {}, signal }); }
   recording(id: string, signal?: AbortSignal) { return this.json<Recording>(`/api/v1/recordings/${encodeURIComponent(id)}`, { signal }); }
   recordingContent(id: string, signal?: AbortSignal) { return this.response(`/api/v1/recordings/${encodeURIComponent(id)}/content`, { signal, stream: true }); }
   users(query?: Query, signal?: AbortSignal) { return this.json<Page<User>>(`/api/v1/admin/users${queryString(query)}`, { signal }); }
   createUser(body: { username: string; password: string; role: Role }, signal?: AbortSignal) { return this.json<User>('/api/v1/admin/users', { method: 'POST', body, signal }); }
   updateUser(id: string, revision: number, body: { role?: Role; enabled?: boolean }, signal?: AbortSignal) { return this.json<User>(`/api/v1/admin/users/${encodeURIComponent(id)}`, { method: 'PATCH', revision, body, signal }); }
+  deleteUser(id: string, revision: number, signal?: AbortSignal) { return this.json<void>(`/api/v1/admin/users/${encodeURIComponent(id)}`, { method: 'DELETE', revision, signal }); }
   resetPassword(id: string, revision: number, password: string, signal?: AbortSignal) { return this.json<void>(`/api/v1/admin/users/${encodeURIComponent(id)}/reset-password`, { method: 'POST', revision, body: { password }, signal }); }
+  adminAsset(id: string, signal?: AbortSignal) { return this.json<AdminAsset>(`/api/v1/admin/assets/${encodeURIComponent(id)}`, { signal }); }
+  /** Discovery only: nothing is stored and no credential is sent; the admin confirms pin and security with PATCH. */
+  scanRdpCertificate(id: string, revision: number, signal?: AbortSignal) { return this.json<RdpCertificateScan>(`/api/v1/admin/assets/${encodeURIComponent(id)}/rdp-certificate/scan`, { method: 'POST', revision, signal }); }
+  scanSshHostKey(id: string, revision: number, signal?: AbortSignal) { return this.json<SshHostKeyScan>(`/api/v1/admin/assets/${encodeURIComponent(id)}/ssh-host-key/scan`, { method: 'POST', revision, signal }); }
   adminAssets(query?: Query, signal?: AbortSignal) { return this.json<Page<AdminAsset>>(`/api/v1/admin/assets${queryString(query)}`, { signal }); }
-  createAsset(body: { name: string; host: string; port: number; tags: string[] }, signal?: AbortSignal) { return this.json<AdminAsset>('/api/v1/admin/assets', { method: 'POST', body, signal }); }
-  updateAsset(id: string, revision: number, body: Partial<Pick<AdminAsset, 'name' | 'host' | 'port' | 'tags' | 'enabled'>>, signal?: AbortSignal) { return this.json<AdminAsset>(`/api/v1/admin/assets/${encodeURIComponent(id)}`, { method: 'PATCH', revision, body, signal }); }
+  assetGroups(query?: Query, signal?: AbortSignal) { return this.json<Page<AssetGroup>>(`/api/v1/admin/asset-groups${queryString(query)}`, { signal }); }
+  createAssetGroup(body: { name: string; parent_id?: string | null; sort_order?: number }, signal?: AbortSignal) { return this.json<AssetGroup>('/api/v1/admin/asset-groups', { method: 'POST', body, signal }); }
+  /** Rename and/or move in one call; `parent_id: null` promotes the group to a root. */
+  patchAssetGroup(id: string, revision: number, body: { name?: string; parent_id?: string | null; sort_order?: number }, signal?: AbortSignal) { return this.json<AssetGroup>(`/api/v1/admin/asset-groups/${encodeURIComponent(id)}`, { method: 'PATCH', revision, body, signal }); }
+  deleteAssetGroup(id: string, revision: number, signal?: AbortSignal) { return this.json<void>(`/api/v1/admin/asset-groups/${encodeURIComponent(id)}`, { method: 'DELETE', revision, signal }); }
+  createAsset(body: Pick<AdminAsset, 'name' | 'host' | 'port' | 'protocol' | 'tags'> & Partial<Pick<AdminAsset, 'security' | 'ssh_host_key' | 'rdp_certificate_sha256' | 'group_id'>>, signal?: AbortSignal) { return this.json<AdminAsset>('/api/v1/admin/assets', { method: 'POST', body, signal }); }
+  updateAsset(id: string, revision: number, body: Partial<Pick<AdminAsset, 'name' | 'host' | 'port' | 'tags' | 'enabled' | 'security' | 'ssh_host_key' | 'rdp_certificate_sha256' | 'group_id'>>, signal?: AbortSignal) { return this.json<AdminAsset>(`/api/v1/admin/assets/${encodeURIComponent(id)}`, { method: 'PATCH', revision, body, signal }); }
+  /** Soft delete: the asset and every account under it leave the catalogs, tickets are revoked and live sessions close. */
+  deleteAsset(id: string, revision: number, signal?: AbortSignal) { return this.json<void>(`/api/v1/admin/assets/${encodeURIComponent(id)}`, { method: 'DELETE', revision, signal }); }
+  deleteAccount(id: string, revision: number, signal?: AbortSignal) { return this.json<void>(`/api/v1/admin/accounts/${encodeURIComponent(id)}`, { method: 'DELETE', revision, signal }); }
   accounts(asset: string, query?: Query, signal?: AbortSignal) { return this.json<Page<AdminAccount>>(`/api/v1/admin/assets/${encodeURIComponent(asset)}/accounts${queryString(query)}`, { signal }); }
-  createAccount(asset: string, username: string, credential: Credential, signal?: AbortSignal) { return this.json<AdminAccount>(`/api/v1/admin/assets/${encodeURIComponent(asset)}/accounts`, { method: 'POST', body: { username, credential }, signal }); }
-  updateAccount(id: string, revision: number, body: { username?: string; enabled?: boolean }, signal?: AbortSignal) { return this.json<AdminAccount>(`/api/v1/admin/accounts/${encodeURIComponent(id)}`, { method: 'PATCH', revision, body, signal }); }
+  createAccount(asset: string, body: AccountInput, signal?: AbortSignal) { return this.json<AdminAccount>(`/api/v1/admin/assets/${encodeURIComponent(asset)}/accounts`, { method: 'POST', body, signal }); }
+  updateAccount(id: string, revision: number, body: Partial<Pick<AdminAccount, 'label' | 'username' | 'domain' | 'enabled'>>, signal?: AbortSignal) { return this.json<AdminAccount>(`/api/v1/admin/accounts/${encodeURIComponent(id)}`, { method: 'PATCH', revision, body, signal }); }
   replaceCredential(id: string, revision: number, credential: Credential, signal?: AbortSignal) { return this.json<AdminAccount>(`/api/v1/admin/accounts/${encodeURIComponent(id)}/credential`, { method: 'PUT', revision, body: credential, signal }); }
-  testAccount(id: string, signal?: AbortSignal) { return this.json<{ authenticated: boolean }>(`/api/v1/admin/accounts/${encodeURIComponent(id)}/test`, { method: 'POST', body: {}, signal }); }
-  hostKeys(asset: string, query?: Query, signal?: AbortSignal) { return this.json<Page<HostKey>>(`/api/v1/admin/assets/${encodeURIComponent(asset)}/host-keys${queryString(query)}`, { signal }); }
-  scanHostKey(asset: string, signal?: AbortSignal) { return this.json<HostKey>(`/api/v1/admin/assets/${encodeURIComponent(asset)}/host-key-scan`, { method: 'POST', body: {}, signal }); }
-  approveHostKey(asset: string, algorithm: string, public_key: string, signal?: AbortSignal) { return this.json<HostKey>(`/api/v1/admin/assets/${encodeURIComponent(asset)}/host-keys`, { method: 'POST', body: { algorithm, public_key }, signal }); }
-  revokeHostKey(asset: string, id: string, revision: number, signal?: AbortSignal) { return this.json<void>(`/api/v1/admin/assets/${encodeURIComponent(asset)}/host-keys/${encodeURIComponent(id)}`, { method: 'DELETE', revision, signal }); }
   grants(query?: Query, signal?: AbortSignal) { return this.json<Page<Grant>>(`/api/v1/admin/grants${queryString(query)}`, { signal }); }
-  createGrant(body: Pick<Grant, 'user_id' | 'asset_id' | 'account_id' | 'capabilities' | 'expires_at'>, signal?: AbortSignal) { return this.json<Grant>('/api/v1/admin/grants', { method: 'POST', body, signal }); }
-  updateGrant(id: string, revision: number, body: Partial<Pick<Grant, 'capabilities' | 'enabled' | 'expires_at'>>, signal?: AbortSignal) { return this.json<Grant>(`/api/v1/admin/grants/${encodeURIComponent(id)}`, { method: 'PATCH', revision, body, signal }); }
+  createGrant(body: Pick<Grant, 'user_id' | 'asset_id' | 'account_id' | 'expires_at'>, signal?: AbortSignal) { return this.json<Grant>('/api/v1/admin/grants', { method: 'POST', body, signal }); }
+  updateGrant(id: string, revision: number, body: Partial<Pick<Grant, 'enabled' | 'expires_at'>>, signal?: AbortSignal) { return this.json<Grant>(`/api/v1/admin/grants/${encodeURIComponent(id)}`, { method: 'PATCH', revision, body, signal }); }
   revokeGrant(id: string, revision: number, signal?: AbortSignal) { return this.json<void>(`/api/v1/admin/grants/${encodeURIComponent(id)}`, { method: 'DELETE', revision, signal }); }
 }
+const protocol = (value: unknown): value is TargetProtocol => ['ssh', 'rdp', 'vnc'].includes(String(value));
+const validGroup = (value: unknown): value is AssetGroup => !!value && typeof value === 'object'
+  && typeof (value as AssetGroup).id === 'string' && !!(value as AssetGroup).id
+  && typeof (value as AssetGroup).name === 'string'
+  && Number.isSafeInteger((value as AssetGroup).sort_order)
+  && ((value as AssetGroup).parent_id === null || (typeof (value as AssetGroup).parent_id === 'string' && !!(value as AssetGroup).parent_id));
 export function validateAssets(result: AssetPage): AssetPage {
-  if (!result || !Array.isArray(result.items) || (result.next_cursor !== null && typeof result.next_cursor !== 'string') || typeof result.policy_revision !== 'number' || !result.items.every(asset => typeof asset.id === 'string' && typeof asset.name === 'string' && (asset.tags === undefined || Array.isArray(asset.tags) && asset.tags.every(tag => typeof tag === 'string')) && Array.isArray(asset.accounts) && asset.accounts.every(account => typeof account.id === 'string' && typeof account.username === 'string' && Array.isArray(account.capabilities) && account.capabilities.every(cap => ['shell', 'exec', 'sftp'].includes(cap))))) throw new ApiError('INVALID_RESPONSE', '授权资产响应不完整。');
+  if (!result || !Array.isArray(result.items) || !(result.next_cursor === null || typeof result.next_cursor === 'string') || !Number.isSafeInteger(result.policy_revision) || result.policy_revision < 1 || !result.items.every(asset => asset && typeof asset.id === 'string' && !!asset.id && typeof asset.name === 'string' && protocol(asset.protocol) && ((asset.group_id === null && asset.group_name === null) || (typeof asset.group_id === 'string' && !!asset.group_id && typeof asset.group_name === 'string' && !!asset.group_name && [...asset.group_name].length <= 128)) && (asset.tags === undefined || Array.isArray(asset.tags) && asset.tags.every(tag => typeof tag === 'string')) && Array.isArray(asset.accounts) && asset.accounts.every(account => account && typeof account.id === 'string' && !!account.id && typeof account.label === 'string' && !!account.label && (asset.protocol === 'vnc' ? account.username === null : typeof account.username === 'string' && !!account.username) && (asset.protocol === 'rdp' ? account.domain === null || typeof account.domain === 'string' : account.domain === null) && ['none', 'password', 'private_key'].includes(account.credential_kind) && (account.credential_kind !== 'none' || asset.protocol === 'vnc') && (account.credential_kind !== 'private_key' || asset.protocol === 'ssh')))) throw new ApiError('INVALID_RESPONSE', '可用资产响应不完整。');
+  // The group forest is optional for older servers, but a malformed one must not silently break the tree.
+  if (result.groups !== undefined && (!Array.isArray(result.groups) || !result.groups.every(validGroup))) throw new ApiError('INVALID_RESPONSE', '资产分组响应不完整。');
   return result;
 }
-export function validateTicket(ticket: Ticket, capability: Capability = 'shell'): Ticket {
-  if (!ticket || ticket.protocol_version !== 1) throw new ApiError('CLIENT_PROTOCOL_UNSUPPORTED', '需要兼容 v1 的服务端/客户端。');
-  if (!ticket.session_id || typeof ticket.ws_token !== 'string' || !/^[A-Za-z0-9_-]+$/.test(ticket.ws_token) || !ticket.connection_id || !Number.isFinite(Date.parse(ticket.expires_at)) || !Array.isArray(ticket.capabilities) || !ticket.capabilities.includes(capability)) throw new ApiError('INVALID_RESPONSE', '会话票据响应不完整。');
+/** Nest a flat group list by parent_id into a depth-annotated forest, ordered by sort_order then name. */
+export function groupTree(groups: AssetGroup[]): { group: AssetGroup; depth: number }[] {
+  const known = new Set(groups.map(group => group.id)), childrenOf = new Map<string | null, AssetGroup[]>();
+  for (const group of groups) {
+    // A group whose parent is not visible is promoted to a root so a partial forest still renders.
+    const parent = group.parent_id !== null && known.has(group.parent_id) ? group.parent_id : null;
+    if (!childrenOf.has(parent)) childrenOf.set(parent, []);
+    childrenOf.get(parent)!.push(group);
+  }
+  for (const list of childrenOf.values()) list.sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name, undefined, { numeric: true }));
+  const out: { group: AssetGroup; depth: number }[] = [], emitted = new Set<string>();
+  const walk = (parent: string | null, depth: number, path: Set<string>) => {
+    for (const group of childrenOf.get(parent) ?? []) {
+      if (path.has(group.id) || emitted.has(group.id)) continue; // a cycle must not loop forever
+      emitted.add(group.id); out.push({ group, depth });
+      path.add(group.id); walk(group.id, depth + 1, path); path.delete(group.id);
+    }
+  };
+  walk(null, 0, new Set());
+  // Groups caught in a cycle have no reachable root; render them rather than dropping them silently.
+  for (const group of groups) {
+    if (emitted.has(group.id)) continue;
+    emitted.add(group.id); out.push({ group, depth: 0 }); walk(group.id, 1, new Set([group.id]));
+  }
+  return out;
+}
+export function validateTicket(ticket: Ticket): Ticket {
+  if (!ticket || ticket.stream_protocol !== (ticket.target_protocol === 'ssh' ? 'bastion.ssh.v1' : 'bastion.guac.v1')) throw new ApiError('CLIENT_PROTOCOL_UNSUPPORTED', '会话协议与目标不匹配。');
+  if (!ticket.session_id || typeof ticket.ws_token !== 'string' || !/^[A-Za-z0-9_-]+$/.test(ticket.ws_token) || !ticket.connection_id || !Number.isFinite(Date.parse(ticket.expires_at)) || !protocol(ticket.target_protocol)) throw new ApiError('INVALID_RESPONSE', '会话票据响应不完整。');
   return ticket;
 }

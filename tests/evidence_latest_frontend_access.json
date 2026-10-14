@@ -1,0 +1,21 @@
+{
+  "production_ready": false,
+  "validation_scope": "HTTPS accessibility and readiness only",
+  "checked_at": "2026-10-10T08:31:11.137Z",
+  "checks": {
+    "/": {
+      "status": 200
+    },
+    "/health/live": {
+      "status": 200
+    },
+    "/health/ready": {
+      "status": 200
+    },
+    "/api/v1/info": {
+      "status": 200
+    }
+  },
+  "server_id": "zeroterm-test-guac-v2",
+  "status": "passed"
+}

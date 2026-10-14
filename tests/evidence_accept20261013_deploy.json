@@ -1,0 +1,103 @@
+{
+  "production_ready": false,
+  "change": "xterm Ctrl+V native paste; user menu without IDs; acceptance-verified app2 image",
+  "app_image_id": "sha256:e1c5419db24e98c4d5863c7f4c71fef4ec9a395807ae881fd168edf4eccd90d2",
+  "acceptance": "docs/guacamole-execution.md 2026-10-13 non-NLA rerun (recovery and SSH clipboard on this image)",
+  "live_source_synced": [
+    "tests/browser_e2e.mjs",
+    "tests/browser_groups.mjs",
+    "tests/docker_recording_probe.py",
+    "web/index.html",
+    "web/src/main.ts",
+    "web/src/style.css",
+    "web/src/terminal.ts",
+    "web/tests/terminal.mjs"
+  ],
+  "before_container_ids": {
+    "postgres": "e137b681c5e6da096c4ae6852c45cc7abc6d5f96f25a60473231481854f6d229",
+    "guacd": "0e8921f75f0923d78638a8e806e94fcd86cd73c6d2b5c1ff1c57e79a8e605f31",
+    "bastion": "65b25c8d38dc19d359dcfe6c630b73f719796a316ed6b14ae3887ab899fb426b",
+    "proxy": "66252f1dd5899f81783d8fc5ad71e6d2da77e54cef57d5ec2ed9493933ee9939"
+  },
+  "before_legacy_container_ids": {
+    "zeroterm-test-proxy-1": "dc50db74d046af96b3efa726ec6a01dea6687c814b64600224bcd14c9617a35e",
+    "zeroterm-test-bastion-1": "3740c44fce2d03b190d058b89074b8d1d91f24f1e1cd470974ef6d362b894ea5",
+    "zeroterm-test-postgres-1": "af33155853c68cd73d53ab5c6ff4f2f71a8cc13689428ab1f5b01bfc272d91df",
+    "zeroterm-test-target-a-1": "3800fb75a827c9a9202d1da4897a3fe43d09be41fc73040caffc89fd5937115a",
+    "zeroterm-test-target-b-1": "ece98fbaf40e27bc31af17faa78405aac9c9699b5bc93bab285dbd548d8949ac"
+  },
+  "before_data_counts": "1|4|6|6|0|2",
+  "before_frontend_assets": {
+    "/assets/index-DW4ehTkR.js": "dc6e35dd5a6f54cd762d09bdeeabcdbbd501348794b4f0774827bc35798cadd4",
+    "/assets/index-BKvbV9Mx.css": "fff90d23da7698ec6ef52a938fc32f62db69e2e91dd37ae6304e2c11348a74db",
+    "/guacamole/all.js": "b31a4384599f7498bcabf91ed934124ea5df30231310aa78407d3c3754287633"
+  },
+  "after_container_ids": {
+    "postgres": "e137b681c5e6da096c4ae6852c45cc7abc6d5f96f25a60473231481854f6d229",
+    "guacd": "0e8921f75f0923d78638a8e806e94fcd86cd73c6d2b5c1ff1c57e79a8e605f31",
+    "bastion": "2476b9ca420d6d17e286d2a672770767fd452344172e8e848456cb9c1d2c7cd1",
+    "proxy": "7cc1da07d7ff02001ca6619275747ea219e30d2e5e049deab9c050a701f84052"
+  },
+  "after_legacy_container_ids": {
+    "zeroterm-test-proxy-1": "dc50db74d046af96b3efa726ec6a01dea6687c814b64600224bcd14c9617a35e",
+    "zeroterm-test-bastion-1": "3740c44fce2d03b190d058b89074b8d1d91f24f1e1cd470974ef6d362b894ea5",
+    "zeroterm-test-postgres-1": "af33155853c68cd73d53ab5c6ff4f2f71a8cc13689428ab1f5b01bfc272d91df",
+    "zeroterm-test-target-a-1": "3800fb75a827c9a9202d1da4897a3fe43d09be41fc73040caffc89fd5937115a",
+    "zeroterm-test-target-b-1": "ece98fbaf40e27bc31af17faa78405aac9c9699b5bc93bab285dbd548d8949ac"
+  },
+  "database_and_engine_not_recreated": true,
+  "legacy_containers_unchanged": true,
+  "after_data_counts": "1|4|6|6|0|2",
+  "after_frontend_assets": {
+    "/assets/index-hU-NsQTO.js": "feb53422c0d5efdee17a6b5cda3d2cc1557ebbdb345a12de5c2f40185933140f",
+    "/assets/index-iM_PG5rb.css": "2d56b11833876e975865d42cb0fc89b92cc5a3df6bac6ff8f405c4dfb3ea2430",
+    "/guacamole/all.js": "b31a4384599f7498bcabf91ed934124ea5df30231310aa78407d3c3754287633"
+  },
+  "live": {
+    "info": {
+      "features": {
+        "device_sessions": true,
+        "recording_replay": true,
+        "web_rdp": true,
+        "web_ssh": true,
+        "web_vnc": false
+      },
+      "production_ready": false,
+      "protocol_version": 2,
+      "recording": {
+        "available": true,
+        "format_version": 2,
+        "required": true
+      },
+      "schema_version": 2,
+      "server_id": "zeroterm-test-guac-v2",
+      "stream_protocol": "bastion.guac.v1",
+      "stream_protocols": {
+        "rdp": "bastion.guac.v1",
+        "ssh": "bastion.ssh.v1",
+        "vnc": "bastion.guac.v1"
+      }
+    },
+    "frontend_assets": {
+      "/assets/index-hU-NsQTO.js": "feb53422c0d5efdee17a6b5cda3d2cc1557ebbdb345a12de5c2f40185933140f",
+      "/assets/index-iM_PG5rb.css": "2d56b11833876e975865d42cb0fc89b92cc5a3df6bac6ff8f405c4dfb3ea2430",
+      "/guacamole/all.js": "b31a4384599f7498bcabf91ed934124ea5df30231310aa78407d3c3754287633"
+    },
+    "user": "admin",
+    "admin_assets": 2,
+    "grants": {
+      "temporary_grant": "eaf51b6c-7723-4158-98c5-7b0c67b1a11e",
+      "resolved": {
+        "username": "admin",
+        "asset_name": "Jakarta",
+        "account_label": "root"
+      },
+      "listed_total": 1,
+      "revoke": "soft-disabled, row retained by design",
+      "temporary_grant_removed": true,
+      "restored_total": 0
+    }
+  },
+  "status": "updated-test-service",
+  "finished_at": "2026-10-13T10:57:18Z"
+}

@@ -1,0 +1,351 @@
+{
+  "production_ready": false,
+  "windows_nla_verified": false,
+  "native_os_ime_verified": false,
+  "fixture_server_id": "zt-guac-v2-next-20261009-a93f6e1b-browser7",
+  "engine_image_id": "sha256:63926f22592fad15ee841e8e7488020a6b0f17a257205f06a725718415c01e1e",
+  "profiles": [
+    {
+      "label": "ssh-password",
+      "protocol": "ssh",
+      "connection_id": "8d31c240-a5b7-4fe1-828d-6c264c5904ca",
+      "keyboard_target_roundtrip": true,
+      "unicode_input": true,
+      "non_bmp_input_supported": false,
+      "scaled_mouse_input": true,
+      "focus_release": true,
+      "fullscreen": true,
+      "canvas_sha256": "7f5f96dab38bf6bed608cfa524a8c107dd16d06f44e5ca4dc78af0be73365919",
+      "recording_id": "f8575183-a1a4-407d-882f-04b7928cb0f1",
+      "offline_verified_replay": true
+    },
+    {
+      "label": "ssh-private-key",
+      "protocol": "ssh",
+      "connection_id": "6b050c95-993f-4267-9b18-56de5e157fd4",
+      "keyboard_target_roundtrip": true,
+      "unicode_input": true,
+      "non_bmp_input_supported": false,
+      "scaled_mouse_input": true,
+      "focus_release": true,
+      "fullscreen": true,
+      "canvas_sha256": "f9ab8f826de48c54ffe9ca785ee9e2b350a7948824eed5262c55f196ff43d783",
+      "recording_id": "f7ffc5cc-d20c-4119-bcb8-5639b776b74e",
+      "offline_verified_replay": true
+    },
+    {
+      "label": "ssh-encrypted-key",
+      "protocol": "ssh",
+      "connection_id": "d3b0d18c-4ac3-49ef-a5a9-a16884581db4",
+      "keyboard_target_roundtrip": true,
+      "unicode_input": true,
+      "non_bmp_input_supported": false,
+      "scaled_mouse_input": true,
+      "focus_release": true,
+      "fullscreen": true,
+      "canvas_sha256": "3e6c2e21ceb8fe5d1b7fb93d18a6ceee9f1dcb6d6475359a91727e88e0482903",
+      "recording_id": "ef33d3a4-a768-4bb2-b167-569ca4d33fdb",
+      "offline_verified_replay": true
+    },
+    {
+      "label": "rdp-tls",
+      "protocol": "rdp",
+      "connection_id": "c5509c7a-830a-484c-8924-9a732cc8fca2",
+      "keyboard_target_roundtrip": true,
+      "unicode_input": false,
+      "non_bmp_input_supported": false,
+      "target_input_limit": "xrdp TLS fixture ignores Unicode keyboard events; Windows NLA/IME not verified",
+      "scaled_mouse_input": true,
+      "focus_release": true,
+      "fullscreen": true,
+      "canvas_sha256": "6c2292fe2b9f6a48a18a8898d6148e84cfe6e5cb5c74b0cb94c9bce4c9bd618c",
+      "recording_id": "6f6b786f-b614-4f45-8b5b-b635cb7304a0",
+      "offline_verified_replay": true
+    },
+    {
+      "label": "vnc-none",
+      "protocol": "vnc",
+      "connection_id": "8a40aa1a-0619-4691-bed1-bbd31bfae751",
+      "keyboard_target_roundtrip": true,
+      "unicode_input": true,
+      "non_bmp_input_supported": true,
+      "scaled_mouse_input": true,
+      "focus_release": true,
+      "fullscreen": true,
+      "canvas_sha256": "7bc76292ac8be233352ae8e25ad1e79a8f7d5d33b37992341d7cace9c6504d40",
+      "recording_id": "609dcf88-305d-4d97-9eb3-59febfb35955",
+      "offline_verified_replay": true
+    },
+    {
+      "label": "vnc-password",
+      "protocol": "vnc",
+      "connection_id": "ee65ffc7-8bf8-4997-9c36-a5bf30f3aed5",
+      "keyboard_target_roundtrip": true,
+      "unicode_input": true,
+      "non_bmp_input_supported": true,
+      "scaled_mouse_input": true,
+      "focus_release": true,
+      "fullscreen": true,
+      "canvas_sha256": "9ea8d79565511dc9d620b440e5cba09596799a4b76c7ea2dca61dd6c8caa7b01",
+      "recording_id": "0a2aebfa-ef6e-4a9a-8406-e2c2e88770e2",
+      "offline_verified_replay": true
+    }
+  ],
+  "faults": {
+    "revocation": {
+      "closed_ms": 1037,
+      "recording_state": "partial"
+    },
+    "recording_permission": {
+      "closed": true,
+      "recording_state": "partial"
+    },
+    "periodic_checkpoint": {
+      "closed_without_further_user_input": true,
+      "autonomous_target_output": true,
+      "recording_state": "partial"
+    },
+    "guacd_outage": {
+      "connections_unavailable": true,
+      "management_authenticated": true,
+      "replay_available": true
+    }
+  },
+  "browser_version": "149.0.7827.55",
+  "https_trust": "only the independently obtained fixture proxy SPKI is excepted",
+  "unicode_keysyms": [
+    [
+      16797229,
+      1
+    ],
+    [
+      16797229,
+      0
+    ],
+    [
+      16803207,
+      1
+    ],
+    [
+      16803207,
+      0
+    ],
+    [
+      16797229,
+      1
+    ],
+    [
+      16797229,
+      0
+    ],
+    [
+      16803207,
+      1
+    ],
+    [
+      16803207,
+      0
+    ],
+    [
+      16797229,
+      1
+    ],
+    [
+      16797229,
+      0
+    ],
+    [
+      16803207,
+      1
+    ],
+    [
+      16803207,
+      0
+    ],
+    [
+      16797229,
+      1
+    ],
+    [
+      16797229,
+      0
+    ],
+    [
+      16803207,
+      1
+    ],
+    [
+      16803207,
+      0
+    ],
+    [
+      16797229,
+      1
+    ],
+    [
+      16797229,
+      0
+    ],
+    [
+      16803207,
+      1
+    ],
+    [
+      16803207,
+      0
+    ],
+    [
+      16797229,
+      1
+    ],
+    [
+      16797229,
+      0
+    ],
+    [
+      16803207,
+      1
+    ],
+    [
+      16803207,
+      0
+    ],
+    [
+      16797229,
+      1
+    ],
+    [
+      16797229,
+      0
+    ],
+    [
+      16905728,
+      1
+    ],
+    [
+      16905728,
+      0
+    ],
+    [
+      16797229,
+      1
+    ],
+    [
+      16797229,
+      0
+    ],
+    [
+      16905728,
+      1
+    ],
+    [
+      16905728,
+      0
+    ],
+    [
+      16797229,
+      1
+    ],
+    [
+      16797229,
+      0
+    ],
+    [
+      16905728,
+      1
+    ],
+    [
+      16905728,
+      0
+    ],
+    [
+      16797229,
+      1
+    ],
+    [
+      16797229,
+      0
+    ],
+    [
+      16905728,
+      1
+    ],
+    [
+      16905728,
+      0
+    ]
+  ],
+  "mixed_protocol_smoke": {
+    "active_connections": 3,
+    "protocols": [
+      "ssh",
+      "rdp",
+      "vnc"
+    ],
+    "fourth_user_connection_rejected": true,
+    "resources": [
+      {
+        "BlockIO": "2.4MB / 4.1kB",
+        "CPUPerc": "0.02%",
+        "Container": "544745d96de4f22a398628d93085328856d3077d5fe205329242cc328d809a50",
+        "ID": "544745d96de4",
+        "MemPerc": "0.48%",
+        "MemUsage": "4.547MiB / 939.7MiB",
+        "Name": "zt-guac-v2-next-20261009-a93f6e1b-browser7-proxy-1",
+        "NetIO": "1.85MB / 1.87MB",
+        "PIDs": "3"
+      },
+      {
+        "BlockIO": "11.4MB / 1.35MB",
+        "CPUPerc": "0.43%",
+        "Container": "12ba3c1589c3d07d20292d214b9f7eb50b9d2cacd086d554fcdf3f4f2f1c1dd2",
+        "ID": "12ba3c1589c3",
+        "MemPerc": "1.48%",
+        "MemUsage": "13.93MiB / 939.7MiB",
+        "Name": "zt-guac-v2-next-20261009-a93f6e1b-browser7-bastion-1",
+        "NetIO": "8MB / 6.06MB",
+        "PIDs": "6"
+      },
+      {
+        "BlockIO": "146MB / 111MB",
+        "CPUPerc": "0.07%",
+        "Container": "2f247bd517980f680ab96f98c23336acfb4e8e5e361f5e55c594878ff1f16456",
+        "ID": "2f247bd51798",
+        "MemPerc": "8.23%",
+        "MemUsage": "77.34MiB / 939.7MiB",
+        "Name": "zt-guac-v2-next-20261009-a93f6e1b-browser7-guacd-1",
+        "NetIO": "717kB / 1.35MB",
+        "PIDs": "71"
+      },
+      {
+        "BlockIO": "342MB / 144MB",
+        "CPUPerc": "0.03%",
+        "Container": "f008b365605a66807e3deb110a3cb5a92837ac9c60c5eb656c8fd1b3b2ff3e36",
+        "ID": "f008b365605a",
+        "MemPerc": "33.48%",
+        "MemUsage": "64.29MiB / 192MiB",
+        "Name": "zt-guac-v2-next-20261009-a93f6e1b-browser7-target-1",
+        "NetIO": "181kB / 254kB",
+        "PIDs": "39"
+      },
+      {
+        "BlockIO": "44.8MB / 90.2MB",
+        "CPUPerc": "8.39%",
+        "Container": "a59b9c8373f10d61d157b4f3d10140ee5ac5fb840dca9433e5788eb968d32514",
+        "ID": "a59b9c8373f1",
+        "MemPerc": "1.25%",
+        "MemUsage": "11.7MiB / 939.7MiB",
+        "Name": "zt-guac-v2-next-20261009-a93f6e1b-browser7-postgres-1",
+        "NetIO": "346kB / 402kB",
+        "PIDs": "6"
+      }
+    ],
+    "capacity_acceptance_claimed": false
+  },
+  "status": "passed-real-browser-component",
+  "application_image_id": "sha256:9e2153250baec10a90ebca92c304b953d6d26275fd4645a3efff73d770ab4f64",
+  "executed_phases": [
+    "six profiles and mixed smoke in browser-final; checkpoint fixture targeted the obsolete cluster and failed",
+    "failed stage rerun against the restored cluster in browser-final2; no profile/mixed replay counted twice"
+  ]
+}

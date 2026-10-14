@@ -1,0 +1,24 @@
+{
+  "version": "1.6.0",
+  "archive": {
+    "url": "https://repo.maven.apache.org/maven2/org/apache/guacamole/guacamole-common-js/1.6.0/guacamole-common-js-1.6.0.zip",
+    "bytes": 268863,
+    "sha256": "718cde229cfa601c52ddc201afe3f3ed951b8b756957387776d0c460786f0448",
+    "review_measured_sha512": "228c08dd0b3e860bcbae1dbccfdcbe55652bebed2aec4c59b738ee025d1354d1e35983459bf25c57495c733d6502ec1e469e9bcb596235a3eac96b62345e1bac",
+    "verification": "SHA-256 matches supplied review handoff; parent verified official Maven artifact and Maven .sha1. SHA-512 is measured review data, not a claimed ASF official checksum/signature. Parent supplied extraction after this worker's verified HTTPS connections were reset."
+  },
+  "all.js": {
+    "bytes": 533971,
+    "sha256": "b31a4384599f7498bcabf91ed934124ea5df30231310aa78407d3c3754287633"
+  },
+  "LICENSE": {
+    "url": "https://raw.githubusercontent.com/apache/guacamole-client/1.6.0/LICENSE",
+    "bytes": 15705,
+    "sha256": "3c7f148c26065e0a581b5dda114e68e16243bf5ae0b4f6209749a0e3373201d5"
+  },
+  "NOTICE": {
+    "url": "https://raw.githubusercontent.com/apache/guacamole-client/1.6.0/NOTICE",
+    "bytes": 166,
+    "sha256": "9f1ec0252c59b209f5470b739039fcb5d29f51d832cef643000bf5e1d3dd29ff"
+  }
+}

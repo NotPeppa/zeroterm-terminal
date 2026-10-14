@@ -1,0 +1,13 @@
+{
+  "source_sha256": "81286a6de45eb3dacfa872840b43f635ac20cdab570ea1e95992cbb2d7f3554d",
+  "production_ready": false,
+  "phase": "target",
+  "app_exit": 0,
+  "app_image_id": "sha256:a0c5ccd83a96efcfd5274a98073e27c9c75b89d0dcb3ff040d9343373cb725f9",
+  "tests_exit": 0,
+  "tests_image_id": "sha256:c8373bfdea94fe9b3b2bea803e1f97f5fc929c5748e0e8ddb07bf4feb37d5e66",
+  "target_exit": 0,
+  "target_image_id": "sha256:00b66886dc82d6d54671d8a29b2243e347185ddaa79df092abfd4c1dda4a823b",
+  "status": "passed",
+  "finished_at": "2026-10-09T17:34:02Z"
+}

@@ -1,5 +1,5 @@
-//! Real PostgreSQL checks. Reuses the isolated fixture created by tests/m1_smoke.py.
-//! Run on Unix with BASTION_M1_FIXTURE set: cargo test -p bastion-store --test web_sessions -- --ignored.
+//! Real PostgreSQL checks. Requires a fresh, explicitly disposable schema2 owner fixture (zt-guac-v2- server ID).
+//! Run on Unix with BASTION_GUAC_STORE_FIXTURE set: cargo test -p bastion-store --test web_sessions -- --ignored.
 #[path = "../../../tests/pg_fixture.rs"]
 mod pg_fixture;
 use bastion_domain::*;
@@ -19,8 +19,8 @@ struct Fixture {
 }
 
 #[tokio::test]
-#[ignore = "requires isolated real PostgreSQL and BASTION_M1_FIXTURE; no database is bundled"]
-async fn web_transport_owner_replay_expiry_and_login_domains() {
+#[ignore = "requires BASTION_GUAC_STORE_FIXTURE or stdin: disposable zt-guac-v2- PostgreSQL schema2 owner fixture; no database is bundled"]
+async fn browser_owner_replay_expiry_and_revision_binding() {
     let (fixture, url) = pg_fixture::load::<Fixture>();
     let store = PgStore::connect(url.expose(), &fixture.server_id, &fixture.gateway_id)
         .await
@@ -60,55 +60,21 @@ async fn web_transport_owner_replay_expiry_and_login_domains() {
         .authenticate_web(&other_login.access_token)
         .await
         .unwrap();
-    let bearer = store
-        .login(&user, &phc, "zeroterm", Uuid::new_v4())
-        .await
-        .unwrap();
-    assert!(matches!(
-        store.authenticate(&web.access_token).await,
-        Err(ErrorCode::Unauthenticated)
-    ));
-    assert!(matches!(
-        store.authenticate_web(&bearer.access_token).await,
-        Err(ErrorCode::Unauthenticated)
-    ));
-    assert!(matches!(
-        store.refresh(&web.refresh_token, Uuid::new_v4()).await,
-        Err(ErrorCode::Unauthenticated)
-    ));
-    assert!(matches!(
-        store
-            .refresh_web(&bearer.refresh_token, Uuid::new_v4())
-            .await,
-        Err(ErrorCode::Unauthenticated)
-    ));
-    // Cross-domain refresh rejection must not revoke the legitimate family.
-    store.authenticate(&bearer.access_token).await.unwrap();
-    store.authenticate_web(&web.access_token).await.unwrap();
-
     let grant = store
         .create_grant(
             &administrator,
             user.id,
             fixture.asset_id,
             fixture.account_id,
-            &[Capability::Shell],
             None,
             Uuid::new_v4(),
         )
         .await
         .unwrap();
-    let request = TicketRequest {
+    let request = SessionRequest {
         asset_id: fixture.asset_id,
         account_id: fixture.account_id,
-        capabilities: vec![Capability::Shell],
-        purpose: Purpose::Terminal,
-    };
-    let gateway = GatewayAddress {
-        id: fixture.gateway_id.clone(),
-        host: "127.0.0.1".into(),
-        port: 2222,
-        username: String::new(),
+        display: Display::default(),
     };
     let issue = || store.issue_web_session(&identity, request.clone(), Uuid::new_v4());
     let issue_started = std::time::Instant::now();
@@ -117,9 +83,23 @@ async fn web_transport_owner_replay_expiry_and_login_domains() {
         pg_fixture::failure(&store, "issue_web_session", issue_started.elapsed()).await;
     }
     let session = issue_result.unwrap();
+    assert_eq!(
+        session.stream_protocol,
+        session.target_protocol.stream_protocol()
+    );
+    let wrong_protocol = if session.target_protocol == TargetProtocol::Ssh {
+        STREAM_PROTOCOL
+    } else {
+        SSH_STREAM_PROTOCOL
+    };
     assert!(matches!(
         store
-            .consume_ticket(session.session_id, &session.ws_token)
+            .consume_web_session_with_stream(
+                session.session_id,
+                &session.ws_token,
+                &identity,
+                Some(wrong_protocol)
+            )
             .await,
         Err(ErrorCode::TicketInvalid)
     ));
@@ -146,8 +126,7 @@ async fn web_transport_owner_replay_expiry_and_login_domains() {
         .await
         .unwrap();
     assert_eq!(pending.state, ConnectionState::Pending);
-    assert_eq!(pending.transport, TicketTransport::Websocket);
-    assert_eq!(pending.protocol_version, 1);
+    assert_eq!(pending.protocol_version, 2);
     assert_eq!(
         sqlx::query_scalar::<_, String>("SELECT state FROM connection_tickets WHERE id=$1")
             .bind(session.session_id)
@@ -192,48 +171,10 @@ async fn web_transport_owner_replay_expiry_and_login_domains() {
             .await,
         Err(ErrorCode::TicketUsed)
     ));
-    let ssh = store
-        .issue_ticket(&identity, request.clone(), gateway, Uuid::new_v4())
-        .await
-        .unwrap();
-    assert!(matches!(
-        store
-            .consume_web_session(ssh.ticket_id, &ssh.ticket_secret, &identity)
-            .await,
-        Err(ErrorCode::TicketInvalid)
-    ));
-    let ssh_connection = store
-        .consume_ticket(ssh.ticket_id, &ssh.ticket_secret)
-        .await
-        .unwrap();
-    assert_eq!(ssh_connection.transport, TicketTransport::Ssh);
-    store
-        .transition(ssh_connection.id, ConnectionState::Failed, None)
-        .await
-        .unwrap();
-
-    // Even database writers cannot mismatch ticket and connection transport.
     let check = issue().await.unwrap();
-    for statement in [
-        "UPDATE connection_tickets SET transport='http' WHERE id=$1",
-        "UPDATE connection_tickets SET protocol_version=2 WHERE id=$1",
-    ] {
-        assert!(sqlx::query(statement)
-            .bind(check.session_id)
-            .execute(&store.pool)
-            .await
-            .is_err());
-    }
-    let mut mismatch = store.pool.begin().await.unwrap();
-    sqlx::query("UPDATE connections SET transport='ssh' WHERE id=$1")
-        .bind(check.connection_id)
-        .execute(&mut *mismatch)
-        .await
-        .unwrap();
-    assert!(mismatch.commit().await.is_err());
     assert!(
-        sqlx::query("UPDATE login_sessions SET client_type='other' WHERE id=$1")
-            .bind(identity.login_session_id)
+        sqlx::query("UPDATE connections SET protocol_version=1 WHERE id=$1")
+            .bind(check.connection_id)
             .execute(&store.pool)
             .await
             .is_err()
@@ -296,10 +237,6 @@ async fn web_transport_owner_replay_expiry_and_login_domains() {
             .consume_web_session(session.session_id, &session.ws_token, &identity)
             .await
             .unwrap();
-        store
-            .transition(connection.id, ConnectionState::Active, None)
-            .await
-            .unwrap();
         store.authorize_connection(&connection).await.unwrap();
         if login_deadline {
             sqlx::query("UPDATE login_sessions SET expires_at=clock_timestamp()+interval '750 milliseconds' WHERE id=$1")
@@ -350,7 +287,7 @@ async fn web_transport_owner_replay_expiry_and_login_domains() {
         .fetch_one(&mut *change)
         .await
         .unwrap();
-    sqlx::query("UPDATE target_accounts SET config_revision=config_revision+1 WHERE id=$1")
+    sqlx::query("UPDATE target_accounts SET security_revision=security_revision+1 WHERE id=$1")
         .bind(fixture.account_id)
         .execute(&mut *change)
         .await
@@ -380,7 +317,6 @@ async fn web_transport_owner_replay_expiry_and_login_domains() {
             user.id,
             fixture.asset_id,
             fixture.account_id,
-            &[Capability::Shell],
             None,
             Uuid::new_v4(),
         )
@@ -419,5 +355,4 @@ async fn web_transport_owner_replay_expiry_and_login_domains() {
             .await,
         Err(ErrorCode::LoginSessionRevoked)
     ));
-    store.authenticate(&bearer.access_token).await.unwrap();
 }

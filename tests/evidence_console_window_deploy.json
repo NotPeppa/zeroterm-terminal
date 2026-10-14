@@ -1,0 +1,10 @@
+{
+  "production_ready": false,
+  "backup_skipped_per_user_preference": true,
+  "source_sha256": "6c68baf7c0cf32763f90b46197164b597465b7f29898b3ccef4f6b4f27f16806",
+  "app_image_id": "sha256:e024c931ac65092b13896fb651894a17e585b47fe91d0abb2b0bd7aa1e29afc0",
+  "status": "updated",
+  "postgres_and_guacd_not_recreated": true,
+  "no_database_migration": true,
+  "finished_at": "2026-10-10T08:09:49Z"
+}

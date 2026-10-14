@@ -1,0 +1,11 @@
+{
+  "production_ready": false,
+  "windows_nla_verified": false,
+  "status": "passed-public-browser-account-name-forms",
+  "creation_name_optional_for_all_protocols": true,
+  "no_first_account_wording": true,
+  "existing_name_and_credentials_preserved": true,
+  "existing_automatic_name_edit_blank": true,
+  "no_admin_mutations": true,
+  "page_errors": []
+}

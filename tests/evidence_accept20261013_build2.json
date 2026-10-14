@@ -1,0 +1,15 @@
+{
+  "production_ready": false,
+  "base_source_sha256": "56a1a20f58f66607f5ceb36487d8516294163315108e030c0ec55fa75a9c7b8b",
+  "patch": "xterm plain Ctrl+V left to native browser paste",
+  "patch_files": [
+    "web/src/terminal.ts",
+    "web/tests/terminal.mjs",
+    "tests/browser_e2e.mjs",
+    "tests/browser_groups.mjs"
+  ],
+  "app_seconds": 13.5,
+  "app_image_id": "sha256:e1c5419db24e98c4d5863c7f4c71fef4ec9a395807ae881fd168edf4eccd90d2",
+  "status": "passed",
+  "finished_at": "2026-10-13T10:04:41Z"
+}

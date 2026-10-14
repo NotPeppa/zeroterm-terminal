@@ -1,0 +1,10 @@
+{
+  "source_sha256": "51a9dcb361838220a4397b53f0af0637bff70fe1aed3336a99944bc0119be5ac",
+  "production_ready": false,
+  "app_exit": 0,
+  "tests_exit": 0,
+  "app_image_id": "sha256:fce270fdcd8e2192063aef82be9e2894c4b76f5b5ce9ceedabc11c6f0ed9e4ea",
+  "linux_workspace_tests": "passed (opt-in external fixtures remain ignored)",
+  "status": "passed",
+  "finished_at": "2026-10-10T09:34:49Z"
+}

@@ -1,9 +1,13 @@
-//! RFC-004 recording keys and bounded ZTREC001 framing. File creation, fsync,
+//! RFC-005 recording keys and bounded ZTREC002 framing. File creation, fsync,
 //! checksum/metadata persistence and authorization belong to the caller.
 use anyhow::{bail, Result};
 use base64::{
     engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD},
     Engine,
+};
+use bastion_domain::{
+    validate_terminal_output, Display, GuacParser, TargetProtocol, MAX_INSTRUCTION_BYTES,
+    SSH_STREAM_PROTOCOL, STREAM_PROTOCOL,
 };
 use chacha20poly1305::{
     aead::{Aead, KeyInit, Payload},
@@ -16,8 +20,8 @@ use std::io::{self, Read, Write};
 use uuid::Uuid;
 use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
 
-pub const RECORDING_MAGIC: &[u8; 8] = b"ZTREC001";
-pub const RECORDING_FORMAT_VERSION: u32 = 1;
+pub const RECORDING_MAGIC: &[u8; 8] = b"ZTREC002";
+pub const RECORDING_FORMAT_VERSION: u32 = 2;
 pub const MAX_HEADER_LENGTH: usize = 16 * 1024;
 pub const MAX_CHUNK_PLAINTEXT: usize = 256 * 1024;
 pub const MAX_CHUNK_CIPHERTEXT: usize = MAX_CHUNK_PLAINTEXT + 16;
@@ -28,12 +32,21 @@ pub const MAX_OUTPUT_BYTES: usize = 32 * 1024;
 pub struct RecordingContext {
     pub server_id: String,
     pub recording_id: Uuid,
+    pub connection_id: Uuid,
+    pub target_protocol: TargetProtocol,
 }
 impl RecordingContext {
-    pub fn new(server_id: impl Into<String>, recording_id: Uuid) -> Self {
+    pub fn new(
+        server_id: impl Into<String>,
+        recording_id: Uuid,
+        connection_id: Uuid,
+        target_protocol: TargetProtocol,
+    ) -> Self {
         Self {
             server_id: server_id.into(),
             recording_id,
+            connection_id,
+            target_protocol,
         }
     }
     pub(crate) fn aad(&self) -> Result<Vec<u8>> {
@@ -41,9 +54,12 @@ impl RecordingContext {
             bail!(invalid("empty server identity"));
         }
         Ok(serde_json::to_vec(&(
-            "zt-recording-wrap-v1",
+            "zt-recording-wrap-v2",
             &self.server_id,
             self.recording_id,
+            self.connection_id,
+            self.target_protocol,
+            RECORDING_FORMAT_VERSION,
         ))?)
     }
 }
@@ -66,15 +82,21 @@ pub struct RecordingEnvelope {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RecordingHeader {
     pub recording_id: Uuid,
+    pub connection_id: Uuid,
+    pub target_protocol: TargetProtocol,
+    pub stream_protocol: String,
     pub nonce_prefix: [u8; 16],
 }
 impl RecordingHeader {
     /// Generate once for each fresh DEK/recording; persist before activating it.
-    pub fn new(recording_id: Uuid) -> Self {
+    pub fn new(recording_id: Uuid, connection_id: Uuid, target_protocol: TargetProtocol) -> Self {
         let mut nonce_prefix = [0u8; 16];
         rand::rngs::OsRng.fill_bytes(&mut nonce_prefix);
         Self {
             recording_id,
+            connection_id,
+            target_protocol,
+            stream_protocol: STREAM_PROTOCOL.into(),
             nonce_prefix,
         }
     }
@@ -133,13 +155,29 @@ fn invalid(reason: &'static str) -> anyhow::Error {
 struct HeaderJson {
     format_version: u32,
     recording_id: String,
+    connection_id: Uuid,
+    target_protocol: TargetProtocol,
+    #[serde(
+        default = "guac_stream_protocol",
+        skip_serializing_if = "is_guac_stream_protocol"
+    )]
+    stream_protocol: String,
     algorithm: String,
     nonce_prefix: String,
+}
+fn guac_stream_protocol() -> String {
+    STREAM_PROTOCOL.into()
+}
+fn is_guac_stream_protocol(value: &str) -> bool {
+    value == STREAM_PROTOCOL
 }
 fn header_bytes(header: &RecordingHeader) -> Result<Vec<u8>> {
     let json = serde_json::to_vec(&HeaderJson {
         format_version: RECORDING_FORMAT_VERSION,
         recording_id: header.recording_id.to_string(),
+        connection_id: header.connection_id,
+        target_protocol: header.target_protocol,
+        stream_protocol: header.stream_protocol.clone(),
         algorithm: "XChaCha20-Poly1305".into(),
         nonce_prefix: URL_SAFE_NO_PAD.encode(header.nonce_prefix),
     })?;
@@ -172,8 +210,14 @@ fn parse_header<R: Read>(reader: &mut R) -> Result<(RecordingHeader, [u8; 32])> 
     read_exact(reader, &mut json)?;
     let parsed: HeaderJson =
         serde_json::from_slice(&json).map_err(|_| invalid("malformed header JSON"))?;
-    if parsed.format_version != 1 || parsed.algorithm != "XChaCha20-Poly1305" {
+    if parsed.format_version != 2 || parsed.algorithm != "XChaCha20-Poly1305" {
         bail!(invalid("unsupported format or algorithm"));
+    }
+    if parsed.stream_protocol != STREAM_PROTOCOL
+        && !(parsed.stream_protocol == SSH_STREAM_PROTOCOL
+            && parsed.target_protocol == TargetProtocol::Ssh)
+    {
+        bail!(invalid("unsupported stream protocol"));
     }
     let recording_id =
         Uuid::parse_str(&parsed.recording_id).map_err(|_| invalid("invalid UUID"))?;
@@ -192,6 +236,9 @@ fn parse_header<R: Read>(reader: &mut R) -> Result<(RecordingHeader, [u8; 32])> 
     Ok((
         RecordingHeader {
             recording_id,
+            connection_id: parsed.connection_id,
+            target_protocol: parsed.target_protocol,
+            stream_protocol: parsed.stream_protocol,
             nonce_prefix,
         },
         hash.finalize().into(),
@@ -199,7 +246,7 @@ fn parse_header<R: Read>(reader: &mut R) -> Result<(RecordingHeader, [u8; 32])> 
 }
 fn frame_aad(hash: &[u8; 32], recording_id: Uuid, seq: u64) -> Vec<u8> {
     let mut aad = Vec::with_capacity(12 + 32 + 16 + 8);
-    aad.extend_from_slice(b"zt-record-v1");
+    aad.extend_from_slice(b"zt-record-v2");
     aad.extend_from_slice(hash);
     aad.extend_from_slice(recording_id.as_bytes());
     aad.extend_from_slice(&seq.to_be_bytes());
@@ -220,27 +267,18 @@ enum Event {
         seq: u64,
         elapsed_us: u64,
         format_version: u32,
-        term: String,
-        cols: u32,
-        rows: u32,
+        connection_id: String,
+        target_protocol: String,
+        #[serde(default)]
+        stream_protocol: Option<String>,
+        width: u32,
+        height: u32,
+        dpi: u32,
     },
     Output {
         seq: u64,
         elapsed_us: u64,
-        stream: String,
         data_base64: String,
-    },
-    Resize {
-        seq: u64,
-        elapsed_us: u64,
-        cols: u32,
-        rows: u32,
-    },
-    Exit {
-        seq: u64,
-        elapsed_us: u64,
-        exit_code: Option<u32>,
-        exit_signal: Option<String>,
     },
     End {
         seq: u64,
@@ -248,114 +286,125 @@ enum Event {
         reason: String,
     },
 }
-#[derive(Clone, Default)]
+#[derive(Clone)]
 struct EventState {
     next_seq: u64,
     elapsed_us: u64,
     ended: bool,
+    connection_id: Uuid,
+    target_protocol: TargetProtocol,
+    stream_protocol: String,
+    output: GuacParser,
 }
 impl EventState {
+    fn new(header: &RecordingHeader) -> Self {
+        Self {
+            next_seq: 0,
+            elapsed_us: 0,
+            ended: false,
+            connection_id: header.connection_id,
+            target_protocol: header.target_protocol,
+            stream_protocol: header.stream_protocol.clone(),
+            output: GuacParser::new(MAX_INSTRUCTION_BYTES),
+        }
+    }
     fn validate(&mut self, bytes: &[u8]) -> Result<()> {
         if bytes.is_empty() || bytes.len() > MAX_CHUNK_PLAINTEXT || !bytes.ends_with(b"\n") {
             bail!(invalid(
                 "chunk must contain 1..=256 KiB complete NDJSON lines"
             ));
         }
-        for line in bytes[..bytes.len() - 1].split(|byte| *byte == b'\n') {
+        for line in bytes[..bytes.len() - 1].split(|b| *b == b'\n') {
             if line.is_empty() || self.ended {
                 bail!(invalid("empty event or event after end"));
             }
             let event: Event =
                 serde_json::from_slice(line).map_err(|_| invalid("malformed event JSON"))?;
             let is_meta = matches!(event, Event::Meta { .. });
-            let (seq, elapsed_us) = match &event {
+            let (seq, elapsed) = match &event {
                 Event::Meta {
                     seq,
                     elapsed_us,
                     format_version,
-                    term,
-                    cols,
-                    rows,
+                    connection_id,
+                    target_protocol,
+                    stream_protocol,
+                    width,
+                    height,
+                    dpi,
                 } => {
                     if self.next_seq != 0
-                        || format_version != &1
-                        || term.is_empty()
-                        || cols == &0
-                        || rows == &0
+                        || *elapsed_us != 0
+                        || *format_version != 2
+                        || connection_id != &self.connection_id.to_string()
+                        || target_protocol != self.target_protocol.as_str()
+                        || stream_protocol.as_deref().unwrap_or(STREAM_PROTOCOL)
+                            != self.stream_protocol
+                        || (Display {
+                            width: *width,
+                            height: *height,
+                            dpi: *dpi,
+                        })
+                        .validate()
+                        .is_err()
                     {
                         bail!(invalid("invalid initial meta event"));
                     }
-                    (seq, elapsed_us)
+                    (*seq, *elapsed_us)
                 }
                 Event::Output {
                     seq,
                     elapsed_us,
-                    stream,
                     data_base64,
                 } => {
-                    if !matches!(stream.as_str(), "stdout" | "stderr")
-                        || data_base64.len() > MAX_OUTPUT_BYTES.div_ceil(3) * 4
-                    {
-                        bail!(invalid("invalid output stream or output size"));
+                    if data_base64.len() > MAX_OUTPUT_BYTES.div_ceil(3) * 4 {
+                        bail!(invalid("output exceeds limit"));
                     }
-                    let bytes = Zeroizing::new(
+                    let decoded = Zeroizing::new(
                         STANDARD
                             .decode(data_base64)
                             .map_err(|_| invalid("invalid output base64"))?,
                     );
-                    if bytes.is_empty() || bytes.len() > MAX_OUTPUT_BYTES {
+                    if decoded.is_empty() || decoded.len() > MAX_OUTPUT_BYTES {
                         bail!(invalid("output must contain 1..=32 KiB raw bytes"));
                     }
-                    (seq, elapsed_us)
-                }
-                Event::Resize {
-                    seq,
-                    elapsed_us,
-                    cols,
-                    rows,
-                } => {
-                    if cols == &0 || rows == &0 {
-                        bail!(invalid("invalid resize dimensions"));
+                    if self.stream_protocol == SSH_STREAM_PROTOCOL {
+                        validate_terminal_output(&decoded)
+                            .map_err(|_| invalid("invalid terminal frame"))?;
+                    } else {
+                        self.output
+                            .push(&decoded)
+                            .map_err(|_| invalid("invalid incremental Guacamole output"))?;
                     }
-                    (seq, elapsed_us)
-                }
-                Event::Exit {
-                    seq,
-                    elapsed_us,
-                    exit_code,
-                    exit_signal,
-                } => {
-                    if exit_code.is_some() == exit_signal.is_some()
-                        || exit_signal.as_ref().is_some_and(String::is_empty)
-                    {
-                        bail!(invalid("exit requires one exit code or signal"));
-                    }
-                    (seq, elapsed_us)
+                    (*seq, *elapsed_us)
                 }
                 Event::End {
                     seq,
                     elapsed_us,
                     reason,
                 } => {
-                    if reason.is_empty() {
-                        bail!(invalid("empty end reason"));
+                    if reason.is_empty()
+                        || reason.len() > 128
+                        || reason.chars().any(char::is_control)
+                    {
+                        bail!(invalid("invalid end reason"));
                     }
+                    self.output
+                        .finish()
+                        .map_err(|_| invalid("incomplete Guacamole output at end"))?;
                     self.ended = true;
-                    (seq, elapsed_us)
+                    (*seq, *elapsed_us)
                 }
             };
-            let (seq, elapsed_us) = (*seq, *elapsed_us);
-            if seq != self.next_seq || elapsed_us < self.elapsed_us {
+            if seq != self.next_seq || elapsed < self.elapsed_us || (self.next_seq == 0 && !is_meta)
+            {
                 bail!(invalid("event sequence or monotonic time violation"));
-            }
-            if self.next_seq == 0 && !is_meta {
-                bail!(invalid("first event must be meta"));
             }
             self.next_seq = self
                 .next_seq
                 .checked_add(1)
                 .ok_or_else(|| invalid("event sequence overflow"))?;
-            self.elapsed_us = elapsed_us;
+            self.elapsed_us = elapsed;
         }
         Ok(())
     }
@@ -379,6 +428,7 @@ impl<W: Write> RecordingWriter<W> {
         let header_hash = Sha256::digest(&bytes).into();
         writer.write_all(&bytes).map_err(RecordingError::Io)?;
         writer.flush().map_err(RecordingError::Io)?;
+        let events = EventState::new(&header);
         Ok(Self {
             writer,
             header,
@@ -386,7 +436,7 @@ impl<W: Write> RecordingWriter<W> {
             key,
             next_seq: 0,
             bytes_written: bytes.len() as u64,
-            events: EventState::default(),
+            events,
             poisoned: false,
         })
     }
@@ -406,8 +456,10 @@ impl<W: Write> RecordingWriter<W> {
         }
         // Burn the writer on ANY failure; retrying a partial write risks reuse.
         self.poisoned = true;
-        let mut events = self.events.clone();
-        events.validate(plaintext)?;
+        // Every failure permanently poisons this writer, so rollback is neither
+        // possible nor needed. Mutate parser state without copying its growing
+        // instruction buffer for each 32 KiB output frame.
+        self.events.validate(plaintext)?;
         let chunk_seq = self.next_seq;
         let next_seq = chunk_seq
             .checked_add(1)
@@ -435,7 +487,6 @@ impl<W: Write> RecordingWriter<W> {
         self.writer.flush().map_err(RecordingError::Io)?;
         self.next_seq = next_seq;
         self.bytes_written = bytes_written;
-        self.events = events;
         self.poisoned = false;
         Ok(RecordingAck {
             chunk_seq,
@@ -468,18 +519,36 @@ pub struct RecordingReader<R> {
     poisoned: bool,
 }
 impl<R: Read> RecordingReader<R> {
-    pub fn new(mut reader: R, expected: &RecordingHeader, key: RecordingKey) -> Result<Self> {
+    pub fn new(reader: R, expected: &RecordingHeader, key: RecordingKey) -> Result<Self> {
+        Self::open(reader, expected, key, false)
+    }
+    /// Existing database rows bind recording identity/protocol/nonce, while the
+    /// authenticated file header and meta bind the stream renderer.
+    pub fn detect_stream(reader: R, expected: &RecordingHeader, key: RecordingKey) -> Result<Self> {
+        Self::open(reader, expected, key, true)
+    }
+    fn open(
+        mut reader: R,
+        expected: &RecordingHeader,
+        key: RecordingKey,
+        detect: bool,
+    ) -> Result<Self> {
         let (header, header_hash) = parse_header(&mut reader)?;
-        if &header != expected {
+        let mut binding = header.clone();
+        if detect {
+            binding.stream_protocol = expected.stream_protocol.clone();
+        }
+        if &binding != expected {
             bail!(invalid("header does not match recording metadata"));
         }
+        let events = EventState::new(&header);
         Ok(Self {
             reader,
             header,
             header_hash,
             key,
             next_seq: 0,
-            events: EventState::default(),
+            events,
             finished: false,
             poisoned: false,
         })

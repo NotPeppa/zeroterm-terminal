@@ -1,0 +1,67 @@
+[20261009-07:12:20] [INFO ] starting xrdp-sesman with pid 21
+[20261009-07:16:05] [INFO ] Socket 11: AF_INET6 connection received from ::1 port 40168
+[20261009-07:16:05] [INFO ] Terminal Server Users group is disabled, allowing authentication
+[20261009-07:16:05] [INFO ] ++ created session (access granted): username fixture, ip ::ffff:172.30.62.4:36274 - socket: 11
+[20261009-07:16:05] [INFO ] starting Xorg session...
+[20261009-07:16:05] [INFO ] Starting session: session_pid 92, display :10.0, width 1280, height 720, bpp 24, client ip ::ffff:172.30.62.4:36274 - socket: 11, user name fixture
+[20261009-07:16:05] [INFO ] [session start] (display 10): calling auth_start_session from pid 92
+[20261009-07:16:05] [ERROR] sesman_data_in: scp_process_msg failed
+[20261009-07:16:05] [ERROR] sesman_main_loop: trans_check_wait_objs failed, removing trans
+[20261009-07:16:05] [INFO ] Starting X server on display 10: /usr/lib/xorg/Xorg :10 -auth .Xauthority -config xrdp/xorg.conf -noreset -nolisten tcp -logfile .xorgxrdp.%s.log  
+[20261009-07:16:05] [INFO ] Found X server running at /tmp/.X11-unix/X10
+[20261009-07:16:05] [INFO ] Found X server running at /tmp/.X11-unix/X10
+[20261009-07:16:05] [INFO ] Session started successfully for user fixture on display 10
+[20261009-07:16:05] [INFO ] Session in progress on display 10, waiting until the window manager (pid 93) exits to end the session
+[20261009-07:16:05] [INFO ] Starting the xrdp channel server for display 10
+[20261009-07:16:05] [INFO ] Found X server running at /tmp/.X11-unix/X10
+[20261009-07:16:05] [INFO ] Starting the default window manager on display 10: /etc/xrdp/startwm.sh
+[20261009-07:17:56] [INFO ] Socket 11: AF_INET6 connection received from ::1 port 41006
+[20261009-07:17:56] [INFO ] ++ reconnected session: username fixture, display :10.0, session_pid 92, ip ::ffff:172.30.62.5:34204 - socket: 11
+[20261009-07:17:56] [ERROR] sesman_data_in: scp_process_msg failed
+[20261009-07:17:56] [INFO ] Starting session reconnection script on display 10: /etc/xrdp/reconnectwm.sh
+[20261009-07:17:56] [ERROR] sesman_main_loop: trans_check_wait_objs failed, removing trans
+[20261009-07:17:56] [INFO ] Process 151 has exited
+[20261009-07:18:15] [INFO ] Socket 11: AF_INET6 connection received from ::1 port 37240
+[20261009-07:18:15] [INFO ] Terminal Server Users group is disabled, allowing authentication
+[20261009-07:18:15] [INFO ] ++ created session (access granted): username fixture2, ip ::ffff:172.30.62.5:33092 - socket: 11
+[20261009-07:18:15] [INFO ] starting Xorg session...
+[20261009-07:18:15] [INFO ] Starting session: session_pid 164, display :11.0, width 1280, height 720, bpp 24, client ip ::ffff:172.30.62.5:33092 - socket: 11, user name fixture2
+[20261009-07:18:15] [INFO ] [session start] (display 11): calling auth_start_session from pid 164
+[20261009-07:18:15] [ERROR] sesman_data_in: scp_process_msg failed
+[20261009-07:18:15] [ERROR] sesman_main_loop: trans_check_wait_objs failed, removing trans
+[20261009-07:18:15] [INFO ] Starting X server on display 11: /usr/lib/xorg/Xorg :11 -auth .Xauthority -config xrdp/xorg.conf -noreset -nolisten tcp -logfile .xorgxrdp.%s.log  
+[20261009-07:18:16] [INFO ] Found X server running at /tmp/.X11-unix/X11
+[20261009-07:18:16] [INFO ] Found X server running at /tmp/.X11-unix/X11
+[20261009-07:18:16] [INFO ] Found X server running at /tmp/.X11-unix/X11
+[20261009-07:18:16] [INFO ] Session started successfully for user fixture2 on display 11
+[20261009-07:18:16] [INFO ] Session in progress on display 11, waiting until the window manager (pid 165) exits to end the session
+[20261009-07:18:16] [INFO ] Starting the xrdp channel server for display 11
+[20261009-07:18:16] [INFO ] Starting the default window manager on display 11: /etc/xrdp/startwm.sh
+[20261009-07:18:35] [INFO ] Socket 11: AF_INET6 connection received from ::1 port 52890
+[20261009-07:18:35] [INFO ] Terminal Server Users group is disabled, allowing authentication
+[20261009-07:18:35] [INFO ] ++ created session (access granted): username fixture3, ip ::ffff:172.30.62.5:56726 - socket: 11
+[20261009-07:18:35] [INFO ] starting Xorg session...
+[20261009-07:18:35] [INFO ] Starting session: session_pid 213, display :12.0, width 1280, height 720, bpp 24, client ip ::ffff:172.30.62.5:56726 - socket: 11, user name fixture3
+[20261009-07:18:35] [INFO ] [session start] (display 12): calling auth_start_session from pid 213
+[20261009-07:18:35] [ERROR] sesman_data_in: scp_process_msg failed
+[20261009-07:18:35] [ERROR] sesman_main_loop: trans_check_wait_objs failed, removing trans
+[20261009-07:18:35] [INFO ] Starting X server on display 12: /usr/lib/xorg/Xorg :12 -auth .Xauthority -config xrdp/xorg.conf -noreset -nolisten tcp -logfile .xorgxrdp.%s.log  
+[20261009-07:18:36] [INFO ] Found X server running at /tmp/.X11-unix/X12
+[20261009-07:18:36] [INFO ] Found X server running at /tmp/.X11-unix/X12
+[20261009-07:18:36] [INFO ] Found X server running at /tmp/.X11-unix/X12
+[20261009-07:18:36] [INFO ] Session started successfully for user fixture3 on display 12
+[20261009-07:18:36] [INFO ] Starting the xrdp channel server for display 12
+[20261009-07:18:36] [INFO ] Starting the default window manager on display 12: /etc/xrdp/startwm.sh
+[20261009-07:18:36] [INFO ] Session in progress on display 12, waiting until the window manager (pid 214) exits to end the session
+[20261009-07:30:52] [INFO ] Socket 11: AF_INET6 connection received from ::1 port 41176
+[20261009-07:30:52] [INFO ] ++ reconnected session: username fixture, display :10.0, session_pid 92, ip ::ffff:172.30.62.5:47454 - socket: 11
+[20261009-07:30:52] [ERROR] sesman_data_in: scp_process_msg failed
+[20261009-07:30:52] [INFO ] Starting session reconnection script on display 10: /etc/xrdp/reconnectwm.sh
+[20261009-07:30:52] [ERROR] sesman_main_loop: trans_check_wait_objs failed, removing trans
+[20261009-07:30:52] [INFO ] Process 427 has exited
+[20261009-07:32:21] [INFO ] Socket 11: AF_INET6 connection received from ::1 port 34438
+[20261009-07:32:21] [INFO ] ++ reconnected session: username fixture, display :10.0, session_pid 92, ip ::ffff:172.30.62.5:41610 - socket: 11
+[20261009-07:32:21] [ERROR] sesman_data_in: scp_process_msg failed
+[20261009-07:32:21] [INFO ] Starting session reconnection script on display 10: /etc/xrdp/reconnectwm.sh
+[20261009-07:32:21] [ERROR] sesman_main_loop: trans_check_wait_objs failed, removing trans
+[20261009-07:32:21] [INFO ] Process 477 has exited

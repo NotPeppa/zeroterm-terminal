@@ -1,0 +1,22 @@
+{
+  "checked_at": "2026-10-10T09:42:35Z",
+  "source_sha256": "f76c5502123afc9d59a5798891ac1229bd40cb55576705f39f5d24626228add0",
+  "production_ready": false,
+  "rust_library_tests_passed": 64,
+  "frontend_tests_passed": 142,
+  "frontend_typecheck_and_build": "passed",
+  "rust_fmt_check_and_clippy_all_targets": "passed",
+  "security_checks": [
+    "actual in-process SSH handshake: wrong host key receives zero authentication requests; correct key authenticates",
+    "SSH recording binds stream metadata and accepts raw bytes/resize but rejects ready/ACK/malformed frames",
+    "render ACK after xterm write callback; stale callbacks and disposed requests cannot send input",
+    "bounded framing and non-truncating input overload rejection",
+    "toolbar paste refreshes user activity; automatic terminal replies do not"
+  ],
+  "not_run": [
+    "new live SSH/browser acceptance on the deployment host",
+    "full new SSH recording/fault/capacity acceptance",
+    "Windows NLA (deferred by user)"
+  ],
+  "deployment_verification_scope": "HTTPS accessibility only"
+}

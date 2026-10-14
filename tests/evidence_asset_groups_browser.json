@@ -1,0 +1,15 @@
+{
+  "production_ready": false,
+  "windows_nla_verified": false,
+  "application_image_id": "sha256:905813a711416cfec057f1ab8d028dde060e24af3a0d4781de85afd5843f28d5",
+  "status": "passed-real-browser-groups",
+  "group_create_rename_delete": true,
+  "group_selection_and_filters": true,
+  "text_only_group_name_rendering": true,
+  "stale_revision_rejected": true,
+  "delete_preserves_assets_accounts_and_grants": true,
+  "metadata_keeps_ssh_connection_active": true,
+  "recording_complete": true,
+  "page_errors": [],
+  "browser_runner_sha256": "f7e92fd5afb57fe497773314d26edca15999f2ffe410c12bd03e70d83a22d2a1"
+}

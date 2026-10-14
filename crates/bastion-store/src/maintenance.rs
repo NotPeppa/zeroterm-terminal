@@ -26,8 +26,7 @@ pub(super) async fn recover_dependents(
     tx: &mut Transaction<'_, Postgres>,
     gateway: &str,
 ) -> StoreResult<()> {
-    sqlx::query("UPDATE recordings r SET state=CASE WHEN r.state='preparing' THEN 'failed' ELSE 'partial' END,ended_at=clock_timestamp() FROM channels ch JOIN connections c ON c.id=ch.connection_id WHERE r.channel_id=ch.id AND c.gateway_id=$1 AND c.state IN ('closed','failed','expired','revoked','interrupted') AND r.state IN ('preparing','active')").bind(gateway).execute(&mut **tx).await.map_err(db)?;
-    sqlx::query("UPDATE channels ch SET state='failed',ended_at=clock_timestamp(),failure_code='RECORDING_UNAVAILABLE' FROM connections c WHERE ch.connection_id=c.id AND c.gateway_id=$1 AND c.state IN ('closed','failed','expired','revoked','interrupted') AND ch.state NOT IN ('closed','failed')").bind(gateway).execute(&mut **tx).await.map_err(db)?;
+    sqlx::query("UPDATE recordings r SET state=CASE WHEN r.state='preparing' THEN 'failed' ELSE 'partial' END,ended_at=clock_timestamp() FROM connections c WHERE r.connection_id=c.id AND c.gateway_id=$1 AND c.state IN ('closed','failed','expired','revoked','interrupted') AND r.state IN ('preparing','active')").bind(gateway).execute(&mut **tx).await.map_err(db)?;
     Ok(())
 }
 impl PgStore {
@@ -37,14 +36,14 @@ impl PgStore {
     ) -> StoreResult<Vec<RetentionCandidate>> {
         let batch = limit(batch)?;
         bounded(async {
-            let rows=sqlx::query("SELECT r.id,r.relative_path,r.state FROM recordings r JOIN channels ch ON ch.id=r.channel_id WHERE r.state IN ('complete','partial','failed','corrupt','missing') AND ch.state IN ('closed','failed') AND r.retention_until<=clock_timestamp() ORDER BY r.retention_until,r.id LIMIT $1").bind(batch).fetch_all(&self.pool).await.map_err(db)?;
+            let rows=sqlx::query("SELECT r.id,r.relative_path,r.state FROM recordings r JOIN connections c ON c.id=r.connection_id WHERE r.state IN ('complete','partial','failed','corrupt','missing') AND c.state IN ('closed','failed','expired','revoked','interrupted') AND r.retention_until<=clock_timestamp() ORDER BY r.retention_until,r.id LIMIT $1").bind(batch).fetch_all(&self.pool).await.map_err(db)?;
             rows.iter().map(|r|Ok(RetentionCandidate{id:r.get("id"),relative_path:r.get("relative_path"),state:serde_json::from_value(serde_json::json!(r.get::<String,_>("state"))).map_err(|_|ErrorCode::InternalError)?})).collect()
         }).await
     }
     /// Call only after safely unlinking the managed file; never selects active data.
     pub async fn expire_recording(&self, id: Uuid) -> StoreResult<()> {
         bounded(async {
-            let changed=sqlx::query("UPDATE recordings SET state='expired' WHERE id=$1 AND state IN ('complete','partial','failed','corrupt','missing','expired') AND retention_until<=clock_timestamp() AND EXISTS(SELECT 1 FROM channels ch WHERE ch.id=recordings.channel_id AND ch.state IN ('closed','failed'))").bind(id).execute(&self.pool).await.map_err(db)?;
+            let changed=sqlx::query("UPDATE recordings SET state='expired' WHERE id=$1 AND state IN ('complete','partial','failed','corrupt','missing','expired') AND retention_until<=clock_timestamp() AND EXISTS(SELECT 1 FROM connections c WHERE c.id=recordings.connection_id AND c.state IN ('closed','failed','expired','revoked','interrupted'))").bind(id).execute(&self.pool).await.map_err(db)?;
             if changed.rows_affected()!=1 {return Err(ErrorCode::RecordingUnavailable);}Ok(())
         }).await
     }
@@ -108,7 +107,7 @@ impl PgStore {
         let batch = limit(batch)?;
         bounded(async {
             let rows=sqlx::query("SELECT * FROM recordings WHERE ($1::uuid IS NULL OR id>$1) AND state<>'expired' ORDER BY id LIMIT $2").bind(after).bind(batch).fetch_all(&self.pool).await.map_err(db)?;
-            rows.iter().map(|r|Ok(RecordingRead{metadata:RecordingView{id:r.get("id"),channel_id:r.get("channel_id"),format_version:r.get::<i32,_>("format_version") as u32,bytes:r.get("bytes"),checksum:r.get("checksum"),state:serde_json::from_value(serde_json::json!(r.get::<String,_>("state"))).map_err(|_|ErrorCode::InternalError)?,retention_until:r.get("retention_until"),last_written_seq:r.get("last_written_seq"),last_synced_seq:r.get("last_synced_seq")},relative_path:r.get("relative_path"),wrapped_dek:r.get("wrapped_dek"),wrap_nonce:r.get("wrap_nonce"),key_version:r.get("key_version"),nonce_prefix:r.get("nonce_prefix")})).collect()
+            rows.iter().map(|r|Ok(RecordingRead{metadata:RecordingView{id:r.get("id"),connection_id:r.get("connection_id"),target_protocol:crate::targets::parse(r.get("target_protocol"))?,format_version:r.get::<i32,_>("format_version") as u32,bytes:r.get("bytes"),checksum:r.get("checksum"),state:serde_json::from_value(serde_json::json!(r.get::<String,_>("state"))).map_err(|_|ErrorCode::InternalError)?,retention_until:r.get("retention_until"),last_written_seq:r.get("last_written_seq"),last_synced_seq:r.get("last_synced_seq")},relative_path:r.get("relative_path"),wrapped_dek:r.get("wrapped_dek"),wrap_nonce:r.get("wrap_nonce"),key_version:r.get("key_version"),nonce_prefix:r.get("nonce_prefix")})).collect()
         }).await
     }
     /// Explicit offline restore action; caller drains batches until zero, then recover_gateway.

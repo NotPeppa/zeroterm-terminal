@@ -1,0 +1,372 @@
+{
+  "production_ready": false,
+  "project": "zt-guac-v2-refresh-check-20261009",
+  "subnet": "172.30.64.0/29",
+  "engine_image": "zt-guac-v2-refresh-20261009:engine",
+  "engine_image_id": "sha256:6867984082292f6b363d53554b005e286a811544067f8d777ea1fe7242a065fc",
+  "test_guacd_image_id": "sha256:0915685b9ac71bd6130babb68823d88ffdb06d0943dd4fd35cdd2327596cf99d",
+  "test_only_trusted_ca": true,
+  "resource_limitations": "heavy builds one job; /var/tmp not /tmp",
+  "host_memory_kib": {
+    "MemTotal": 962268,
+    "SwapTotal": 2578280
+  },
+  "windows_nla_verified": false,
+  "application_api_browser_recording_verified": false,
+  "engine_checks": {
+    "production_ready": false,
+    "engine": "guacd 1.6.0 / FreeRDP 2.11.7 / zt-pin-v4-ssh-display-only",
+    "windows_nla_verified": false,
+    "results": {
+      "ssh-password": {
+        "target_ready": true,
+        "display": true,
+        "post_marker_desktop_paint": "cfill",
+        "desktop_image_bytes": 0,
+        "opcodes": [
+          "blob",
+          "cfill",
+          "cursor",
+          "end",
+          "img",
+          "move",
+          "ready",
+          "rect",
+          "size",
+          "zt-target-ready"
+        ],
+        "bridge": {
+          "accepts": 1,
+          "source": "172.30.64.3",
+          "errors": [],
+          "to_target": 1672,
+          "from_target": 2537
+        }
+      },
+      "ssh-ed25519-private-key": {
+        "target_ready": true,
+        "display": true,
+        "post_marker_desktop_paint": "cfill",
+        "desktop_image_bytes": 0,
+        "opcodes": [
+          "blob",
+          "cfill",
+          "cursor",
+          "end",
+          "img",
+          "move",
+          "ready",
+          "rect",
+          "size",
+          "zt-target-ready"
+        ],
+        "bridge": {
+          "accepts": 1,
+          "source": "172.30.64.3",
+          "errors": [],
+          "to_target": 1976,
+          "from_target": 3049
+        }
+      },
+      "ssh-ed25519-encrypted": {
+        "target_ready": true,
+        "display": true,
+        "post_marker_desktop_paint": "cfill",
+        "desktop_image_bytes": 0,
+        "opcodes": [
+          "blob",
+          "cfill",
+          "cursor",
+          "end",
+          "img",
+          "move",
+          "ready",
+          "rect",
+          "size",
+          "zt-target-ready"
+        ],
+        "bridge": {
+          "accepts": 1,
+          "source": "172.30.64.3",
+          "errors": [],
+          "to_target": 1976,
+          "from_target": 3049
+        }
+      },
+      "xrdp-tls": {
+        "target_ready": true,
+        "display": true,
+        "post_marker_desktop_paint": "end",
+        "desktop_image_bytes": 570,
+        "opcodes": [
+          "blob",
+          "cfill",
+          "cursor",
+          "end",
+          "img",
+          "mouse",
+          "ready",
+          "rect",
+          "size",
+          "sync",
+          "zt-target-ready"
+        ],
+        "bridge": {
+          "accepts": 1,
+          "source": "172.30.64.3",
+          "errors": [],
+          "to_target": 2849,
+          "from_target": 7608
+        }
+      },
+      "vnc-none": {
+        "target_ready": true,
+        "display": true,
+        "post_marker_desktop_paint": "cfill",
+        "desktop_image_bytes": 0,
+        "opcodes": [
+          "blob",
+          "cfill",
+          "copy",
+          "cursor",
+          "end",
+          "img",
+          "ready",
+          "rect",
+          "size",
+          "sync",
+          "zt-target-ready"
+        ],
+        "bridge": {
+          "accepts": 1,
+          "source": "172.30.64.3",
+          "errors": [],
+          "to_target": 152,
+          "from_target": 926
+        }
+      },
+      "vnc-password": {
+        "target_ready": true,
+        "display": true,
+        "post_marker_desktop_paint": "cfill",
+        "desktop_image_bytes": 0,
+        "opcodes": [
+          "blob",
+          "cfill",
+          "copy",
+          "cursor",
+          "end",
+          "img",
+          "ready",
+          "rect",
+          "size",
+          "sync",
+          "zt-target-ready"
+        ],
+        "bridge": {
+          "accepts": 1,
+          "source": "172.30.64.3",
+          "errors": [],
+          "to_target": 168,
+          "from_target": 962
+        }
+      },
+      "xrdp-tls-bad-password-diagnostic": {
+        "target_ready": true,
+        "display": true,
+        "post_marker_desktop_paint": "end",
+        "desktop_image_bytes": 196,
+        "opcodes": [
+          "blob",
+          "cfill",
+          "copy",
+          "cursor",
+          "end",
+          "img",
+          "mouse",
+          "ready",
+          "rect",
+          "size",
+          "sync",
+          "zt-target-ready"
+        ],
+        "os_login_success_not_inferred": true,
+        "bridge": {
+          "accepts": 1,
+          "source": "172.30.64.3",
+          "errors": [],
+          "to_target": 2651,
+          "from_target": 8989
+        }
+      },
+      "xrdp-wrong-pin": {
+        "rejected": true,
+        "opcodes": [
+          "cursor",
+          "error",
+          "mouse",
+          "ready",
+          "sync"
+        ],
+        "bridge": {
+          "accepts": 1,
+          "source": "172.30.64.3",
+          "errors": [],
+          "to_target": 479,
+          "from_target": 1908
+        }
+      },
+      "ssh-wrong-key": {
+        "rejected": true,
+        "opcodes": [
+          "blob",
+          "cfill",
+          "cursor",
+          "end",
+          "error",
+          "img",
+          "move",
+          "ready",
+          "rect",
+          "size"
+        ],
+        "bridge": {
+          "accepts": 1,
+          "source": "172.30.64.3",
+          "errors": [],
+          "to_target": 1080,
+          "from_target": 1401
+        }
+      },
+      "rdp-wrong-pin-ca-valid": {
+        "rejected": true,
+        "opcodes": [
+          "cursor",
+          "error",
+          "mouse",
+          "ready",
+          "sync"
+        ],
+        "same_socket_tls": {
+          "accepted": 1,
+          "tls_established": true,
+          "application_bytes": 0,
+          "source": "172.30.64.3"
+        }
+      },
+      "rdp-match-pin-probe": {
+        "rejected": true,
+        "opcodes": [
+          "cursor",
+          "error",
+          "mouse",
+          "ready",
+          "sync"
+        ],
+        "same_socket_tls": {
+          "accepted": 1,
+          "tls_established": true,
+          "application_bytes": 415,
+          "source": "172.30.64.3"
+        }
+      },
+      "rdp-real-redirect-pdu": {
+        "rejected": true,
+        "opcodes": [
+          "cursor",
+          "error",
+          "mouse",
+          "ready",
+          "sync"
+        ]
+      },
+      "rdp-missing-pin": {
+        "rejected": true,
+        "opcodes": [
+          "ready"
+        ]
+      },
+      "rdp-invalid-pin": {
+        "rejected": true,
+        "opcodes": [
+          "ready"
+        ]
+      },
+      "rdp-insecure-mode": {
+        "rejected": true,
+        "opcodes": [
+          "ready"
+        ]
+      },
+      "ssh-ready-flag-missing": {
+        "rejected": true,
+        "opcodes": [
+          "ready"
+        ]
+      },
+      "ssh-ready-flag-false": {
+        "rejected": true,
+        "opcodes": [
+          "ready"
+        ]
+      },
+      "rdp-ready-flag-missing": {
+        "rejected": true,
+        "opcodes": [
+          "ready"
+        ]
+      },
+      "rdp-ready-flag-false": {
+        "rejected": true,
+        "opcodes": [
+          "ready"
+        ]
+      },
+      "vnc-ready-flag-missing": {
+        "rejected": true,
+        "opcodes": [
+          "ready"
+        ]
+      },
+      "vnc-ready-flag-false": {
+        "rejected": true,
+        "opcodes": [
+          "ready"
+        ]
+      },
+      "ssh-display-only-missing": {
+        "rejected": true,
+        "opcodes": [
+          "ready"
+        ]
+      },
+      "ssh-display-only-false": {
+        "rejected": true,
+        "opcodes": [
+          "ready"
+        ]
+      }
+    }
+  },
+  "real_redirect_pdu_denied_before_routing": {
+    "redirect_sent": true,
+    "primary_credentials_received": true
+  },
+  "ssh_same_socket_no_auth_wrong_key": true,
+  "tls_marker_is_not_os_login": {
+    "wrong_password_account_rejected": true,
+    "new_os_session_started": false
+  },
+  "xrdp_wrong_pin_no_auth": true,
+  "egress_denials": {
+    "app-live-canary": false,
+    "app-metrics": false,
+    "app-ssh": false,
+    "target-ssh": false,
+    "target-rdp": false,
+    "host-live-canary": false,
+    "internet": false
+  },
+  "status": "passed-engine-only",
+  "existing_test_containers_unchanged": true
+}

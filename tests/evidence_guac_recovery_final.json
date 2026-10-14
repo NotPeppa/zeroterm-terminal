@@ -1,0 +1,1170 @@
+{
+  "production_ready": false,
+  "windows_nla_verified": false,
+  "native_os_ime_verified": false,
+  "application_image_id": "sha256:9e2153250baec10a90ebca92c304b953d6d26275fd4645a3efff73d770ab4f64",
+  "engine_image_id": "sha256:63926f22592fad15ee841e8e7488020a6b0f17a257205f06a725718415c01e1e",
+  "fixture_server_id": "zt-guac-v2-next-20261009-a93f6e1b-browser7",
+  "baseline": [
+    {
+      "bytes": 31877,
+      "checksum": "52e5116bdfd81db34bce3db5766806e2fbfff6aee18c1acdfdaa015882e1136b",
+      "connection_id": "52c7928e-c6cd-45e2-8f5a-a32dff73ab85",
+      "format_version": 2,
+      "id": "c4498659-74e4-46a0-a3fb-a0a4a6f5566f",
+      "last_synced_seq": 39,
+      "last_written_seq": 39,
+      "retention_until": "2026-11-08T07:15:55.153463+00:00",
+      "state": "complete",
+      "target_protocol": "ssh"
+    },
+    {
+      "bytes": 748,
+      "checksum": "b189477c2d36b95d3dea8b3e2635115550d7e3ff51685b94999edfc64a4d6ea8",
+      "connection_id": "e60d2a3e-e935-484e-b40b-b8c1ca3cf051",
+      "format_version": 2,
+      "id": "815d1fcb-e905-4239-9ed8-dbb3a33aaaa5",
+      "last_synced_seq": 2,
+      "last_written_seq": 2,
+      "retention_until": "2026-11-08T07:16:04.273203+00:00",
+      "state": "complete",
+      "target_protocol": "rdp"
+    },
+    {
+      "bytes": 7130,
+      "checksum": "05b5805cd8441a5af1311c931df3e59a00e5a216058dfde2df97d5fcb9446c2d",
+      "connection_id": "30d0df7b-c106-4d15-8273-55e807427aca",
+      "format_version": 2,
+      "id": "84c41a11-c9a9-445e-9e09-407f3b67b6f5",
+      "last_synced_seq": 39,
+      "last_written_seq": 39,
+      "retention_until": "2026-11-08T07:16:11.00722+00:00",
+      "state": "complete",
+      "target_protocol": "vnc"
+    }
+  ],
+  "faults": {
+    "startup_open": {
+      "recording_state": "failed",
+      "output_blocks": 0,
+      "hits": [
+        "open EACCES"
+      ]
+    },
+    "startup_dir-fsync": {
+      "recording_state": "failed",
+      "output_blocks": 0,
+      "hits": [
+        "fsync EIO"
+      ]
+    },
+    "startup_write": {
+      "recording_state": "failed",
+      "output_blocks": 0,
+      "hits": [
+        "write EIO"
+      ]
+    },
+    "startup_short-write": {
+      "recording_state": "failed",
+      "output_blocks": 0,
+      "hits": [
+        "write partial",
+        "write EIO after partial"
+      ]
+    },
+    "startup_file-fsync": {
+      "recording_state": "failed",
+      "output_blocks": 0,
+      "hits": [
+        "fsync EIO"
+      ]
+    },
+    "active_write": {
+      "closed_ms": 310,
+      "recording_state": "partial",
+      "hits": [
+        "write EIO"
+      ]
+    },
+    "active_short-write": {
+      "closed_ms": 170,
+      "recording_state": "partial",
+      "hits": [
+        "write partial",
+        "write EIO after partial"
+      ]
+    },
+    "active_file-fsync": {
+      "closed_ms": 60,
+      "recording_state": "partial",
+      "hits": [
+        "fsync EIO"
+      ]
+    },
+    "active_blocked-write": {
+      "closed_ms": 8279,
+      "recording_state": "partial",
+      "hits": [
+        "write blocked 8s"
+      ]
+    },
+    "active_blocked-fsync": {
+      "closed_ms": 8781,
+      "recording_state": "partial",
+      "hits": [
+        "fsync blocked 8s"
+      ]
+    },
+    "end_fsync": {
+      "recording_state": "partial",
+      "hits": [
+        "fsync EIO"
+      ]
+    },
+    "real_disk_full": {
+      "real_enospc": true,
+      "filled_bytes": 499220480,
+      "filesystem_limit_bytes": 510873600,
+      "recording_state": "partial"
+    },
+    "database_finalization": {
+      "recording_state": "partial"
+    },
+    "process_restart": {
+      "connection_state": "interrupted",
+      "recording_state": "partial"
+    },
+    "tamper": {
+      "status": 200,
+      "clean_eof": false
+    },
+    "truncate": {
+      "status": 503,
+      "clean_eof": false
+    }
+  },
+  "restore": {
+    "cold_restore_separate_pg_cluster": true,
+    "manifest": {
+      "server_id": "zt-guac-v2-next-20261009-a93f6e1b-browser7",
+      "schema_version": 2,
+      "credential_count": 7,
+      "recording_count": 3,
+      "target_pin_count": 5,
+      "kek_versions": [
+        1
+      ]
+    },
+    "verify_backup": {
+      "exit": 0
+    },
+    "recover_restore": {
+      "exit": 0
+    },
+    "old_login_families_revoked": true,
+    "issued_tickets_revoked": true,
+    "old_cookie_rejected": true,
+    "three_protocol_replay": true
+  },
+  "rewrap": {
+    "credential_ciphertext_and_nonce_unchanged": true,
+    "recording_nonce_and_ciphertext_unchanged": true,
+    "new_key_only_backup_verified": true,
+    "missing_key_rejected": true,
+    "real_target_authentication": true,
+    "three_protocol_replay": true
+  },
+  "capacity_limits": {
+    "guacd_pids_limit": 256,
+    "guacd_pid_events": "max 0",
+    "three_rdp_os_logins_verified": true
+  },
+  "mixed_protocol_measurement": {
+    "connections": 10,
+    "distribution": {
+      "ssh": 4,
+      "rdp": 3,
+      "vnc": 3
+    },
+    "duration_ms": 194855,
+    "eleventh_global_connection_rejected": true,
+    "load": "initial display, periodic mouse movement and protocol sync; no throughput claim",
+    "samples": [
+      {
+        "at": "2026-10-09T07:19:13.711Z",
+        "containers": [
+          {
+            "BlockIO": "22.7MB / 2.21MB",
+            "CPUPerc": "1.72%",
+            "Container": "zt-guac-v2-next-20261009-a93f6e1b-browser7-bastion-1",
+            "ID": "bdee68e5811a",
+            "MemPerc": "1.50%",
+            "MemUsage": "14.12MiB / 939.7MiB",
+            "Name": "zt-guac-v2-next-20261009-a93f6e1b-browser7-bastion-1",
+            "NetIO": "3.29MB / 4.94MB",
+            "PIDs": "6"
+          },
+          {
+            "BlockIO": "69.5MB / 73.5MB",
+            "CPUPerc": "0.23%",
+            "Container": "zt-guac-v2-next-20261009-a93f6e1b-browser7-guacd-1",
+            "ID": "2f247bd51798",
+            "MemPerc": "10.63%",
+            "MemUsage": "99.88MiB / 939.7MiB",
+            "Name": "zt-guac-v2-next-20261009-a93f6e1b-browser7-guacd-1",
+            "NetIO": "142kB / 348kB",
+            "PIDs": "158"
+          },
+          {
+            "BlockIO": "282MB / 90.6MB",
+            "CPUPerc": "0.00%",
+            "Container": "zt-guac-v2-next-20261009-a93f6e1b-browser7-target-1",
+            "ID": "f008b365605a",
+            "MemPerc": "65.17%",
+            "MemUsage": "125.1MiB / 192MiB",
+            "Name": "zt-guac-v2-next-20261009-a93f6e1b-browser7-target-1",
+            "NetIO": "44.5kB / 67.2kB",
+            "PIDs": "52"
+          },
+          {
+            "BlockIO": "31.1MB / 109MB",
+            "CPUPerc": "1.90%",
+            "Container": "zt-guac-v2-next-20261009-a93f6e1b-browser7-restored-postgres",
+            "ID": "c0e15de5c4dc",
+            "MemPerc": "18.05%",
+            "MemUsage": "23.11MiB / 128MiB",
+            "Name": "zt-guac-v2-next-20261009-a93f6e1b-browser7-restored-postgres",
+            "NetIO": "2.05MB / 2.88MB",
+            "PIDs": "11"
+          }
+        ],
+        "browser_processes": [
+          {
+            "type": "browser",
+            "id": 129352,
+            "cpuTime": 9.229718
+          },
+          {
+            "type": "renderer",
+            "id": 125008,
+            "cpuTime": 2.090793
+          },
+          {
+            "type": "renderer",
+            "id": 138244,
+            "cpuTime": 1.473742
+          },
+          {
+            "type": "renderer",
+            "id": 119068,
+            "cpuTime": 1.650818
+          },
+          {
+            "type": "renderer",
+            "id": 128032,
+            "cpuTime": 2.273866
+          },
+          {
+            "type": "renderer",
+            "id": 126780,
+            "cpuTime": 1.552405
+          },
+          {
+            "type": "renderer",
+            "id": 113268,
+            "cpuTime": 1.720756
+          },
+          {
+            "type": "renderer",
+            "id": 124164,
+            "cpuTime": 2.416911
+          },
+          {
+            "type": "renderer",
+            "id": 118520,
+            "cpuTime": 1.5381
+          },
+          {
+            "type": "renderer",
+            "id": 129128,
+            "cpuTime": 1.683949
+          },
+          {
+            "type": "renderer",
+            "id": 120988,
+            "cpuTime": 2.348351
+          },
+          {
+            "type": "renderer",
+            "id": 138108,
+            "cpuTime": 10.448402
+          },
+          {
+            "type": "GPU",
+            "id": 123236,
+            "cpuTime": 6.88174
+          },
+          {
+            "type": "network.mojom.NetworkService",
+            "id": 136416,
+            "cpuTime": 2.529126
+          }
+        ],
+        "browser_memory": [
+          {
+            "Id": 113268,
+            "WorkingSet64": 139825152,
+            "PrivateMemorySize64": 49582080
+          },
+          {
+            "Id": 118520,
+            "WorkingSet64": 129081344,
+            "PrivateMemorySize64": 44142592
+          },
+          {
+            "Id": 119068,
+            "WorkingSet64": 138756096,
+            "PrivateMemorySize64": 49324032
+          },
+          {
+            "Id": 120988,
+            "WorkingSet64": 166199296,
+            "PrivateMemorySize64": 53092352
+          },
+          {
+            "Id": 123236,
+            "WorkingSet64": 350035968,
+            "PrivateMemorySize64": 147890176
+          },
+          {
+            "Id": 124164,
+            "WorkingSet64": 157741056,
+            "PrivateMemorySize64": 55947264
+          },
+          {
+            "Id": 125008,
+            "WorkingSet64": 154808320,
+            "PrivateMemorySize64": 52490240
+          },
+          {
+            "Id": 126780,
+            "WorkingSet64": 128835584,
+            "PrivateMemorySize64": 44511232
+          },
+          {
+            "Id": 128032,
+            "WorkingSet64": 166330368,
+            "PrivateMemorySize64": 53727232
+          },
+          {
+            "Id": 129128,
+            "WorkingSet64": 140300288,
+            "PrivateMemorySize64": 50774016
+          },
+          {
+            "Id": 129352,
+            "WorkingSet64": 72761344,
+            "PrivateMemorySize64": 29601792
+          },
+          {
+            "Id": 136416,
+            "WorkingSet64": 49319936,
+            "PrivateMemorySize64": 20684800
+          },
+          {
+            "Id": 138108,
+            "WorkingSet64": 169275392,
+            "PrivateMemorySize64": 59228160
+          },
+          {
+            "Id": 138244,
+            "WorkingSet64": 131252224,
+            "PrivateMemorySize64": 43601920
+          }
+        ]
+      },
+      {
+        "at": "2026-10-09T07:19:57.410Z",
+        "containers": [
+          {
+            "BlockIO": "22.8MB / 4.22MB",
+            "CPUPerc": "1.73%",
+            "Container": "zt-guac-v2-next-20261009-a93f6e1b-browser7-bastion-1",
+            "ID": "bdee68e5811a",
+            "MemPerc": "1.47%",
+            "MemUsage": "13.83MiB / 939.7MiB",
+            "Name": "zt-guac-v2-next-20261009-a93f6e1b-browser7-bastion-1",
+            "NetIO": "5.48MB / 6.49MB",
+            "PIDs": "6"
+          },
+          {
+            "BlockIO": "69.5MB / 76.2MB",
+            "CPUPerc": "0.26%",
+            "Container": "zt-guac-v2-next-20261009-a93f6e1b-browser7-guacd-1",
+            "ID": "2f247bd51798",
+            "MemPerc": "9.99%",
+            "MemUsage": "93.88MiB / 939.7MiB",
+            "Name": "zt-guac-v2-next-20261009-a93f6e1b-browser7-guacd-1",
+            "NetIO": "176kB / 383kB",
+            "PIDs": "158"
+          },
+          {
+            "BlockIO": "282MB / 92.2MB",
+            "CPUPerc": "0.02%",
+            "Container": "zt-guac-v2-next-20261009-a93f6e1b-browser7-target-1",
+            "ID": "f008b365605a",
+            "MemPerc": "63.65%",
+            "MemUsage": "122.2MiB / 192MiB",
+            "Name": "zt-guac-v2-next-20261009-a93f6e1b-browser7-target-1",
+            "NetIO": "44.5kB / 67.2kB",
+            "PIDs": "52"
+          },
+          {
+            "BlockIO": "34.5MB / 117MB",
+            "CPUPerc": "2.55%",
+            "Container": "zt-guac-v2-next-20261009-a93f6e1b-browser7-restored-postgres",
+            "ID": "c0e15de5c4dc",
+            "MemPerc": "19.17%",
+            "MemUsage": "24.54MiB / 128MiB",
+            "Name": "zt-guac-v2-next-20261009-a93f6e1b-browser7-restored-postgres",
+            "NetIO": "3.48MB / 4.94MB",
+            "PIDs": "11"
+          }
+        ],
+        "browser_processes": [
+          {
+            "type": "browser",
+            "id": 129352,
+            "cpuTime": 9.626651
+          },
+          {
+            "type": "renderer",
+            "id": 125008,
+            "cpuTime": 2.242769
+          },
+          {
+            "type": "renderer",
+            "id": 138244,
+            "cpuTime": 1.567779
+          },
+          {
+            "type": "renderer",
+            "id": 119068,
+            "cpuTime": 1.681347
+          },
+          {
+            "type": "renderer",
+            "id": 128032,
+            "cpuTime": 2.359041
+          },
+          {
+            "type": "renderer",
+            "id": 126780,
+            "cpuTime": 1.585768
+          },
+          {
+            "type": "renderer",
+            "id": 113268,
+            "cpuTime": 1.754576
+          },
+          {
+            "type": "renderer",
+            "id": 124164,
+            "cpuTime": 2.509963
+          },
+          {
+            "type": "renderer",
+            "id": 118520,
+            "cpuTime": 1.573695
+          },
+          {
+            "type": "renderer",
+            "id": 129128,
+            "cpuTime": 1.718252
+          },
+          {
+            "type": "renderer",
+            "id": 120988,
+            "cpuTime": 2.443317
+          },
+          {
+            "type": "renderer",
+            "id": 138108,
+            "cpuTime": 10.505711
+          },
+          {
+            "type": "GPU",
+            "id": 123236,
+            "cpuTime": 6.903644
+          },
+          {
+            "type": "network.mojom.NetworkService",
+            "id": 136416,
+            "cpuTime": 2.777819
+          }
+        ],
+        "browser_memory": [
+          {
+            "Id": 113268,
+            "WorkingSet64": 138805248,
+            "PrivateMemorySize64": 48332800
+          },
+          {
+            "Id": 118520,
+            "WorkingSet64": 126861312,
+            "PrivateMemorySize64": 41734144
+          },
+          {
+            "Id": 119068,
+            "WorkingSet64": 137666560,
+            "PrivateMemorySize64": 48005120
+          },
+          {
+            "Id": 120988,
+            "WorkingSet64": 164397056,
+            "PrivateMemorySize64": 51265536
+          },
+          {
+            "Id": 123236,
+            "WorkingSet64": 350056448,
+            "PrivateMemorySize64": 147910656
+          },
+          {
+            "Id": 124164,
+            "WorkingSet64": 156151808,
+            "PrivateMemorySize64": 54386688
+          },
+          {
+            "Id": 125008,
+            "WorkingSet64": 155185152,
+            "PrivateMemorySize64": 53137408
+          },
+          {
+            "Id": 126780,
+            "WorkingSet64": 129044480,
+            "PrivateMemorySize64": 44777472
+          },
+          {
+            "Id": 128032,
+            "WorkingSet64": 166662144,
+            "PrivateMemorySize64": 53690368
+          },
+          {
+            "Id": 129128,
+            "WorkingSet64": 139161600,
+            "PrivateMemorySize64": 49422336
+          },
+          {
+            "Id": 129352,
+            "WorkingSet64": 72785920,
+            "PrivateMemorySize64": 29626368
+          },
+          {
+            "Id": 136416,
+            "WorkingSet64": 49324032,
+            "PrivateMemorySize64": 20684800
+          },
+          {
+            "Id": 138108,
+            "WorkingSet64": 169582592,
+            "PrivateMemorySize64": 59506688
+          },
+          {
+            "Id": 138244,
+            "WorkingSet64": 131833856,
+            "PrivateMemorySize64": 43425792
+          }
+        ]
+      },
+      {
+        "at": "2026-10-09T07:20:46.156Z",
+        "containers": [
+          {
+            "BlockIO": "22.8MB / 5.66MB",
+            "CPUPerc": "1.88%",
+            "Container": "zt-guac-v2-next-20261009-a93f6e1b-browser7-bastion-1",
+            "ID": "bdee68e5811a",
+            "MemPerc": "1.47%",
+            "MemUsage": "13.84MiB / 939.7MiB",
+            "Name": "zt-guac-v2-next-20261009-a93f6e1b-browser7-bastion-1",
+            "NetIO": "7.63MB / 8.01MB",
+            "PIDs": "6"
+          },
+          {
+            "BlockIO": "69.5MB / 78MB",
+            "CPUPerc": "0.29%",
+            "Container": "zt-guac-v2-next-20261009-a93f6e1b-browser7-guacd-1",
+            "ID": "2f247bd51798",
+            "MemPerc": "9.68%",
+            "MemUsage": "90.93MiB / 939.7MiB",
+            "Name": "zt-guac-v2-next-20261009-a93f6e1b-browser7-guacd-1",
+            "NetIO": "210kB / 417kB",
+            "PIDs": "158"
+          },
+          {
+            "BlockIO": "282MB / 94.2MB",
+            "CPUPerc": "0.00%",
+            "Container": "zt-guac-v2-next-20261009-a93f6e1b-browser7-target-1",
+            "ID": "f008b365605a",
+            "MemPerc": "61.31%",
+            "MemUsage": "117.7MiB / 192MiB",
+            "Name": "zt-guac-v2-next-20261009-a93f6e1b-browser7-target-1",
+            "NetIO": "44.5kB / 67.2kB",
+            "PIDs": "52"
+          },
+          {
+            "BlockIO": "34.7MB / 125MB",
+            "CPUPerc": "1.99%",
+            "Container": "zt-guac-v2-next-20261009-a93f6e1b-browser7-restored-postgres",
+            "ID": "c0e15de5c4dc",
+            "MemPerc": "19.49%",
+            "MemUsage": "24.95MiB / 128MiB",
+            "Name": "zt-guac-v2-next-20261009-a93f6e1b-browser7-restored-postgres",
+            "NetIO": "4.95MB / 7.06MB",
+            "PIDs": "11"
+          }
+        ],
+        "browser_processes": [
+          {
+            "type": "browser",
+            "id": 129352,
+            "cpuTime": 10.009744
+          },
+          {
+            "type": "renderer",
+            "id": 125008,
+            "cpuTime": 2.333976
+          },
+          {
+            "type": "renderer",
+            "id": 138244,
+            "cpuTime": 1.599437
+          },
+          {
+            "type": "renderer",
+            "id": 119068,
+            "cpuTime": 1.709295
+          },
+          {
+            "type": "renderer",
+            "id": 128032,
+            "cpuTime": 2.445774
+          },
+          {
+            "type": "renderer",
+            "id": 126780,
+            "cpuTime": 1.616108
+          },
+          {
+            "type": "renderer",
+            "id": 113268,
+            "cpuTime": 1.781555
+          },
+          {
+            "type": "renderer",
+            "id": 124164,
+            "cpuTime": 2.589229
+          },
+          {
+            "type": "renderer",
+            "id": 118520,
+            "cpuTime": 1.596411
+          },
+          {
+            "type": "renderer",
+            "id": 129128,
+            "cpuTime": 1.74349
+          },
+          {
+            "type": "renderer",
+            "id": 120988,
+            "cpuTime": 2.519283
+          },
+          {
+            "type": "renderer",
+            "id": 138108,
+            "cpuTime": 10.569831
+          },
+          {
+            "type": "GPU",
+            "id": 123236,
+            "cpuTime": 6.926373
+          },
+          {
+            "type": "network.mojom.NetworkService",
+            "id": 136416,
+            "cpuTime": 3.026589
+          }
+        ],
+        "browser_memory": [
+          {
+            "Id": 113268,
+            "WorkingSet64": 136101888,
+            "PrivateMemorySize64": 45375488
+          },
+          {
+            "Id": 118520,
+            "WorkingSet64": 126001152,
+            "PrivateMemorySize64": 40833024
+          },
+          {
+            "Id": 119068,
+            "WorkingSet64": 135544832,
+            "PrivateMemorySize64": 45862912
+          },
+          {
+            "Id": 120988,
+            "WorkingSet64": 162496512,
+            "PrivateMemorySize64": 49258496
+          },
+          {
+            "Id": 123236,
+            "WorkingSet64": 350040064,
+            "PrivateMemorySize64": 147894272
+          },
+          {
+            "Id": 124164,
+            "WorkingSet64": 154484736,
+            "PrivateMemorySize64": 52359168
+          },
+          {
+            "Id": 125008,
+            "WorkingSet64": 153284608,
+            "PrivateMemorySize64": 51306496
+          },
+          {
+            "Id": 126780,
+            "WorkingSet64": 126496768,
+            "PrivateMemorySize64": 42123264
+          },
+          {
+            "Id": 128032,
+            "WorkingSet64": 164720640,
+            "PrivateMemorySize64": 51781632
+          },
+          {
+            "Id": 129128,
+            "WorkingSet64": 137265152,
+            "PrivateMemorySize64": 47386624
+          },
+          {
+            "Id": 129352,
+            "WorkingSet64": 72753152,
+            "PrivateMemorySize64": 29593600
+          },
+          {
+            "Id": 136416,
+            "WorkingSet64": 49315840,
+            "PrivateMemorySize64": 20676608
+          },
+          {
+            "Id": 138108,
+            "WorkingSet64": 170631168,
+            "PrivateMemorySize64": 60854272
+          },
+          {
+            "Id": 138244,
+            "WorkingSet64": 129368064,
+            "PrivateMemorySize64": 40902656
+          }
+        ]
+      },
+      {
+        "at": "2026-10-09T07:21:30.416Z",
+        "containers": [
+          {
+            "BlockIO": "22.8MB / 7.31MB",
+            "CPUPerc": "1.78%",
+            "Container": "zt-guac-v2-next-20261009-a93f6e1b-browser7-bastion-1",
+            "ID": "bdee68e5811a",
+            "MemPerc": "1.47%",
+            "MemUsage": "13.84MiB / 939.7MiB",
+            "Name": "zt-guac-v2-next-20261009-a93f6e1b-browser7-bastion-1",
+            "NetIO": "10.1MB / 9.74MB",
+            "PIDs": "6"
+          },
+          {
+            "BlockIO": "69.5MB / 81.2MB",
+            "CPUPerc": "0.23%",
+            "Container": "zt-guac-v2-next-20261009-a93f6e1b-browser7-guacd-1",
+            "ID": "2f247bd51798",
+            "MemPerc": "9.34%",
+            "MemUsage": "87.75MiB / 939.7MiB",
+            "Name": "zt-guac-v2-next-20261009-a93f6e1b-browser7-guacd-1",
+            "NetIO": "248kB / 456kB",
+            "PIDs": "158"
+          },
+          {
+            "BlockIO": "282MB / 103MB",
+            "CPUPerc": "0.00%",
+            "Container": "zt-guac-v2-next-20261009-a93f6e1b-browser7-target-1",
+            "ID": "f008b365605a",
+            "MemPerc": "55.27%",
+            "MemUsage": "106.1MiB / 192MiB",
+            "Name": "zt-guac-v2-next-20261009-a93f6e1b-browser7-target-1",
+            "NetIO": "44.5kB / 67.2kB",
+            "PIDs": "52"
+          },
+          {
+            "BlockIO": "34.9MB / 133MB",
+            "CPUPerc": "1.91%",
+            "Container": "zt-guac-v2-next-20261009-a93f6e1b-browser7-restored-postgres",
+            "ID": "c0e15de5c4dc",
+            "MemPerc": "19.78%",
+            "MemUsage": "25.32MiB / 128MiB",
+            "Name": "zt-guac-v2-next-20261009-a93f6e1b-browser7-restored-postgres",
+            "NetIO": "6.58MB / 9.4MB",
+            "PIDs": "11"
+          }
+        ],
+        "browser_processes": [
+          {
+            "type": "browser",
+            "id": 129352,
+            "cpuTime": 10.425206
+          },
+          {
+            "type": "renderer",
+            "id": 125008,
+            "cpuTime": 2.422181
+          },
+          {
+            "type": "renderer",
+            "id": 138244,
+            "cpuTime": 1.623505
+          },
+          {
+            "type": "renderer",
+            "id": 119068,
+            "cpuTime": 1.733287
+          },
+          {
+            "type": "renderer",
+            "id": 128032,
+            "cpuTime": 2.53192
+          },
+          {
+            "type": "renderer",
+            "id": 126780,
+            "cpuTime": 1.638279
+          },
+          {
+            "type": "renderer",
+            "id": 113268,
+            "cpuTime": 1.806176
+          },
+          {
+            "type": "renderer",
+            "id": 124164,
+            "cpuTime": 2.673352
+          },
+          {
+            "type": "renderer",
+            "id": 118520,
+            "cpuTime": 1.619511
+          },
+          {
+            "type": "renderer",
+            "id": 129128,
+            "cpuTime": 1.766091
+          },
+          {
+            "type": "renderer",
+            "id": 120988,
+            "cpuTime": 2.605346
+          },
+          {
+            "type": "renderer",
+            "id": 138108,
+            "cpuTime": 10.627563
+          },
+          {
+            "type": "GPU",
+            "id": 123236,
+            "cpuTime": 6.952894
+          },
+          {
+            "type": "network.mojom.NetworkService",
+            "id": 136416,
+            "cpuTime": 3.299782
+          }
+        ],
+        "browser_memory": [
+          {
+            "Id": 113268,
+            "WorkingSet64": 135770112,
+            "PrivateMemorySize64": 45109248
+          },
+          {
+            "Id": 118520,
+            "WorkingSet64": 125902848,
+            "PrivateMemorySize64": 40718336
+          },
+          {
+            "Id": 119068,
+            "WorkingSet64": 134942720,
+            "PrivateMemorySize64": 45166592
+          },
+          {
+            "Id": 120988,
+            "WorkingSet64": 162910208,
+            "PrivateMemorySize64": 49475584
+          },
+          {
+            "Id": 123236,
+            "WorkingSet64": 350269440,
+            "PrivateMemorySize64": 147968000
+          },
+          {
+            "Id": 124164,
+            "WorkingSet64": 154599424,
+            "PrivateMemorySize64": 52609024
+          },
+          {
+            "Id": 125008,
+            "WorkingSet64": 151609344,
+            "PrivateMemorySize64": 49172480
+          },
+          {
+            "Id": 126780,
+            "WorkingSet64": 126537728,
+            "PrivateMemorySize64": 42123264
+          },
+          {
+            "Id": 128032,
+            "WorkingSet64": 162996224,
+            "PrivateMemorySize64": 49848320
+          },
+          {
+            "Id": 129128,
+            "WorkingSet64": 137142272,
+            "PrivateMemorySize64": 47292416
+          },
+          {
+            "Id": 129352,
+            "WorkingSet64": 72900608,
+            "PrivateMemorySize64": 29569024
+          },
+          {
+            "Id": 136416,
+            "WorkingSet64": 49479680,
+            "PrivateMemorySize64": 20738048
+          },
+          {
+            "Id": 138108,
+            "WorkingSet64": 170954752,
+            "PrivateMemorySize64": 61186048
+          },
+          {
+            "Id": 138244,
+            "WorkingSet64": 128823296,
+            "PrivateMemorySize64": 40255488
+          }
+        ]
+      },
+      {
+        "at": "2026-10-09T07:22:15.738Z",
+        "containers": [
+          {
+            "BlockIO": "22.8MB / 8.78MB",
+            "CPUPerc": "1.52%",
+            "Container": "zt-guac-v2-next-20261009-a93f6e1b-browser7-bastion-1",
+            "ID": "bdee68e5811a",
+            "MemPerc": "1.47%",
+            "MemUsage": "13.84MiB / 939.7MiB",
+            "Name": "zt-guac-v2-next-20261009-a93f6e1b-browser7-bastion-1",
+            "NetIO": "12.2MB / 11.2MB",
+            "PIDs": "6"
+          },
+          {
+            "BlockIO": "69.5MB / 90MB",
+            "CPUPerc": "0.24%",
+            "Container": "zt-guac-v2-next-20261009-a93f6e1b-browser7-guacd-1",
+            "ID": "2f247bd51798",
+            "MemPerc": "8.44%",
+            "MemUsage": "79.29MiB / 939.7MiB",
+            "Name": "zt-guac-v2-next-20261009-a93f6e1b-browser7-guacd-1",
+            "NetIO": "284kB / 492kB",
+            "PIDs": "158"
+          },
+          {
+            "BlockIO": "282MB / 103MB",
+            "CPUPerc": "0.00%",
+            "Container": "zt-guac-v2-next-20261009-a93f6e1b-browser7-target-1",
+            "ID": "f008b365605a",
+            "MemPerc": "55.27%",
+            "MemUsage": "106.1MiB / 192MiB",
+            "Name": "zt-guac-v2-next-20261009-a93f6e1b-browser7-target-1",
+            "NetIO": "44.5kB / 67.2kB",
+            "PIDs": "52"
+          },
+          {
+            "BlockIO": "38MB / 160MB",
+            "CPUPerc": "2.95%",
+            "Container": "zt-guac-v2-next-20261009-a93f6e1b-browser7-restored-postgres",
+            "ID": "c0e15de5c4dc",
+            "MemPerc": "22.53%",
+            "MemUsage": "28.84MiB / 128MiB",
+            "Name": "zt-guac-v2-next-20261009-a93f6e1b-browser7-restored-postgres",
+            "NetIO": "8.01MB / 11.4MB",
+            "PIDs": "11"
+          }
+        ],
+        "browser_processes": [
+          {
+            "type": "browser",
+            "id": 129352,
+            "cpuTime": 10.793139
+          },
+          {
+            "type": "renderer",
+            "id": 125008,
+            "cpuTime": 2.49846
+          },
+          {
+            "type": "renderer",
+            "id": 138244,
+            "cpuTime": 1.644154
+          },
+          {
+            "type": "renderer",
+            "id": 119068,
+            "cpuTime": 1.754758
+          },
+          {
+            "type": "renderer",
+            "id": 128032,
+            "cpuTime": 2.606373
+          },
+          {
+            "type": "renderer",
+            "id": 126780,
+            "cpuTime": 1.659332
+          },
+          {
+            "type": "renderer",
+            "id": 113268,
+            "cpuTime": 1.828976
+          },
+          {
+            "type": "renderer",
+            "id": 124164,
+            "cpuTime": 2.745772
+          },
+          {
+            "type": "renderer",
+            "id": 118520,
+            "cpuTime": 1.6413
+          },
+          {
+            "type": "renderer",
+            "id": 129128,
+            "cpuTime": 1.7862
+          },
+          {
+            "type": "renderer",
+            "id": 120988,
+            "cpuTime": 2.682695
+          },
+          {
+            "type": "renderer",
+            "id": 138108,
+            "cpuTime": 10.684633
+          },
+          {
+            "type": "GPU",
+            "id": 123236,
+            "cpuTime": 6.97465
+          },
+          {
+            "type": "network.mojom.NetworkService",
+            "id": 136416,
+            "cpuTime": 3.542474
+          }
+        ],
+        "browser_memory": [
+          {
+            "Id": 113268,
+            "WorkingSet64": 135831552,
+            "PrivateMemorySize64": 45088768
+          },
+          {
+            "Id": 118520,
+            "WorkingSet64": 125984768,
+            "PrivateMemorySize64": 40734720
+          },
+          {
+            "Id": 119068,
+            "WorkingSet64": 134881280,
+            "PrivateMemorySize64": 45060096
+          },
+          {
+            "Id": 120988,
+            "WorkingSet64": 163414016,
+            "PrivateMemorySize64": 50229248
+          },
+          {
+            "Id": 123236,
+            "WorkingSet64": 350265344,
+            "PrivateMemorySize64": 147963904
+          },
+          {
+            "Id": 124164,
+            "WorkingSet64": 154779648,
+            "PrivateMemorySize64": 52748288
+          },
+          {
+            "Id": 125008,
+            "WorkingSet64": 152006656,
+            "PrivateMemorySize64": 49668096
+          },
+          {
+            "Id": 126780,
+            "WorkingSet64": 126087168,
+            "PrivateMemorySize64": 41607168
+          },
+          {
+            "Id": 128032,
+            "WorkingSet64": 163409920,
+            "PrivateMemorySize64": 50147328
+          },
+          {
+            "Id": 129128,
+            "WorkingSet64": 137220096,
+            "PrivateMemorySize64": 47300608
+          },
+          {
+            "Id": 129352,
+            "WorkingSet64": 72912896,
+            "PrivateMemorySize64": 29569024
+          },
+          {
+            "Id": 136416,
+            "WorkingSet64": 49508352,
+            "PrivateMemorySize64": 20738048
+          },
+          {
+            "Id": 138108,
+            "WorkingSet64": 170381312,
+            "PrivateMemorySize64": 60465152
+          },
+          {
+            "Id": 138244,
+            "WorkingSet64": 128786432,
+            "PrivateMemorySize64": 40189952
+          }
+        ]
+      }
+    ],
+    "sustained_production_capacity_claimed": false,
+    "all_ten_recordings_complete": true
+  },
+  "retention": {
+    "expired_file_removed": true,
+    "unexpired_file_kept": true,
+    "connection_and_audit_history_kept": true,
+    "kept_recording_replays": true
+  },
+  "status": "passed-real-recovery-and-fault-components"
+}

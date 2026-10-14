@@ -1,0 +1,49 @@
+{
+  "production_ready": false,
+  "windows_nla_verified": false,
+  "native_os_ime_verified": false,
+  "application_image_id": "sha256:e1c5419db24e98c4d5863c7f4c71fef4ec9a395807ae881fd168edf4eccd90d2",
+  "engine_image_id": "sha256:689c462e27a23670c35bb3435022627f71144f5e04210bffea3b52ba7bac6a23",
+  "fixture_server_id": "zt-guac-v2-accept-20261013-recovery",
+  "baseline": [
+    {
+      "bytes": 1590,
+      "checksum": "e5900fabb22aa3015aafe8825637c59af64a02e8af238e4795980c27a18cb0f8",
+      "connection_id": "f1f50963-f2f0-41f4-b17b-b3649b12862c",
+      "format_version": 2,
+      "id": "9f55bea8-24db-4c7b-8117-b7541c1b6a34",
+      "last_synced_seq": 5,
+      "last_written_seq": 5,
+      "retention_until": "2026-11-12T10:14:02.403426+00:00",
+      "state": "complete",
+      "target_protocol": "ssh"
+    },
+    {
+      "bytes": 17795,
+      "checksum": "071f85a9a7feb91648f6b2baec8393eda731c48ff572d0954b6b9956c2373358",
+      "connection_id": "622e9a1a-fb3d-443b-b55d-015a50f53ebe",
+      "format_version": 2,
+      "id": "88f97002-358c-4834-b025-68ba200808ad",
+      "last_synced_seq": 76,
+      "last_written_seq": 76,
+      "retention_until": "2026-11-12T10:14:09.148062+00:00",
+      "state": "complete",
+      "target_protocol": "rdp"
+    },
+    {
+      "bytes": 6080,
+      "checksum": "9cc5607d75b469252b7225c58f5b601c17f1b5ecfd9b06a9a482040aabac8f8d",
+      "connection_id": "c53c39e3-251a-40e2-ab0b-420d9b984f6f",
+      "format_version": 2,
+      "id": "3b50a70c-c1cf-42c6-a3f5-8d02fa32af1e",
+      "last_synced_seq": 31,
+      "last_written_seq": 31,
+      "retention_until": "2026-11-12T10:14:18.747118+00:00",
+      "state": "complete",
+      "target_protocol": "vnc"
+    }
+  ],
+  "faults": {},
+  "status": "failed",
+  "error": "fixture operation backup-restore failed: Traceback (most recent call last):\n  File \"/var/tmp/zt-guac-v2-accept-20261013/source/tests/docker_recording_probe.py\", line 147, in <module>\n    (root/'override.json').write_text(json.dumps(override));app_up()\n                                                            ~~~~~~^^\n  File \"/var/tmp/zt-guac-v2-accept-20261013/source/tests/docker_recording_probe.py\", line 35, in app_up\n    dc('up','-d','--force-recreate','--wait','--wait-timeout','90','bastion')\n    ~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/var/tmp/zt-guac-v2-accept-20261013/source/tests/docker_recording_probe.py\", line 18, in dc\n    def dc(*args):return run(*compose,*args,env=env)\n                         ~~~^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/var/tmp/zt-guac-v2-accept-20261013/source/tests/docker_recording_probe.py\", line 16, in run\n    return subprocess.run(args,check=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE,**kwargs)\n           ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/lib/python3.13/subprocess.py\", line 577, in run\n    raise CalledProcessError(retcode, process.args,\n                             output=stdout, stderr=stderr)\nsubprocess.CalledProcessError: Command '('docker', 'compose', '-p', 'zt-guac-v2-accept-20261013-recovery', '-f', '/var/tmp/zt-guac-v2-accept-20261013/source/compose.yaml', '-f', '/var/tmp/zt-guac-v2-accept-20261013-recovery/override.json', 'up', '-d', '--force-recreate', '--wait', '--wait-timeout', '90', 'bastion')' returned non-zero exit status 1.\n"
+}

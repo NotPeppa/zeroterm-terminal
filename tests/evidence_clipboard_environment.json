@@ -1,0 +1,33 @@
+{
+  "production_ready": false,
+  "live": {
+    "bastion": {
+      "container_id": "7f0520124f54792620dc5014f5e4d43fc5d09ec2907347be5e4cb81337aa42aa",
+      "image_id": "sha256:1a5b76c17ce14569080282c2a72941345e4c00baee0bade8710a0b657220d118",
+      "running": true,
+      "health": "healthy"
+    },
+    "guacd": {
+      "container_id": "03d2a77fdbe03729efaf385eb543822e60afbc179a70e9bfd3bd2dcde5dc4280",
+      "image_id": "sha256:689c462e27a23670c35bb3435022627f71144f5e04210bffea3b52ba7bac6a23",
+      "running": true,
+      "health": null
+    },
+    "postgres": {
+      "container_id": "1671917d6188d5634a3aaf7d9c2b0f43b56b73176c88e311bfaa3b8b38ed222e",
+      "image_id": "sha256:589f742565e4f6d22149176b032974f55f8201a8a37b71ed587ec5c6902e689f",
+      "running": true,
+      "health": "healthy"
+    },
+    "proxy": {
+      "container_id": "0b240dba8970a71f69160e927839587de3f40ce1f1cc988e98e40127955c6192",
+      "image_id": "sha256:43d9d8c1f8968f09df8c1aa6c136ecc617e62d64fe4c0b24c97de4eb210bd973",
+      "running": true,
+      "health": "healthy"
+    }
+  },
+  "status": "verified",
+  "owned_fixtures_and_rules_removed": true,
+  "live_engine_egress_present": true,
+  "owned_builder_stopped": true
+}

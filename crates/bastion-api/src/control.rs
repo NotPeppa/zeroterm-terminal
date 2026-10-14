@@ -1,5 +1,5 @@
 mod browser;
-mod files;
+mod groups;
 mod recordings;
 #[cfg(test)]
 mod tests;
@@ -17,7 +17,9 @@ use axum::{
 use bastion_domain::*;
 use bastion_secrets::{hash_password, verify_password, Credential, KeyRing, Secret};
 use bastion_store::{
-    AccountView, AssetView, Collection, GrantView, HostKeyView, PageRequest, PgStore,
+    AccountCreate as CreateAccount, AccountUpdate as UpdateAccount, AccountView,
+    AssetCreate as CreateAsset, AssetUpdate as UpdateAsset, AssetView, Collection, GrantView,
+    PageRequest, PgStore,
 };
 use chrono::{DateTime, Utc};
 use serde::Deserialize;
@@ -34,14 +36,12 @@ use uuid::Uuid;
 pub struct ControlApi {
     pub store: PgStore,
     pub keys: Arc<KeyRing>,
-    pub gateway: GatewayAddress,
-    pub gateway_public_key: String,
+    pub guacd: bastion_gateway::GuacdConfig,
     pub network: Arc<bastion_gateway::NetworkPolicy>,
     browser: Option<browser::BrowserConfig>,
     recording_required: bool,
     recording_available: bool,
     recording_directory: Option<std::path::PathBuf>,
-    file_max_bytes: u64,
     backend: Option<Arc<dyn bastion_gateway::GatewayBackend>>,
     shutdown: tokio_util::sync::CancellationToken,
     dummy_phc: String,
@@ -52,21 +52,18 @@ impl ControlApi {
     pub fn new(
         store: PgStore,
         keys: Arc<KeyRing>,
-        gateway: GatewayAddress,
-        gateway_public_key: String,
         network: Arc<bastion_gateway::NetworkPolicy>,
+        guacd: bastion_gateway::GuacdConfig,
     ) -> anyhow::Result<Self> {
         Ok(Self {
             store,
             keys,
-            gateway,
-            gateway_public_key,
+            guacd,
             network,
             browser: None,
             recording_required: false,
             recording_available: false,
             recording_directory: None,
-            file_max_bytes: 1024 * 1024 * 1024,
             backend: None,
             shutdown: tokio_util::sync::CancellationToken::new(),
             dummy_phc: hash_password(Secret::random().expose())?,
@@ -99,15 +96,6 @@ impl ControlApi {
     pub fn with_recordings(mut self, directory: std::path::PathBuf) -> Self {
         self.recording_directory = Some(directory);
         self.recording_available = true;
-        self
-    }
-    pub fn with_backend(
-        mut self,
-        backend: Arc<dyn bastion_gateway::GatewayBackend>,
-        file_max_bytes: u64,
-    ) -> Self {
-        self.backend = Some(backend);
-        self.file_max_bytes = file_max_bytes;
         self
     }
     fn hit(&self, key: String, limit: u32) -> bool {
@@ -158,29 +146,32 @@ impl ControlApi {
         .await
         .map_err(|_| ApiError(ErrorCode::InternalError))
     }
-    async fn validate_credential(&self, credential: Credential) -> ApiResult<Credential> {
-        if !credential.validate_lengths() {
-            return Err(ApiError(ErrorCode::InvalidArgument));
-        }
-        let permit = self
-            .password_work
-            .clone()
-            .try_acquire_owned()
-            .map_err(|_| ApiError(ErrorCode::RateLimited))?;
-        tokio::task::spawn_blocking(move || {
-            let _permit = permit;
-            if let Credential::PrivateKey {
-                key_pem,
-                passphrase,
-            } = &credential
-            {
-                russh::keys::decode_secret_key(key_pem, passphrase.as_deref())
-                    .map_err(|_| ApiError(ErrorCode::InvalidArgument))?;
-            }
-            Ok(credential)
+    async fn target(&self, connection: &Connection) -> Result<bastion_gateway::Target, ErrorCode> {
+        use bastion_gateway::{Target, TargetAuth, TargetEndpoint};
+        let snapshot = self.store.target_snapshot(connection).await?;
+        let auth = match (snapshot.context, snapshot.credential) {
+            (Some(context), Some(envelope)) => TargetAuth::Encrypted {
+                context,
+                envelope,
+                keys: self.keys.clone(),
+            },
+            (None, None) if snapshot.protocol == TargetProtocol::Vnc => TargetAuth::None,
+            _ => return Err(ErrorCode::TargetAuthFailed),
+        };
+        Ok(Target {
+            protocol: snapshot.protocol,
+            address: TargetEndpoint::Restricted {
+                host: snapshot.host,
+                port: snapshot.port,
+                policy: self.network.clone(),
+            },
+            security: snapshot.security,
+            ssh_host_key: snapshot.ssh_host_key,
+            rdp_certificate_sha256: snapshot.rdp_certificate_sha256,
+            username: snapshot.username,
+            domain: snapshot.domain,
+            auth,
         })
-        .await
-        .map_err(|_| ApiError(ErrorCode::InternalError))?
     }
 }
 
@@ -200,21 +191,20 @@ impl From<ErrorCode> for ApiError {
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
         let status = match self.0 {
-            ErrorCode::InvalidArgument | ErrorCode::UnknownCapability => StatusCode::BAD_REQUEST,
+            ErrorCode::InvalidArgument => StatusCode::BAD_REQUEST,
             ErrorCode::Unauthenticated
             | ErrorCode::AccessTokenExpired
             | ErrorCode::LoginSessionRevoked => StatusCode::UNAUTHORIZED,
             ErrorCode::PermissionDenied
-            | ErrorCode::ChannelPermissionDenied
             | ErrorCode::UserDisabled
             | ErrorCode::TargetAddressDenied => StatusCode::FORBIDDEN,
             ErrorCode::ResourceNotFound => StatusCode::NOT_FOUND,
             ErrorCode::PreconditionRequired => StatusCode::PRECONDITION_REQUIRED,
             ErrorCode::RevisionConflict => StatusCode::PRECONDITION_FAILED,
             ErrorCode::RateLimited | ErrorCode::ConnectionLimit => StatusCode::TOO_MANY_REQUESTS,
-            ErrorCode::PolicyStoreUnavailable | ErrorCode::RecordingUnavailable => {
-                StatusCode::SERVICE_UNAVAILABLE
-            }
+            ErrorCode::PolicyStoreUnavailable
+            | ErrorCode::RecordingUnavailable
+            | ErrorCode::TargetProtocolUnavailable => StatusCode::SERVICE_UNAVAILABLE,
             ErrorCode::ClientProtocolUnsupported => StatusCode::UPGRADE_REQUIRED,
             ErrorCode::AuthOrGatewayFailed => StatusCode::BAD_GATEWAY,
             ErrorCode::TicketExpired
@@ -223,6 +213,7 @@ impl IntoResponse for ApiError {
             | ErrorCode::TicketStale
             | ErrorCode::TargetHostKeyChanged
             | ErrorCode::TargetHostKeyUnknown
+            | ErrorCode::TargetCertificateChanged
             | ErrorCode::ResourceConflict => StatusCode::CONFLICT,
             ErrorCode::TargetTimeout => StatusCode::GATEWAY_TIMEOUT,
             ErrorCode::TargetUnreachable
@@ -235,11 +226,6 @@ impl IntoResponse for ApiError {
             Json(json!({"error":{"code":self.0,"message":self.0.to_string()}})),
         )
             .into_response();
-        if status == StatusCode::UNAUTHORIZED {
-            response
-                .headers_mut()
-                .insert(header::WWW_AUTHENTICATE, HeaderValue::from_static("Bearer"));
-        }
         if status == StatusCode::TOO_MANY_REQUESTS {
             response
                 .headers_mut()
@@ -252,28 +238,43 @@ impl IntoResponse for ApiError {
 pub fn control_router(state: Arc<ControlApi>) -> Router {
     let admin = Router::new()
         .route("/admin/users", get(users).post(create_user))
-        .route("/admin/users/{id}", get(user).patch(update_user))
+        .route(
+            "/admin/users/{id}",
+            get(user).patch(update_user).delete(delete_user),
+        )
         .route("/admin/users/{id}/reset-password", post(reset_password))
         .route("/admin/assets", get(admin_assets).post(create_asset))
-        .route("/admin/assets/{id}", get(admin_asset).patch(update_asset))
+        .route(
+            "/admin/asset-groups",
+            get(groups::list).post(groups::create),
+        )
+        .route(
+            "/admin/asset-groups/{id}",
+            get(groups::get).patch(groups::patch).delete(groups::remove),
+        )
+        .route(
+            "/admin/assets/{id}",
+            get(admin_asset).patch(update_asset).delete(delete_asset),
+        )
+        .route(
+            "/admin/assets/{id}/ssh-host-key/scan",
+            post(scan_ssh_host_key),
+        )
+        .route(
+            "/admin/assets/{id}/rdp-certificate/scan",
+            post(scan_rdp_certificate),
+        )
         .route(
             "/admin/assets/{id}/accounts",
             get(accounts).post(create_account),
         )
-        .route("/admin/accounts/{id}", get(account).patch(update_account))
-        .route("/admin/accounts/{id}/test", post(test_account))
+        .route(
+            "/admin/accounts/{id}",
+            get(account).patch(update_account).delete(delete_account),
+        )
         .route(
             "/admin/accounts/{id}/credential",
             axum::routing::put(replace_credential),
-        )
-        .route("/admin/assets/{id}/host-key-scan", post(scan_host_key))
-        .route(
-            "/admin/assets/{id}/host-keys",
-            get(host_keys).post(approve_host_key),
-        )
-        .route(
-            "/admin/assets/{asset}/host-keys/{id}",
-            axum::routing::delete(revoke_host_key),
         )
         .route("/admin/grants", get(grants).post(create_grant))
         .route(
@@ -291,30 +292,13 @@ pub fn control_router(state: Arc<ControlApi>) -> Router {
         .route("/auth/logout-all", post(logout_all))
         .route("/assets", get(assets))
         .route("/assets/{id}", get(asset))
-        .route("/connection-tickets", post(issue_ticket))
-        .route(
-            "/integrations/zeroterm/connection-tickets",
-            post(issue_ticket),
-        )
         .route("/sessions", post(browser::issue_session))
         .route("/sessions/{id}/stream", get(browser::stream))
         .route("/connections", get(connections))
         .route("/connections/{id}", get(connection))
-        .route("/connections/{id}/channels", get(channels))
-        .route("/connections/{id}/files", get(files::metadata))
-        .route("/connections/{id}/files/operations", post(files::operate))
-        .route(
-            "/connections/{id}/files/content",
-            get(files::download)
-                .put(files::upload)
-                .layer(DefaultBodyLimit::disable()),
-        )
         .route("/recordings", get(recordings::list))
         .route("/recordings/{id}", get(recordings::metadata))
         .route("/recordings/{id}/content", get(recordings::content))
-        .route("/copy-jobs", get(files::jobs).post(files::create_job))
-        .route("/copy-jobs/{id}", get(files::job))
-        .route("/copy-jobs/{id}/cancel", post(files::cancel_job))
         .route("/connections/{id}/disconnect", post(disconnect))
         .route("/audit-events", get(audit_events))
         .layer(middleware::from_fn_with_state(state.clone(), authenticate));
@@ -326,7 +310,8 @@ pub fn control_router(state: Arc<ControlApi>) -> Router {
                 .route("/info", get(info))
                 .route("/auth/login", post(login))
                 .route("/auth/csrf", get(browser::csrf_token))
-                .route("/auth/refresh", post(browser::refresh)),
+                .route("/auth/refresh", post(browser::refresh))
+                .fallback(|| async { ApiError(ErrorCode::ResourceNotFound) }),
         )
         .route("/health/live", get(|| async { "ok" }))
         .route("/health/ready", get(readiness))
@@ -336,13 +321,11 @@ pub fn control_router(state: Arc<ControlApi>) -> Router {
 }
 async fn context(mut request: axum::extract::Request, next: Next) -> Response {
     let id = Uuid::new_v4();
-    // Upload and replay handlers stream outside the JSON request deadline. Their own
+    // Replay handlers stream outside the JSON request deadline. Their own
     // bounded I/O and authorization deadlines apply; DB calls retain the 2s budget.
-    let streamed = request.method() == axum::http::Method::PUT
-        && request.uri().path().ends_with("/files/content")
-        || request.method() == axum::http::Method::GET
-            && request.uri().path().contains("/recordings/")
-            && request.uri().path().ends_with("/content");
+    let streamed = request.method() == axum::http::Method::GET
+        && request.uri().path().contains("/recordings/")
+        && request.uri().path().ends_with("/content");
     let ip = request
         .extensions()
         .get::<ConnectInfo<SocketAddr>>()
@@ -449,36 +432,66 @@ fn input<T>(value: Result<Json<T>, axum::extract::rejection::JsonRejection>) -> 
 }
 
 async fn info(State(state): State<Arc<ControlApi>>) -> Json<Value> {
+    let recording_available = state.recording_available
+        && !state.shutdown.is_cancelled()
+        && recording_ready(&state).await.is_ok();
+    let replay_available = state.recording_available
+        && !state.shutdown.is_cancelled()
+        && recordings::available(&state).await;
+    let usable = state.browser.is_some()
+        && state.backend.is_some()
+        && (!state.recording_required || recording_available)
+        && !state.shutdown.is_cancelled();
+    let (rdp, vnc) = if usable {
+        tokio::join!(
+            bastion_gateway::protocol_available(&state.guacd, TargetProtocol::Rdp),
+            bastion_gateway::protocol_available(&state.guacd, TargetProtocol::Vnc)
+        )
+    } else {
+        (false, false)
+    };
     Json(
-        json!({"server_id":state.store.server_id,"protocol_version":1,"websocket_protocol_version":1,"ssh_protocol_version":1,"minimum_client_protocol_version":1,"production_ready":false,
-            "recording":{"required":state.recording_required,"format_version":1,"available":state.recording_available},
-            "features":{"ssh_terminal":state.backend.is_some() && (!state.recording_required || state.recording_available),"ssh_exec":state.backend.is_some(),"ssh_sftp":state.backend.is_some(),"web_terminal":state.browser.is_some() && (!state.recording_required || state.recording_available),"web_exec":state.browser.is_some() && state.backend.is_some(),"web_sftp":state.browser.is_some() && state.backend.is_some(),"recording_replay":state.recording_available,"copy_jobs":false,"device_sessions":true},
-            "gateway":{"id":state.gateway.id,"host":state.gateway.host,"port":state.gateway.port,"public_key":state.gateway_public_key}}),
+        json!({"server_id":state.store.server_id,"schema_version":2,"protocol_version":2,
+        "stream_protocol":STREAM_PROTOCOL,"production_ready":false,
+        "stream_protocols":{"ssh":SSH_STREAM_PROTOCOL,"rdp":STREAM_PROTOCOL,"vnc":STREAM_PROTOCOL},
+        "recording":{"required":state.recording_required,"format_version":2,"available":recording_available},
+        "features":{"web_ssh":usable,"web_rdp":rdp,"web_vnc":vnc,"recording_replay":replay_available,"device_sessions":true}}),
     )
 }
-async fn readiness(State(state): State<Arc<ControlApi>>) -> ApiResult<&'static str> {
-    if state.shutdown.is_cancelled() || state.recording_required && !state.recording_available {
-        return Err(ApiError(ErrorCode::RecordingUnavailable));
-    }
+async fn recording_ready(state: &ControlApi) -> ApiResult<()> {
     if state.recording_required {
         let recording = state
             .backend
             .as_ref()
             .and_then(|backend| backend.recording_config())
             .ok_or(ApiError(ErrorCode::RecordingUnavailable))?;
-        tokio::time::timeout(
-            Duration::from_secs(2),
+        static PROBES: std::sync::OnceLock<Arc<Semaphore>> = std::sync::OnceLock::new();
+        let probes = PROBES.get_or_init(|| Arc::new(Semaphore::new(1))).clone();
+        tokio::time::timeout(Duration::from_secs(2), async move {
+            let permit = probes
+                .acquire_owned()
+                .await
+                .map_err(|_| ErrorCode::RecordingUnavailable)?;
             tokio::task::spawn_blocking(move || {
+                let _permit = permit;
                 bastion_gateway::check_recording_directory(
                     &recording.directory,
                     recording.min_free_bytes,
                 )
-            }),
-        )
+            })
+            .await
+            .unwrap_or(Err(ErrorCode::RecordingUnavailable))
+        })
         .await
-        .map_err(|_| ApiError(ErrorCode::RecordingUnavailable))?
         .map_err(|_| ApiError(ErrorCode::RecordingUnavailable))??;
     }
+    Ok(())
+}
+async fn readiness(State(state): State<Arc<ControlApi>>) -> ApiResult<&'static str> {
+    if state.shutdown.is_cancelled() || state.recording_required && !state.recording_available {
+        return Err(ApiError(ErrorCode::RecordingUnavailable));
+    }
+    recording_ready(&state).await?;
     state.store.check_identity().await?;
     Ok("ok")
 }
@@ -498,7 +511,7 @@ async fn login(
     body: Result<Json<BrowserLogin>, axum::extract::rejection::JsonRejection>,
 ) -> ApiResult<Response> {
     let mut body = input(body)?;
-    let web = browser::web_login(&state, &headers, &body)?;
+    browser::web_login(&state, &headers)?;
     if !state.hit(format!("ip:{}", ctx.ip), 10) {
         return Err(ApiError(ErrorCode::RateLimited));
     }
@@ -528,18 +541,11 @@ async fn login(
         .await?;
     if let Some((user, hash)) = candidate {
         if matches && user.enabled {
-            let result = if web {
-                state
-                    .store
-                    .login_web(&user, &hash, &body.device_label, ctx.id)
-                    .await?
-            } else {
-                state
-                    .store
-                    .login(&user, &hash, &body.device_label, ctx.id)
-                    .await?
-            };
-            return browser::login_response(&state, result, web);
+            let result = state
+                .store
+                .login_web(&user, &hash, &body.device_label, ctx.id)
+                .await?;
+            return browser::login_response(&state, result);
         }
     }
     state.hit(format!("user:{username}"), 5);
@@ -660,6 +666,23 @@ async fn update_user(
             .await?,
     ))
 }
+async fn delete_user(
+    State(state): State<Arc<ControlApi>>,
+    Extension(actor): Extension<Identity>,
+    Extension(ctx): Extension<RequestContext>,
+    Path(value): Path<String>,
+    headers: HeaderMap,
+) -> ApiResult<StatusCode> {
+    let id = id(&value)?;
+    state
+        .store
+        .delete_user(&actor, id, revision(&headers)?, ctx.id)
+        .await?;
+    if let Some(backend) = &state.backend {
+        backend.registry().revoke_user(id);
+    }
+    Ok(StatusCode::NO_CONTENT)
+}
 async fn reset_password(
     State(state): State<Arc<ControlApi>>,
     Extension(actor): Extension<Identity>,
@@ -703,24 +726,6 @@ async fn change_password(
     Ok(StatusCode::NO_CONTENT)
 }
 
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct CreateAsset {
-    name: String,
-    host: String,
-    port: u16,
-    #[serde(default)]
-    tags: Vec<String>,
-}
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct UpdateAsset {
-    name: Option<String>,
-    host: Option<String>,
-    port: Option<u16>,
-    enabled: Option<bool>,
-    tags: Option<Vec<String>>,
-}
 fn valid_asset(name: &str, host: &str, port: u16, tags: &[String]) -> bool {
     !name.is_empty()
         && name.chars().count() <= 128
@@ -747,6 +752,85 @@ async fn admin_asset(
 ) -> ApiResult<Json<AssetView>> {
     Ok(Json(state.store.asset(id(&value)?).await?))
 }
+/// Shared trust-discovery guard: the asset revision shown to the administrator, its protocol,
+/// per-admin rate and global concurrency. Returns the asset, its port and the held permit.
+async fn scan_target(
+    state: &ControlApi,
+    actor: &Identity,
+    value: &str,
+    headers: &HeaderMap,
+    protocol: TargetProtocol,
+) -> ApiResult<(AssetView, u16, tokio::sync::SemaphorePermit<'static>)> {
+    let expected = revision(headers)?;
+    let asset = state.store.asset(id(value)?).await?;
+    if asset.revision != expected {
+        return Err(ApiError(ErrorCode::RevisionConflict));
+    }
+    if asset.protocol != protocol || !asset.enabled {
+        return Err(ApiError(ErrorCode::InvalidArgument));
+    }
+    if !state.hit(format!("trust-scan:{}", actor.user.id), 10) {
+        return Err(ApiError(ErrorCode::RateLimited));
+    }
+    static SCANS: std::sync::OnceLock<Semaphore> = std::sync::OnceLock::new();
+    let permit = SCANS
+        .get_or_init(|| Semaphore::new(4))
+        .try_acquire()
+        .map_err(|_| ApiError(ErrorCode::RateLimited))?;
+    let port = u16::try_from(asset.port).map_err(|_| ApiError(ErrorCode::InternalError))?;
+    Ok((asset, port, permit))
+}
+/// Approval must use the address/revision actually shown to the administrator.
+async fn unchanged(state: &ControlApi, asset: &AssetView) -> ApiResult<()> {
+    if state.store.asset(asset.id).await?.revision != asset.revision {
+        return Err(ApiError(ErrorCode::RevisionConflict));
+    }
+    Ok(())
+}
+async fn scan_ssh_host_key(
+    State(state): State<Arc<ControlApi>>,
+    Extension(actor): Extension<Identity>,
+    Path(value): Path<String>,
+    headers: HeaderMap,
+) -> ApiResult<Json<Value>> {
+    let (asset, port, _permit) =
+        scan_target(&state, &actor, &value, &headers, TargetProtocol::Ssh).await?;
+    let keys = bastion_gateway::scan_ssh_host_keys(&state.network, &asset.host, port).await?;
+    unchanged(&state, &asset).await?;
+    let approved_fingerprint = asset
+        .ssh_host_key
+        .as_deref()
+        .map(bastion_gateway::ssh_host_key_fingerprint)
+        .transpose()?;
+    Ok(Json(
+        json!({"asset_id":asset.id,"host":asset.host,"port":asset.port,
+        "revision":asset.revision,"approved_fingerprint":approved_fingerprint,"keys":keys}),
+    ))
+}
+/// Bodyless like SSH: discovers the pin and the security protocol the server selects; the
+/// administrator confirms both with asset PATCH using the returned revision.
+async fn scan_rdp_certificate(
+    State(state): State<Arc<ControlApi>>,
+    Extension(actor): Extension<Identity>,
+    Path(value): Path<String>,
+    headers: HeaderMap,
+) -> ApiResult<Json<Value>> {
+    let (asset, port, _permit) =
+        scan_target(&state, &actor, &value, &headers, TargetProtocol::Rdp).await?;
+    let certificate =
+        bastion_gateway::scan_rdp_certificate(&state.network, &asset.host, port).await?;
+    unchanged(&state, &asset).await?;
+    let security = if certificate.selected_protocol == "tls" {
+        "tls"
+    } else {
+        "nla"
+    };
+    Ok(Json(
+        json!({"asset_id":asset.id,"host":asset.host,"port":asset.port,"revision":asset.revision,
+        "approved_sha256":asset.rdp_certificate_sha256,"approved_security":asset.security,
+        "sha256":certificate.sha256,"selected_protocol":certificate.selected_protocol,"security":security}),
+    ))
+}
 async fn create_asset(
     State(state): State<Arc<ControlApi>>,
     Extension(actor): Extension<Identity>,
@@ -759,14 +843,7 @@ async fn create_asset(
     }
     Ok((
         StatusCode::CREATED,
-        Json(
-            state
-                .store
-                .create_asset(
-                    &actor, &body.name, &body.host, body.port, &body.tags, ctx.id,
-                )
-                .await?,
-        ),
+        Json(state.store.create_asset(&actor, &body, ctx.id).await?),
     ))
 }
 async fn update_asset(
@@ -797,17 +874,7 @@ async fn update_asset(
     Ok(Json(
         state
             .store
-            .update_asset(
-                &actor,
-                id(&value)?,
-                revision(&headers)?,
-                body.name.as_deref(),
-                body.host.as_deref(),
-                body.port,
-                body.enabled,
-                body.tags.as_deref(),
-                ctx.id,
-            )
+            .update_asset(&actor, id(&value)?, revision(&headers)?, &body, ctx.id)
             .await?,
     ))
 }
@@ -849,18 +916,6 @@ async fn asset(
     ))
 }
 
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct CreateAccount {
-    username: String,
-    credential: Credential,
-}
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct UpdateAccount {
-    enabled: Option<bool>,
-    username: Option<String>,
-}
 async fn accounts(
     State(state): State<Arc<ControlApi>>,
     Extension(identity): Extension<Identity>,
@@ -888,26 +943,12 @@ async fn create_account(
     body: Result<Json<CreateAccount>, axum::extract::rejection::JsonRejection>,
 ) -> ApiResult<(StatusCode, Json<AccountView>)> {
     let body = input(body)?;
-    if body.username.is_empty()
-        || body.username.len() > 128
-        || body.username.chars().any(char::is_control)
-    {
-        return Err(ApiError(ErrorCode::InvalidArgument));
-    }
-    let credential = state.validate_credential(body.credential).await?;
     Ok((
         StatusCode::CREATED,
         Json(
             state
                 .store
-                .create_account(
-                    &actor,
-                    id(&value)?,
-                    &body.username,
-                    &credential,
-                    &state.keys,
-                    ctx.id,
-                )
+                .create_account(&actor, id(&value)?, &body, &state.keys, ctx.id)
                 .await?,
         ),
     ))
@@ -921,14 +962,6 @@ async fn update_account(
     body: Result<Json<UpdateAccount>, axum::extract::rejection::JsonRejection>,
 ) -> ApiResult<Json<AccountView>> {
     let body = input(body)?;
-    if (body.enabled.is_none() && body.username.is_none())
-        || body
-            .username
-            .as_ref()
-            .is_some_and(|v| v.is_empty() || v.len() > 128 || v.chars().any(char::is_control))
-    {
-        return Err(ApiError(ErrorCode::InvalidArgument));
-    }
     Ok(Json(
         state
             .store
@@ -936,8 +969,8 @@ async fn update_account(
                 &actor,
                 id(&value)?,
                 revision(&headers)?,
-                body.enabled,
-                body.username.as_deref(),
+                &body,
+                &state.keys,
                 ctx.id,
             )
             .await?,
@@ -952,7 +985,7 @@ async fn replace_credential(
     body: Result<Json<Credential>, axum::extract::rejection::JsonRejection>,
 ) -> ApiResult<Json<AccountView>> {
     let revision = revision(&headers)?;
-    let credential = state.validate_credential(input(body)?).await?;
+    let credential = input(body)?;
     Ok(Json(
         state
             .store
@@ -960,147 +993,8 @@ async fn replace_credential(
                 &actor,
                 id(&value)?,
                 revision,
-                &credential,
+                credential,
                 &state.keys,
-                ctx.id,
-            )
-            .await?,
-    ))
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct HostKeyApproval {
-    algorithm: String,
-    public_key: String,
-}
-async fn host_keys(
-    State(state): State<Arc<ControlApi>>,
-    Extension(identity): Extension<Identity>,
-    Path(value): Path<String>,
-    Query(page): Query<PageRequest>,
-) -> ApiResult<Json<Value>> {
-    Ok(Json(
-        state
-            .store
-            .list_page(&identity, Collection::HostKeys(id(&value)?), page)
-            .await?,
-    ))
-}
-async fn approve_host_key(
-    State(state): State<Arc<ControlApi>>,
-    Extension(actor): Extension<Identity>,
-    Extension(ctx): Extension<RequestContext>,
-    Path(value): Path<String>,
-    body: Result<Json<HostKeyApproval>, axum::extract::rejection::JsonRejection>,
-) -> ApiResult<(StatusCode, Json<HostKeyView>)> {
-    let body = input(body)?;
-    if body.public_key.len() > 16384 {
-        return Err(ApiError(ErrorCode::InvalidArgument));
-    }
-    let key = russh::keys::PublicKey::from_openssh(&body.public_key)
-        .map_err(|_| ApiError(ErrorCode::InvalidArgument))?;
-    let algorithm = key.algorithm().to_string();
-    if algorithm != body.algorithm {
-        return Err(ApiError(ErrorCode::InvalidArgument));
-    }
-    let public = key
-        .to_openssh()
-        .map_err(|_| ApiError(ErrorCode::InvalidArgument))?;
-    let fingerprint = key
-        .fingerprint(russh::keys::ssh_key::HashAlg::Sha256)
-        .to_string();
-    Ok((
-        StatusCode::CREATED,
-        Json(
-            state
-                .store
-                .save_host_key(
-                    &actor,
-                    id(&value)?,
-                    &algorithm,
-                    &public,
-                    &fingerprint,
-                    true,
-                    ctx.id,
-                )
-                .await?,
-        ),
-    ))
-}
-async fn revoke_host_key(
-    State(state): State<Arc<ControlApi>>,
-    Extension(actor): Extension<Identity>,
-    Extension(ctx): Extension<RequestContext>,
-    Path((asset, value)): Path<(String, String)>,
-    headers: HeaderMap,
-) -> ApiResult<StatusCode> {
-    state
-        .store
-        .revoke_host_key(
-            &actor,
-            id(&asset)?,
-            id(&value)?,
-            revision(&headers)?,
-            ctx.id,
-        )
-        .await?;
-    Ok(StatusCode::NO_CONTENT)
-}
-struct ScanClient(Arc<Mutex<Option<russh::keys::PublicKey>>>);
-impl russh::client::Handler for ScanClient {
-    type Error = russh::Error;
-    async fn check_server_key(
-        &mut self,
-        key: &russh::keys::PublicKey,
-    ) -> Result<bool, Self::Error> {
-        *self.0.lock().expect("scan key poisoned") = Some(key.clone());
-        Ok(false)
-    }
-}
-async fn scan_host_key(
-    State(state): State<Arc<ControlApi>>,
-    Extension(actor): Extension<Identity>,
-    Extension(ctx): Extension<RequestContext>,
-    Path(value): Path<String>,
-) -> ApiResult<Json<HostKeyView>> {
-    let asset = state.store.asset(id(&value)?).await?;
-    let address = state
-        .network
-        .resolve(&asset.host, asset.port as u16)
-        .await?;
-    let key = Arc::new(Mutex::new(None));
-    let _ = tokio::time::timeout(
-        Duration::from_secs(10),
-        russh::client::connect(
-            Arc::new(russh::client::Config::default()),
-            address,
-            ScanClient(key.clone()),
-        ),
-    )
-    .await;
-    let key = key
-        .lock()
-        .expect("scan key poisoned")
-        .take()
-        .ok_or(ApiError(ErrorCode::TargetUnreachable))?;
-    let public = key
-        .to_openssh()
-        .map_err(|_| ApiError(ErrorCode::InternalError))?;
-    let algorithm = key.algorithm().to_string();
-    let fingerprint = key
-        .fingerprint(russh::keys::ssh_key::HashAlg::Sha256)
-        .to_string();
-    Ok(Json(
-        state
-            .store
-            .save_host_key(
-                &actor,
-                asset.id,
-                &algorithm,
-                &public,
-                &fingerprint,
-                false,
                 ctx.id,
             )
             .await?,
@@ -1113,7 +1007,6 @@ struct CreateGrant {
     user_id: Uuid,
     asset_id: Uuid,
     account_id: Uuid,
-    capabilities: Vec<Capability>,
     expires_at: Option<DateTime<Utc>>,
 }
 async fn grants(
@@ -1140,14 +1033,7 @@ async fn create_grant(
     Extension(ctx): Extension<RequestContext>,
     body: Result<Json<CreateGrant>, axum::extract::rejection::JsonRejection>,
 ) -> ApiResult<(StatusCode, Json<GrantView>)> {
-    let mut body = input(body)?;
-    let mut request = TicketRequest {
-        asset_id: body.asset_id,
-        account_id: body.account_id,
-        capabilities: std::mem::take(&mut body.capabilities),
-        purpose: Purpose::Terminal,
-    };
-    request.validate(&[Capability::Shell, Capability::Exec, Capability::Sftp])?;
+    let body = input(body)?;
     if body.expires_at.is_some_and(|expiry| expiry <= Utc::now()) {
         return Err(ApiError(ErrorCode::InvalidArgument));
     }
@@ -1161,7 +1047,6 @@ async fn create_grant(
                     body.user_id,
                     body.asset_id,
                     body.account_id,
-                    &request.capabilities,
                     body.expires_at,
                     ctx.id,
                 )
@@ -1182,27 +1067,31 @@ async fn revoke_grant(
         .await?;
     Ok(StatusCode::NO_CONTENT)
 }
-async fn issue_ticket(
+async fn delete_asset(
     State(state): State<Arc<ControlApi>>,
-    Extension(identity): Extension<Identity>,
+    Extension(actor): Extension<Identity>,
     Extension(ctx): Extension<RequestContext>,
+    Path(value): Path<String>,
     headers: HeaderMap,
-    body: Result<Json<TicketRequest>, axum::extract::rejection::JsonRejection>,
-) -> ApiResult<(StatusCode, Json<TicketResponse>)> {
-    // Native tickets never accept browser Cookie authentication, even on the alias.
-    browser::require_bearer(&headers)?;
-    if state.shutdown.is_cancelled() {
-        return Err(ApiError(ErrorCode::PolicyStoreUnavailable));
-    }
-    Ok((
-        StatusCode::CREATED,
-        Json(
-            state
-                .store
-                .issue_ticket(&identity, input(body)?, state.gateway.clone(), ctx.id)
-                .await?,
-        ),
-    ))
+) -> ApiResult<StatusCode> {
+    state
+        .store
+        .delete_asset(&actor, id(&value)?, revision(&headers)?, ctx.id)
+        .await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+async fn delete_account(
+    State(state): State<Arc<ControlApi>>,
+    Extension(actor): Extension<Identity>,
+    Extension(ctx): Extension<RequestContext>,
+    Path(value): Path<String>,
+    headers: HeaderMap,
+) -> ApiResult<StatusCode> {
+    state
+        .store
+        .delete_account(&actor, id(&value)?, revision(&headers)?, ctx.id)
+        .await?;
+    Ok(StatusCode::NO_CONTENT)
 }
 async fn connection(
     State(state): State<Arc<ControlApi>>,
@@ -1239,52 +1128,6 @@ async fn audit_events(
     ))
 }
 
-async fn test_account(
-    State(state): State<Arc<ControlApi>>,
-    Extension(actor): Extension<Identity>,
-    Extension(ctx): Extension<RequestContext>,
-    Path(value): Path<String>,
-) -> ApiResult<Json<Value>> {
-    let account = state.store.account(id(&value)?).await?;
-    state
-        .store
-        .account_test_audit(&actor, account.id, ctx.id, None, false)
-        .await?;
-    let snapshot = state
-        .store
-        .account_snapshot(account.asset_id, account.id)
-        .await?;
-    let public_keys = snapshot
-        .keys
-        .iter()
-        .map(|key| {
-            russh::keys::PublicKey::from_openssh(key)
-                .map_err(|_| ApiError(ErrorCode::TargetHostKeyUnknown))
-        })
-        .collect::<ApiResult<Vec<_>>>()?;
-    let target = bastion_gateway::Target {
-        address: bastion_gateway::TargetEndpoint::Restricted {
-            host: snapshot.host,
-            port: snapshot.port,
-            policy: state.network.clone(),
-        },
-        username: snapshot.username,
-        public_keys,
-        auth: bastion_gateway::TargetAuth::Encrypted {
-            context: snapshot.context,
-            envelope: snapshot.credential,
-            keys: state.keys.clone(),
-        },
-    };
-    let result = bastion_gateway::test_target(&target).await;
-    state
-        .store
-        .account_test_audit(&actor, account.id, ctx.id, result.err(), true)
-        .await?;
-    result?;
-    Ok(Json(json!({"authenticated":true})))
-}
-
 async fn connections(
     State(state): State<Arc<ControlApi>>,
     Extension(identity): Extension<Identity>,
@@ -1308,7 +1151,6 @@ where
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct UpdateGrant {
-    capabilities: Option<Vec<Capability>>,
     enabled: Option<bool>,
     #[serde(default, deserialize_with = "nullable")]
     expires_at: Option<Option<DateTime<Utc>>>,
@@ -1321,16 +1163,9 @@ async fn update_grant(
     headers: HeaderMap,
     body: Result<Json<UpdateGrant>, axum::extract::rejection::JsonRejection>,
 ) -> ApiResult<Json<GrantView>> {
-    let mut body = input(body)?;
-    if body.capabilities.is_none() && body.enabled.is_none() && body.expires_at.is_none() {
+    let body = input(body)?;
+    if body.enabled.is_none() && body.expires_at.is_none() {
         return Err(ApiError(ErrorCode::InvalidArgument));
-    }
-    if let Some(caps) = &mut body.capabilities {
-        if caps.is_empty() || caps.len() > 3 {
-            return Err(ApiError(ErrorCode::InvalidArgument));
-        }
-        caps.sort();
-        caps.dedup();
     }
     if body.expires_at.flatten().is_some_and(|v| v <= Utc::now()) {
         return Err(ApiError(ErrorCode::InvalidArgument));
@@ -1342,7 +1177,6 @@ async fn update_grant(
                 &actor,
                 id(&value)?,
                 revision(&headers)?,
-                body.capabilities.as_deref(),
                 body.enabled,
                 body.expires_at,
                 ctx.id,
@@ -1382,13 +1216,4 @@ async fn revoke_device(
         browser::clear_cookies(&state, &mut response);
     }
     Ok(response)
-}
-async fn channels(
-    State(state): State<Arc<ControlApi>>,
-    Extension(identity): Extension<Identity>,
-    Path(value): Path<String>,
-) -> ApiResult<Json<Value>> {
-    Ok(Json(
-        json!({"items":state.store.channel_queries(&identity, id(&value)?).await?}),
-    ))
 }
