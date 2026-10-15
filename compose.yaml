@@ -1,7 +1,7 @@
 services:
   # One-shot: generates secrets on a fresh install, skips when already initialized.
   init:
-    image: zeroterm-bastion:local
+    image: ${BASTION_IMAGE:-ghcr.io/notpeppa/zeroterm-terminal:latest}
     restart: "no"
     network_mode: none
     entrypoint: ["sh", "/usr/local/share/zeroterm-bastion/docker-fresh-init.sh"]
@@ -56,7 +56,7 @@ services:
     pids_limit: 256
 
   bastion:
-    image: zeroterm-bastion:local
+    image: ${BASTION_IMAGE:-ghcr.io/notpeppa/zeroterm-terminal:latest}
     build:
       context: .
       args:
@@ -102,7 +102,7 @@ services:
   # One-shot: creates or upgrades the tables with the owner connection. The app never migrates itself
   # and never holds owner credentials; `bastion` starts only after this and grant-runtime succeed.
   migrate:
-    image: zeroterm-bastion:local
+    image: ${BASTION_IMAGE:-ghcr.io/notpeppa/zeroterm-terminal:latest}
     restart: "no"
     networks: [app]
     depends_on:
@@ -156,7 +156,7 @@ services:
   # BASTION_ADMIN_PASSWORD or BASTION_ADMIN_PASSWORD_FILE; if both are unset, one is generated and printed
   # once to this service's log. Once an administrator exists these settings are ignored.
   bootstrap-admin:
-    image: zeroterm-bastion:local
+    image: ${BASTION_IMAGE:-ghcr.io/notpeppa/zeroterm-terminal:latest}
     restart: "no"
     networks: [app]
     depends_on:
@@ -179,7 +179,7 @@ services:
 
   maintenance:
     profiles: [tools]
-    image: zeroterm-bastion:local
+    image: ${BASTION_IMAGE:-ghcr.io/notpeppa/zeroterm-terminal:latest}
     networks: [app]
     command: ["migrate", "--config", "/etc/zeroterm-bastion/maintenance.toml"]
     environment:

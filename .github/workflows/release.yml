@@ -31,10 +31,10 @@ jobs:
             -t ghcr.io/${{ github.repository }}:latest .
           docker push ghcr.io/${{ github.repository }}:${{ github.ref_name }}
           docker push ghcr.io/${{ github.repository }}:latest
-      - name: Update compose.yaml
+      - name: Update compose.yaml with release tag
         run: |
-          sed -i "s|image: zeroterm-bastion:local|image: ghcr.io/${{ github.repository }}:${{ github.ref_name }}|" compose.yaml
           sed -i "s|GUACD_IMAGE:.*}|GUACD_IMAGE:-ghcr.io/${{ github.repository }}-guacd@sha256:$GUACD_DIGEST}|" compose.yaml
+          sed -i "s|BASTION_IMAGE:-ghcr.io/${{ github.repository }}:latest|BASTION_IMAGE:-ghcr.io/${{ github.repository }}:${{ github.ref_name }}|g" compose.yaml
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:

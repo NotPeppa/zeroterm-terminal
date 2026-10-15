@@ -241,6 +241,19 @@ cargo test  --locked --workspace
 cd web && npm ci && npm test && npm run build
 ```
 
+**用 Compose 跑本地构建的镜像**：
+
+```sh
+# 先构建本地镜像
+docker build -t zeroterm-bastion:local .
+docker build -t zeroterm-guacd:1.6.0-strict-pin -f deploy/guacd/Dockerfile .
+
+# 用环境变量指定本地镜像
+export BASTION_IMAGE=zeroterm-bastion:local
+export GUACD_IMAGE=zeroterm-guacd:1.6.0-strict-pin
+docker compose -p test-local up -d
+```
+
 真实引擎验收要在获准的独立测试主机上跑，需要先构建 guacd：
 
 ```sh
