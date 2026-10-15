@@ -9,3 +9,4 @@
 /.dsh-permission-recovery/
 __pycache__/
 *.pyc
+*.pid

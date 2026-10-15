@@ -9,7 +9,8 @@ Browser writes require exact Origin and matching `X-Bastion-CSRF`/CSRF cookie.
 `GET /auth/csrf`, `POST /auth/login`, and `POST /auth/refresh` are the public login
 routes. Login accepts only username, password and device_label; refresh accepts `{}`.
 Access/refresh secrets appear only in HttpOnly SameSite=Strict Secure cookies.
-Refresh replay revokes the login family. Management mutations use quoted positive
+Refresh replay revokes the login family. `GET /me` reports `access_expires_at`; the web client
+refreshes silently ahead of it, serialised across tabs so a refresh token is never presented twice. Management mutations use quoted positive
 `If-Match` revisions; unknown outcomes must be reread, never automatically replayed.
 
 ## Asset groups

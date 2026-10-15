@@ -1,0 +1,26 @@
+== 1. fresh: one command brings everything up
+bastion running 0
+grant-runtime exited 0
+guacd running 0
+init exited 0
+migrate exited 0
+postgres running 0
+[2Kinit-1  | Fresh secrets initialized; explicitly migrate, grant runtime role, then create-admin.
+[2Kmigrate-1  | Database migrations applied and server identity verified
+[2Kgrant-runtime-1  | Docker runtime role and grants refreshed.
+== 2. create the first admin (interactive by nature, stays manual)
+Administrator created: admin (e0f14e54-09af-4bae-9766-85d9ed125555)
+== 3. second up is repeatable: init skips, migrate is a no-op, grants re-run
+[2Kinit-1  | Secrets already initialized; nothing to do.
+== 4. runtime role is still least privilege
+ERROR:  permission denied for schema public
+ERROR:  permission denied for table audit_events
+== 5. proxy and health over HTTPS
+ok
+== 6. partial initialization is refused, never overwritten
+partial init refused as expected
+Existing secrets found; refusing to overwrite or convert.
+KEK still present:
+kek-v1
+== teardown (this throwaway project only)
+0

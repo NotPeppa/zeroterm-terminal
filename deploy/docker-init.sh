@@ -35,4 +35,4 @@ for role in owner runtime; do
     chmod 600 "$directory/password" "$directory/database-url"
     unset password
 done
-echo 'Fresh secrets initialized; explicitly migrate, grant runtime role, then create-admin.'
+echo 'Fresh secrets initialized; migrate and grant-runtime run as one-shot services, then create an administrator with create-admin.'

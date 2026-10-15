@@ -1,0 +1,20 @@
+== A. no password configured: generated and printed once
+up exit 0
+generated password length: 43
+login with generated password: HTTP 200
+login with a wrong password:   HTTP 401
+second up: An administrator already exists; nothing to do (admin password settings are ignored).
+env set after bootstrap, old password still works: HTTP 200
+env password set later is ignored:               HTTP 401
+== B. BASTION_ADMIN_PASSWORD configured
+up exit 0
+log line: Initial administrator created: admin (password from the environment)
+password does not appear in the log
+login with configured password: HTTP 200
+== C. invalid (too short) password fails loudly, app does not start
+up exit 1 (non-zero expected)
+bootstrap-admin: Error: password must be 12–1024 UTF-8 bytes
+bastion created 0
+bootstrap-admin exited 1
+== teardown (this throwaway project only)
+0

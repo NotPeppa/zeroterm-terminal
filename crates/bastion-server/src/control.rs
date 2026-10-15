@@ -154,28 +154,32 @@ pub async fn migrate(path: PathBuf) -> Result<()> {
     println!("Database migrations applied and server identity verified");
     Ok(())
 }
+/// Reads at most one password line, stripping one line ending but keeping intentional spaces.
+fn password_line(input: impl Read) -> Result<Secret> {
+    let mut bytes = String::new();
+    input.take(1026).read_to_string(&mut bytes)?;
+    if bytes.len() > 1025 {
+        bail!("password input exceeds limit");
+    }
+    if bytes.ends_with('\n') {
+        bytes.pop();
+        if bytes.ends_with('\r') {
+            bytes.pop();
+        }
+    }
+    Ok(Secret::new(bytes))
+}
 fn password(stdin: bool) -> Result<Secret> {
     if stdin {
-        let mut bytes = String::new();
-        std::io::stdin().take(1026).read_to_string(&mut bytes)?;
-        if bytes.len() > 1025 {
-            bail!("password input exceeds limit");
-        }
-        // Strip one input line ending, keeping intentional spaces and other bytes.
-        if bytes.ends_with('\n') {
-            bytes.pop();
-            if bytes.ends_with('\r') {
-                bytes.pop();
-            }
-        }
-        Ok(Secret::new(bytes))
+        password_line(std::io::stdin())
     } else {
-        Ok(Secret::new(rpassword::prompt_password(
-            "New password (12+ bytes): ",
-        )?))
+        let min = bastion_secrets::password_min_length()?;
+        Ok(Secret::new(rpassword::prompt_password(format!(
+            "New password ({min}+ bytes): "
+        ))?))
     }
 }
-pub async fn create_admin(path: PathBuf, username: String, stdin: bool) -> Result<()> {
+fn admin_username(username: &str) -> Result<String> {
     let username = username.trim().to_ascii_lowercase();
     if username.is_empty()
         || username.len() > 64
@@ -186,6 +190,69 @@ pub async fn create_admin(path: PathBuf, username: String, stdin: bool) -> Resul
     {
         bail!("invalid username");
     }
+    Ok(username)
+}
+/// The first administrator's password: an explicit value or file wins; otherwise one is generated.
+/// Also returns whether it was generated, because only a generated password may be printed.
+fn bootstrap_password(value: Option<String>, file: Option<String>) -> Result<(Secret, bool)> {
+    match (
+        value.filter(|v| !v.is_empty()),
+        file.filter(|v| !v.is_empty()),
+    ) {
+        (Some(_), Some(_)) => {
+            bail!("set only one of BASTION_ADMIN_PASSWORD and BASTION_ADMIN_PASSWORD_FILE")
+        }
+        (Some(value), None) => Ok((Secret::new(value), false)),
+        // A plain read: Docker secrets are typically 0444 root-owned, unlike owner-only KEK files.
+        (None, Some(path)) => {
+            let file =
+                std::fs::File::open(&path).context("cannot open BASTION_ADMIN_PASSWORD_FILE")?;
+            Ok((password_line(file)?, false))
+        }
+        (None, None) => Ok((Secret::random(), true)),
+    }
+}
+/// Idempotent bootstrap for `docker compose up`: creates the first administrator only when none
+/// exists, so a later run can never reset an existing password.
+pub async fn ensure_admin(path: PathBuf, username: String) -> Result<()> {
+    let username = admin_username(&username)?;
+    let store = Config::load(&path)?.store().await?;
+    store.check_identity().await.map_err(store_error)?;
+    if store.admin_exists().await.map_err(store_error)? {
+        println!(
+            "An administrator already exists; nothing to do (admin password settings are ignored)."
+        );
+        return Ok(());
+    }
+    let (password, generated) = bootstrap_password(
+        std::env::var("BASTION_ADMIN_PASSWORD").ok(),
+        std::env::var("BASTION_ADMIN_PASSWORD_FILE").ok(),
+    )?;
+    let phc = hash_password(password.expose())?;
+    let user = store
+        .bootstrap_admin(&username, &phc, Uuid::new_v4())
+        .await
+        .map_err(store_error)?;
+    if generated {
+        println!("==================================================================");
+        println!(" Initial administrator created: {}", user.username);
+        println!(
+            " Generated password (printed only this once): {}",
+            password.expose()
+        );
+        println!(" Log in and change it under 个人设置. This container's log keeps it");
+        println!(" until the container is removed (docker compose rm bootstrap-admin).");
+        println!("==================================================================");
+    } else {
+        println!(
+            "Initial administrator created: {} (password from the environment)",
+            user.username
+        );
+    }
+    Ok(())
+}
+pub async fn create_admin(path: PathBuf, username: String, stdin: bool) -> Result<()> {
+    let username = admin_username(&username)?;
     let store = Config::load(&path)?.store().await?;
     store.check_identity().await.map_err(store_error)?;
     let password = password(stdin)?;
@@ -532,6 +599,36 @@ pub async fn serve_production(path: PathBuf) -> Result<()> {
     Ok(())
 }
 
+#[cfg(test)]
+mod bootstrap_tests {
+    use super::{bootstrap_password, password_line};
+    #[test]
+    fn explicit_password_wins_and_only_an_absent_one_is_generated() {
+        let (value, generated) =
+            bootstrap_password(Some("explicit-pass-123".into()), None).unwrap();
+        assert_eq!((value.expose(), generated), ("explicit-pass-123", false));
+        let (value, generated) = bootstrap_password(Some(String::new()), None).unwrap();
+        assert!(generated, "an empty variable counts as unset");
+        assert!(value.expose().len() >= 32);
+        let (other, _) = bootstrap_password(None, None).unwrap();
+        assert_ne!(
+            value.expose(),
+            other.expose(),
+            "generated passwords are random"
+        );
+        assert!(bootstrap_password(Some("a".into()), Some("/x".into())).is_err());
+        assert!(bootstrap_password(None, Some("/nonexistent/admin-password".into())).is_err());
+    }
+    #[test]
+    fn password_lines_strip_one_line_ending_only() {
+        assert_eq!(
+            password_line(&b"secret pass \r\n"[..]).unwrap().expose(),
+            "secret pass "
+        );
+        assert_eq!(password_line(&b"two\n\n"[..]).unwrap().expose(), "two\n");
+        assert!(password_line(&vec![b'a'; 1026][..]).is_err());
+    }
+}
 #[cfg(test)]
 mod listener_tests {
     use super::private_api_address;

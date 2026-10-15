@@ -267,6 +267,11 @@
                     },
                     "csrf_token": {
                       "$ref": "#/components/schemas/Secret"
+                    },
+                    "access_expires_at": {
+                      "type": "string",
+                      "format": "date-time",
+                      "description": "Expiry of the access token that authenticated this request. Browsers schedule a silent POST /auth/refresh ahead of it."
                     }
                   }
                 }
@@ -2700,6 +2705,12 @@
                 "type": "boolean"
               }
             }
+          },
+          "password_min_length": {
+            "type": "integer",
+            "minimum": 8,
+            "maximum": 32,
+            "description": "Minimum password length in UTF-8 bytes enforced for every password set (BASTION_PASSWORD_MIN_LENGTH, default 12). For display; the server enforces it."
           },
           "recording": {
             "type": "object",

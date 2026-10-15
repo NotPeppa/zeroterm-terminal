@@ -7,15 +7,15 @@ existing production/test project name for these steps.
 
 ## Fresh setup
 
-Existing family-2 installations require the explicit `migrate` maintenance
-command for migration 0003 before starting this version. Stop app/proxy, retain
-the PostgreSQL/guacd containers and secrets, update app/maintenance images, apply
-migrations as the owner, then rerun the existing runtime-role grant setup before
-starting app/proxy. Migration 0003 only adds the group table, nullable asset
-membership and indexes; existing assets become ungrouped. It never reinitializes
-the database. Startup rejects installations without successful migration 0003;
-it performs no automatic migration. Restoring an older family-2 backup likewise
-requires explicit migration before running the new application/verification.
+`docker compose up bastion` now runs three one-shot services first, each only after the previous one
+succeeds: `init` (fresh secrets; skips when all three secret volumes are populated, refuses a partial
+state), `migrate` (owner connection) and `grant-runtime` (least-privilege runtime grants). The
+application itself still never migrates and never holds owner credentials; it starts only after these
+exit 0, and startup rejects a schema older than the binary expects (currently migration 0006). Upgrades
+and restored family-2 backups therefore migrate on the next `up`; take a backup first when a release
+contains an irreversible migration. The explicit commands below remain valid and are idempotent: run by
+hand, the one-shots afterwards find nothing to do. Create the first administrator through `maintenance`
+(no fixed IPs), because `run bastion` collides with a running bastion's fixed addresses.
 
 Linux Docker 26 / Compose 2.26 are the tested engine-host versions. Heavy source builds use one job;
 low-memory machines should receive prebuilt reviewed images. No 1 GiB runtime or concurrency acceptance

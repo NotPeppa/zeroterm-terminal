@@ -101,3 +101,43 @@ test('stream reads have no total timeout but honor route cancellation', async()=
  let signal; const api=new ApiClient(transport((url,options)=>{signal=options.signal;return new Response('x');}),'https://test.invalid',false);
  const controller=new AbortController();await api.recordingContent('c',controller.signal);assert.equal(signal,controller.signal);controller.abort();assert(signal.aborted);
 });
+test('expired access token renews once and replays the call; concurrent 401s share one rotation', async()=>{
+ let fresh=false,refreshes=0;const seen=[];
+ const api=new ApiClient(transport((url,options)=>{
+  if(url.endsWith('/auth/refresh')){refreshes++;assert.equal(options.headers.get('X-Bastion-CSRF'),'c');fresh=true;return new Response(null,{status:204});}
+  if(url.endsWith('/auth/csrf'))return response({csrf_token:'c'});
+  seen.push(options.headers.get('X-Bastion-CSRF'));
+  return fresh?response({items:[],next_cursor:null}):response({error:{code:'SESSION_EXPIRED',message:'expired'}},401);
+ }),'https://example.test',false);
+ await api.loadCsrf();
+ await Promise.all([api.devices(),api.connections(),api.disconnect('c')]);
+ assert.equal(refreshes,1);
+ assert.equal(seen.length,6);
+});
+test('a refresh that fails surfaces its error instead of looping', async()=>{
+ let refreshes=0;
+ const api=new ApiClient(transport(url=>{
+  if(url.endsWith('/auth/csrf'))return response({csrf_token:'c'});
+  if(url.endsWith('/auth/refresh')){refreshes++;return response({error:{code:'LOGIN_SESSION_REVOKED'}},401);}
+  return response({error:{code:'SESSION_EXPIRED'}},401);
+ }),'https://example.test',false);
+ await api.loadCsrf();
+ await assert.rejects(api.devices(),error=>error.code==='LOGIN_SESSION_REVOKED'&&error.status===401);
+ assert.equal(refreshes,1);
+});
+test('silent refresh fires before expiry, and a second tab adopts the first tab rotation instead of replaying', async t=>{
+ const store=new Map();const previous=Object.getOwnPropertyDescriptor(globalThis,'localStorage');
+ Object.defineProperty(globalThis,'localStorage',{configurable:true,value:{getItem:k=>store.get(k)??null,setItem:(k,v)=>store.set(k,String(v))}});
+ t.after(()=>{if(previous)Object.defineProperty(globalThis,'localStorage',previous);else delete globalThis.localStorage;});
+ t.mock.timers.enable({apis:['setTimeout','Date'],now:0});
+ const expiry=ms=>new Date(ms).toISOString();let refreshes=0;
+ const tab=()=>new ApiClient(transport(url=>{
+  if(url.endsWith('/auth/refresh')){refreshes++;return response({access_expires_at:expiry(Date.now()+600_000)});}
+  return response({user:{id:'u',username:'u',role:'operator',enabled:true,revision:1},login_session_id:'s',policy_revision:1,csrf_token:'c',access_expires_at:expiry(600_000)});
+ }),'https://example.test',false);
+ const a=tab(),b=tab();await a.loadMe();await b.loadMe();
+ const settle=async()=>{for(let i=0;i<20;i++)await new Promise(setImmediate);};
+ t.mock.timers.tick(479_999);await settle();assert.equal(refreshes,0);
+ t.mock.timers.tick(1);await settle();assert.equal(refreshes,1);
+ a.clearAuth();b.clearAuth();
+});

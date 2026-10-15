@@ -10,7 +10,9 @@ const element = <T extends HTMLElement>(id: string) => document.getElementById(i
 const view = element('route-view'), status = element('status'), errorBox = element('error');
 let me: Me | null = null, info: Info | null = null, assets: Asset[] = [], assetGroups: AssetGroup[] = [], cursor: string | null = null;
 let auth = new RouteLifetime(), routeLife = new RouteLifetime(), route: Route = { name: 'assets' };
-let refreshUsed = false, authBusy = false, targetUpdate: () => void = () => {}, statusMirror: HTMLElement | null = null;
+/** The server-configured minimum, for labels only; the server enforces it. */
+const passwordLabel = (label: string) => `${label}（至少 ${info?.password_min_length ?? 12} 字节）`;
+let authBusy = false, targetUpdate: () => void = () => {}, statusMirror: HTMLElement | null = null;
 /** Targets with a live console session in this page; empty outside the popup console. */
 let consoleTargets = new Set<string>();
 const assetSelect = element<HTMLSelectElement>('asset') ?? document.createElement('select'), accountSelect = element<HTMLSelectElement>('account') ?? document.createElement('select');
@@ -114,7 +116,7 @@ function clearMemory() {
 }
 async function authAction(work: () => Promise<void>) {
   if (authBusy) return; authBusy = true; clearError(); element<HTMLButtonElement>('login').disabled = element<HTMLButtonElement>('logout').disabled = element<HTMLButtonElement>('refresh').disabled = true;
-  try { await work(); } catch (error) { showError(error); } finally { authBusy = false; element<HTMLButtonElement>('login').disabled = element<HTMLButtonElement>('logout').disabled = false; element<HTMLButtonElement>('refresh').disabled = refreshUsed; }
+  try { await work(); } catch (error) { showError(error); } finally { authBusy = false; element<HTMLButtonElement>('login').disabled = element<HTMLButtonElement>('logout').disabled = false; element<HTMLButtonElement>('refresh').disabled = false; }
 }
 /** Follows next_cursor to the end; a malformed page or a repeated cursor is a server fault. */
 async function allPages<T>(load: (cursor?: string) => Promise<Page<T>>, what: string): Promise<T[]> {
@@ -137,6 +139,7 @@ type Field = { name: string; label: string; section?: string; value?: string; ty
 function editDialog(title: string, fields: Field[], submit: (values: Record<string, string>) => Promise<unknown>, life: RouteLifetime = routeLife, danger = false, result = '操作已由服务端确认。') {
   const opener = document.activeElement as HTMLElement | null;
   const dialog = node('dialog'), form = node('form'), heading = node('h2', title), issue = node('p', '', 'error'); heading.id = 'dialog-heading'; dialog.setAttribute('aria-labelledby', heading.id);
+  if (!fields.length) { dialog.classList.add('confirm-dialog'); if (danger) dialog.classList.add('danger-dialog'); }
   const controls = new Map<string, HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(); form.append(heading);
   let section: HTMLFieldSetElement | undefined;
   for (const field of fields) {
@@ -309,7 +312,7 @@ function mountAssets() {
 }
 function mountUsers(life: RouteLifetime) {
   const controls = bar(view); let refresh: () => Promise<void>;
-  button('新建用户', () => editDialog('新建用户', [textField('username', '用户名'), { name: 'password', label: '初始密码（至少 12 字节）', type: 'password' }, { name: 'role', label: '角色', options: ['operator', 'auditor', 'admin'] }], async values => { await api.createUser({ username: values.username, password: values.password, role: values.role as Role }, life.signal); await refresh(); }, life, false), controls.right, 'primary');
+  button('新建用户', () => editDialog('新建用户', [textField('username', '用户名'), { name: 'password', label: passwordLabel('初始密码'), type: 'password' }, { name: 'role', label: '角色', options: ['operator', 'auditor', 'admin'] }], async values => { await api.createUser({ username: values.username, password: values.password, role: values.role as Role }, life.signal); await refresh(); }, life, false), controls.right, 'primary');
   refresh = paged(view, life, query => api.users(query, life.signal), (items, output) => table(output, items, [
     { label: '用户名', value: item => stacked(item.username, item.id) },
     { label: '角色', value: item => tag(item.role) },
@@ -317,7 +320,7 @@ function mountUsers(life: RouteLifetime) {
     { label: '修订', value: item => String(item.revision) },
   ], (item, toolbar) => {
     button('编辑', () => editDialog(`编辑用户 ${item.username}`, [{ name: 'role', label: '角色', options: ['operator', 'auditor', 'admin'], value: item.role }, enabledField(item.enabled)], async values => { await api.updateUser(item.id, item.revision, { role: values.role as Role, enabled: values.enabled === 'true' }, life.signal); await refresh(); }, life), toolbar, 'link');
-    button('重置密码', () => editDialog('重置密码：该用户现有登录会话将撤销', [{ name: 'password', label: '新密码', type: 'password' }], async values => { await api.resetPassword(item.id, item.revision, values.password, life.signal); await refresh(); }, life, true), toolbar, 'danger-text');
+    button('重置密码', () => editDialog('重置密码：该用户现有登录会话将撤销', [{ name: 'password', label: passwordLabel('新密码'), type: 'password' }], async values => { await api.resetPassword(item.id, item.revision, values.password, life.signal); await refresh(); }, life, true), toolbar, 'danger-text');
     const remove = button('删除', () => {
       if (remove.disabled || life.signal.aborted) return;
       confirmDialog(`删除用户 ${item.username} · ID ${item.id} · 修订 ${item.revision}？该账号将无法登录，现有登录会话、票据与运行连接将撤销；审计、历史连接、录制、批准的主机密钥及旧授权保留。用户名可供新账号复用，但新账号使用新 ID 与密码，不继承旧授权、会话或历史归属。删除后无法恢复。`, async () => {
@@ -411,7 +414,7 @@ function mountConsole(life: RouteLifetime, assetId: string, accountId: string) {
     for (const entry of groupForest(assets)) {
       const bucket = groups.get(entry.id);
       if (!bucket?.rows.length) continue;
-      const section = node('section', '', 'console-group'), sectionHead = node('div', entry.depth ? `console-group-title console-group-depth-${Math.min(entry.depth, 5)}` : 'console-group-title');
+      const section = node('section', '', 'console-group'), sectionHead = node('div', '', entry.depth ? `console-group-title console-group-depth-${Math.min(entry.depth, 5)}` : 'console-group-title');
       sectionHead.append(node('span', entry.name), node('span', String(bucket.rows.length), 'console-group-count'));
       section.append(sectionHead);
       appendTargets(bucket, section);
@@ -837,7 +840,7 @@ function mountProfile(life: RouteLifetime) {
   const card = node('section', '', 'card'), list = node('dl', '', 'descriptions');
   for (const [term, value] of [['用户名', me!.user.username], ['角色', me!.user.role], ['用户 ID', me!.user.id], ['当前登录会话', me!.login_session_id], ['策略修订', String(me!.policy_revision)]]) list.append(node('dt', term), node('dd', value));
   const actions = node('div', '', 'toolbar'); card.append(node('h2', '账号信息'), list, actions); view.append(card);
-  button('修改密码', () => editDialog('修改密码：现有登录会话将失效', [{ name: 'current_password', label: '当前密码', type: 'password' }, { name: 'new_password', label: '新密码', type: 'password' }], async values => { await api.changePassword(values.current_password, values.new_password, life.signal); clearMemory(); statusText('密码已修改；请重新登录。'); }, life), actions);
+  button('修改密码', () => editDialog('修改密码：现有登录会话将失效', [{ name: 'current_password', label: '当前密码', type: 'password' }, { name: 'new_password', label: passwordLabel('新密码'), type: 'password' }], async values => { await api.changePassword(values.current_password, values.new_password, life.signal); clearMemory(); statusText('密码已修改；请重新登录。'); }, life), actions);
   button('注销所有设备', () => confirmDialog('注销本人所有设备登录', async () => { await api.logout(true, life.signal); clearMemory(); statusText('所有设备已注销。'); }, life), actions, 'danger');
   if (!info?.features?.device_sessions) { view.append(node('p', '服务端未提供设备会话管理能力。', 'hint')); return; }
   const title = node('div', '', 'section-title'); title.append(node('h2', '设备登录')); view.append(title);
@@ -912,10 +915,7 @@ assetSelect.onchange = renderAccounts; accountSelect.onchange = renderAccounts;
 // Shared by the workspace user menu and the popup console menu, so the popup is never an identity dead-end.
 const logout = () => authAction(async () => { routeLife.dispose(); try { await api.logout(false, auth.signal); statusText('已注销。'); } finally { clearMemory(); } });
 const refreshLogin = () => authAction(async () => {
-  if (refreshUsed) return; if (!navigator.locks) throw new Error('浏览器不能协调多标签页刷新；请注销并重新登录。');
-  await navigator.locks.request('bastion-auth-refresh', { ifAvailable: true }, async lock => { if (!lock) throw new Error('另一标签页正在刷新；不会并发重放。'); refreshUsed = true;
-    try { await api.refresh(auth.signal); setWorkspace(await api.loadMe(auth.signal)); statusText('本次登录已主动刷新一次。'); } catch (error) { clearMemory(); throw error; }
-  });
+  try { await api.refresh(); setWorkspace(await api.loadMe(auth.signal)); statusText('登录已刷新。'); } catch (error) { clearMemory(); throw error; }
 });
 element<HTMLButtonElement>('logout').onclick = () => { void logout(); };
 element<HTMLButtonElement>('refresh').onclick = () => { void refreshLogin(); };
@@ -923,7 +923,7 @@ element<HTMLFormElement>('login-form').onsubmit = event => {
   event.preventDefault(); void authAction(async () => {
     await api.loadCsrf(auth.signal); const password = element<HTMLInputElement>('password'); const credentials = { username: element<HTMLInputElement>('username').value, password: password.value, device_label: element<HTMLInputElement>('device').value.trim() || 'Web 浏览器' }; password.value = '';
     try { await api.login(credentials, auth.signal); } finally { credentials.password = ''; }
-    refreshUsed = false; setWorkspace(await api.loadMe(auth.signal)); if (me?.user.role !== 'auditor') await loadAssets(); statusText('登录成功。');
+    setWorkspace(await api.loadMe(auth.signal)); if (me?.user.role !== 'auditor') await loadAssets(); statusText('登录成功。');
   });
 };
 window.addEventListener('hashchange', renderRoute);

@@ -1,0 +1,57 @@
+{
+  "production_ready": false,
+  "scope": "live SSH end-to-end through the deployed bastion, demo target",
+  "checked_at": "2026-10-14T10:25:00.289Z",
+  "target": {
+    "asset": "deploy-live-ssh-2026-10-14",
+    "host": "target-a",
+    "port": 22,
+    "account": "bastion",
+    "confirmed_host_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5…"
+  },
+  "session": {
+    "connection_id": "f1e71f1c-9c95-4c65-a237-5c2050ad46fe",
+    "stream_protocol": "bastion.ssh.v1"
+  },
+  "websocket": {
+    "status": "HTTP/1.1 101 Switching Protocols",
+    "protocol": "bastion.ssh.v1"
+  },
+  "ready_frame": true,
+  "recording_while_active": [
+    {
+      "state": "active",
+      "bytes": 605,
+      "last_written_seq": 1
+    }
+  ],
+  "marker_echoed": true,
+  "stream_chars": 485,
+  "stream_tail": "cribed in the\nindividual files in /usr/share/doc/*/copyright.\n\nDebian GNU/Linux comes with ABSOLUTELY NO WARRANTY, to the extent\npermitted by applicable law.\n\u001b[?2004hbastion@3800fb75a827:~$ printf \"MARKER %s\\n\" zt-live-ab3ab08d\n\u001b[?2004lMARKER zt-live-ab3ab08d\n\u001b[?2004hbastion@3800fb75a827:~$ ",
+  "stream_frame_types": [
+    2,
+    3,
+    1
+  ],
+  "connection_after_close": {
+    "state": "failed"
+  },
+  "recording": [
+    {
+      "state": "partial",
+      "bytes": 1910,
+      "format_version": 2
+    }
+  ],
+  "status": "passed",
+  "cleanup": {
+    "asset_removed": true,
+    "note": "confirmed by a separate listing after the run; soft-deleted rows are retained by design"
+  },
+  "finished_at": "2026-10-14T10:25:11.514Z",
+  "notes": [
+    "Demo target allows only the bastion user and only public-key auth; a temporary Ed25519 key was installed for this check and removed afterwards.",
+    "The temporary asset and account were soft-deleted after the run; the live catalog is back to Jakarta, 7刀 and oracle.",
+    "connection_after_close=failed is expected here: the check closes the raw socket without a 1000 close frame after exit, so the gateway records an abnormal end and seals the recording as partial."
+  ]
+}
