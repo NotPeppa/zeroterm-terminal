@@ -1,0 +1,49 @@
+name: Build and release
+on:
+  push:
+    tags: ['v*']
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build guacd engine
+        run: docker build -t zeroterm-guacd:1.6.0-strict-pin -f deploy/guacd/Dockerfile .
+      - name: Build bastion app
+        run: |
+          docker build -t ghcr.io/${{ github.repository }}:${{ github.ref_name }} \
+            -t ghcr.io/${{ github.repository }}:latest .
+          docker push ghcr.io/${{ github.repository }}:${{ github.ref_name }}
+          docker push ghcr.io/${{ github.repository }}:latest
+      - name: Update compose.yaml
+        run: |
+          sed -i "s|image: zeroterm-bastion:local|image: ghcr.io/${{ github.repository }}:${{ github.ref_name }}|" compose.yaml
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            compose.yaml
+            deploy/docker.md
+            README.md
+          body: |
+            ## 使用
+            1. 下载 compose.yaml
+            2. 按 README 或 deploy/docker.md 配置
+            3. 设置 GUACD_IMAGE（见下方）
+            4. docker compose up
+
+            ## guacd 引擎镜像
+            需要自己构建：
+            ```sh
+            docker build -t zeroterm-guacd:1.6.0-strict-pin -f deploy/guacd/Dockerfile .
+            export GUACD_IMAGE=$(docker image inspect zeroterm-guacd:1.6.0-strict-pin --format '{{.Id}}')
+            ```
