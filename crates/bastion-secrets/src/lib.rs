@@ -11,7 +11,7 @@ mod credentials;
 mod passwords;
 pub mod recording;
 pub use credentials::{CipherContext, Credential, Envelope, KeyRing};
-pub use passwords::{hash_password, verify_password};
+pub use passwords::{hash_password, password_min_length, verify_password};
 pub use recording::{
     RecordingAck, RecordingContext, RecordingEnvelope, RecordingError, RecordingHeader,
     RecordingKey, RecordingReader, RecordingWriter, VerifiedChunk, MAX_CHUNK_CIPHERTEXT,

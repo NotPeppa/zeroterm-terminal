@@ -3,6 +3,99 @@
 Release status: **`production_ready=false`**. This file records executed checks, not a support promise.
 The patched engine is a ZeroTerm candidate derived from official tags, not stock guacd behavior.
 
+## Current workspace deployed to the live service, 2026-10-14 UTC
+
+The user asked to put every current workspace change on the test service. The whole tree was packaged
+(218 files, evidence directories excluded), [built](../tests/evidence_deploy20261014b_build.json) to
+`sha256:b58fba01…` and switched in place under the existing project `zeroterm-test-guac-v2`. The build was
+a 1-second cache hit whose image ID equals the previous deploy's, because the Dockerfile did not change in
+between; the binary inside carries `ensure-admin` and the frontend bundle was built from the finished web
+sources, so the reused layers are the current code rather than a stale tag.
+
+This was the first live switch to the one-shot chain from the base `compose.yaml` (the previous deploy used
+an older compose plus an override). `./compose.sh up -d --wait bastion guacd` ran `init`, `migrate`,
+`grant-runtime` and `bootstrap-admin` in order, each exiting 0 before bastion started, and reported
+`Secrets already initialized; nothing to do.`, `Database migrations applied and server identity verified`,
+`Docker runtime role and grants refreshed.` and `An administrator already exists; nothing to do (admin
+password settings are ignored).` respectively. Before touching containers a `pg_dump` was taken to
+`predeploy-20261014-1715/bastion.dump`, the old source tree was kept at `source-backup-20261014-1715`, and
+the previous `override.json` at `override.json.pre-20261014-1720`. Migration versions stayed 1–6 and users,
+assets, accounts, groups and recordings were unchanged. PostgreSQL and guacd were recreated by the new
+`init` dependency (new `StartedAt`) with their volumes and all rows intact; the five legacy containers were
+untouched.
+
+The new compose mounts its config files as `./.local/docker/...` relative to its own directory, so the
+compose-relative paths were symlinked to the project-root files the live deployment keeps there, and
+`override.json` carries over what the base file does not know about this host: the proxy's TLS bind and
+limits, and bastion's `targets` network plus resource caps. That `targets` entry was missed on the first
+attempt and had to be restored — without it the app cannot reach the legacy target containers.
+
+[Verification](../tests/evidence_deploy20261014b_verify.json) covers live HTTPS `ok`, `/info` reporting
+`schema_version` 2, `production_ready=false` and the new `password_min_length` 12, admin login, the RDP
+rules (`rdp` asset accepted with a null pin, `409 TARGET_HOST_KEY_UNKNOWN` before confirmation, PATCH
+confirming pin and security, soft delete removing it from the catalog), and the live minimum length (a
+10-byte password is refused with `400 INVALID_ARGUMENT`, a 12-byte one is accepted). A real SSH session was
+then driven through the deployed service to the demo target
+([evidence](../tests/evidence_deploy20261014b_live_ssh.json)): ticket issued for `bastion.ssh.v1`, WebSocket
+upgrade `101`, size frame accepted, readiness frame received, live shell output, an exact marker echoed by
+the target, and an `active` recording while the session ran. The two SSH assets in the live catalog
+(`Jakarta`, `7刀`) point at hosts that no longer answer, so the gateway correctly reported
+`TARGET_UNREACHABLE` for them; the end-to-end session used a temporary asset for the reachable demo target,
+which was soft-deleted afterwards with the live catalog left at `Jakarta`, `7刀` and `oracle`. The client
+bugs found while writing that check were all in the check itself, not the product: a cookie jar that
+appended instead of replacing (the server correctly fails closed on duplicate cookie names), and a size
+frame that never wrote its type byte. `production_ready=false`.
+
+## Unattended first administrator, 2026-10-14 UTC
+
+At the user's request a fourth one-shot, `bootstrap-admin`, runs the new `ensure-admin` command with the
+runtime role after `grant-runtime`; bastion waits for it. It creates the first administrator only when no
+administrator exists (including deleted ones), so later runs never reset a password. The password comes
+from `BASTION_ADMIN_PASSWORD` or `BASTION_ADMIN_PASSWORD_FILE` (plain read: Docker secrets are 0444
+root-owned); an empty variable counts as unset; with neither set a 43-character random password is generated
+and printed once. A password that is set but invalid fails instead of falling back. Image app2
+`sha256:bf132fef…` in a throwaway project ([output](../tests/evidence_deploy20261014_bootstrap_admin.txt)):
+generated password logs in (200; wrong 401) and a second run reports nothing to do; an env password set
+after bootstrap is ignored (old 200, new 401); a configured password logs in and never appears in the log;
+a 5-byte password stops `bootstrap-admin` with exit 1 and bastion never starts. Known limits, documented in
+the README: environment values stay visible in `docker inspect`, and a generated password stays in that
+container's log until it is removed, so the first login should change it. Not deployed.
+
+## One-shot init, migration and runtime grants in Compose, 2026-10-14 UTC
+
+At the user's request `docker compose up bastion` now performs the whole setup: one-shot `init`
+(fresh secrets; skips when initialized, refuses a partial state), `migrate` (owner connection) and
+`grant-runtime` (postgres image, as the secret files' UID 10001, pgpass on a private tmpfs) must each exit 0
+before bastion starts. The app keeps only the runtime role. An isolated throwaway project on the test host
+with shifted subnets ([output](../tests/evidence_deploy20261014_compose_oneshot.txt)) showed: a fresh `up`
+completes all three and bastion is healthy; `create-admin` through `maintenance` works; a second `up`
+reports init has nothing to do; the runtime role is refused `CREATE TABLE` (`permission denied for schema
+public`) and `DELETE FROM audit_events`; HTTPS health returns `ok`; with one secret volume emptied, init
+refuses (`Existing secrets found; refusing to overwrite or convert.`) and the KEK remains. Two failed
+attempts are noted: the first ran grant-runtime as root with all capabilities dropped and could not read
+the 0600 files; the second used `run bastion create-admin`, which collides with a running bastion's fixed
+IPs. Not yet applied to the live test service. `production_ready=false`.
+
+## Deployment of the RDP confirmation build, 2026-10-14 UTC
+
+At the user's request the whole workspace was [built](../tests/evidence_deploy20261014_build.json) and
+deployed to the live test service as app `sha256:ba847a85…`. The user asked for no data migration and said
+old data did not matter, but the change only relaxes a database CHECK, so migration 0006 was applied in
+place and the existing admin, assets, accounts, credentials and recordings were kept
+([verification](../tests/evidence_deploy20261014_verify.json)); a `pg_dump` was taken first at
+`/tmp/pre-deploy-0006.dump` inside the postgres container.
+
+The first attempt **failed and rolled back automatically**: raising the startup schema gate from migration 5
+to 6 means the app refuses to run before 0006 exists, and this deployment path never migrated by itself.
+The container logged `PolicyStoreUnavailable` until `maintenance migrate --config
+/etc/zeroterm-bastion/maintenance.toml` was run explicitly, after which bastion and proxy started healthy.
+PostgreSQL and guacd containers were not recreated and the five legacy containers were unchanged.
+
+Verified live: migrations 1–6, existing data unchanged, new frontend bundle `index-BtUId_tm.js`, admin login,
+and the new RDP rule end to end — an asset created without a pin is accepted (`security` defaults to NLA),
+a session for it is refused with `409 TARGET_HOST_KEY_UNKNOWN`, PATCH confirms pin and security, and soft
+delete removes it from the catalog. `production_ready=false`.
+
 ## RDP certificate discovery and first-connect confirmation, 2026-10-14 UTC
 
 First version (host/port scan filled into the asset form): app3 `sha256:96b8a405…`

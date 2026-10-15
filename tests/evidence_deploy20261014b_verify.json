@@ -1,0 +1,51 @@
+{
+  "production_ready": false,
+  "change": "current workspace: one-shot compose init/migrate/grant-runtime/bootstrap-admin, BASTION_PASSWORD_MIN_LENGTH, RDP first-connect confirmation",
+  "app_image_id": "sha256:b58fba01f6f402e4469430c48947ea71c90179ea831876a9760ea6e5a243fe98",
+  "image_tag_matches_build4": true,
+  "image_tag_matches": false,
+  "legacy_container_ids": {
+    "zeroterm-test-proxy-1": "dc50db74d046af96b3efa726ec6a01dea6687c814b64600224bcd14c9617a35e",
+    "zeroterm-test-bastion-1": "3740c44fce2d03b190d058b89074b8d1d91f24f1e1cd470974ef6d362b894ea5",
+    "zeroterm-test-postgres-1": "af33155853c68cd73d53ab5c6ff4f2f71a8cc13689428ab1f5b01bfc272d91df",
+    "zeroterm-test-target-a-1": "3800fb75a827c9a9202d1da4897a3fe43d09be41fc73040caffc89fd5937115a",
+    "zeroterm-test-target-b-1": "ece98fbaf40e27bc31af17faa78405aac9c9699b5bc93bab285dbd548d8949ac"
+  },
+  "data_counts": "2|10|12|12|0|6",
+  "migrations": [
+    "1",
+    "2",
+    "3",
+    "4",
+    "5",
+    "6"
+  ],
+  "info": {
+    "server_id": "zeroterm-test-guac-v2",
+    "schema_version": 2,
+    "production_ready": false,
+    "password_min_length": 12
+  },
+  "frontend_assets": {
+    "/assets/index-B9DSgV3_.js": "5cf23f66e6ef9e69",
+    "/assets/index-D6ZF95On.css": "5431f640cf614e87",
+    "/guacamole/all.js": "b31a4384599f7498"
+  },
+  "admin": "admin",
+  "pending_rdp_asset": {
+    "protocol": "rdp",
+    "security": "nla",
+    "rdp_certificate_sha256": null
+  },
+  "unconfirmed_rdp_session": "409 TARGET_HOST_KEY_UNKNOWN",
+  "confirmed": {
+    "rdp_certificate_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "security": "tls"
+  },
+  "probe_asset_removed_from_catalog": true,
+  "short_password_refused": "400 INVALID_ARGUMENT",
+  "min_length_user_created": "deploy-minlen",
+  "final_data_counts": "3|11|13 (soft-deleted rows retained by design)",
+  "status": "updated-test-service",
+  "finished_at": "2026-10-14T09:37:49Z"
+}

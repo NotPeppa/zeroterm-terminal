@@ -1,0 +1,48 @@
+{
+  "production_ready": false,
+  "change": "RDP first-connect certificate confirmation (migration 0006) and current workspace",
+  "app_image_id": "sha256:ba847a85626e3478877acf19b1e5a625c4fc651a6943b3884f923ea7ff1a39f7",
+  "image_tag_matches": true,
+  "legacy_container_ids": {
+    "zeroterm-test-proxy-1": "dc50db74d046af96b3efa726ec6a01dea6687c814b64600224bcd14c9617a35e",
+    "zeroterm-test-bastion-1": "3740c44fce2d03b190d058b89074b8d1d91f24f1e1cd470974ef6d362b894ea5",
+    "zeroterm-test-postgres-1": "af33155853c68cd73d53ab5c6ff4f2f71a8cc13689428ab1f5b01bfc272d91df",
+    "zeroterm-test-target-a-1": "3800fb75a827c9a9202d1da4897a3fe43d09be41fc73040caffc89fd5937115a",
+    "zeroterm-test-target-b-1": "ece98fbaf40e27bc31af17faa78405aac9c9699b5bc93bab285dbd548d8949ac"
+  },
+  "data_counts": "1|6|8|8|0|2",
+  "migrations": [
+    "1",
+    "2",
+    "3",
+    "4",
+    "5",
+    "6"
+  ],
+  "info": {
+    "server_id": "zeroterm-test-guac-v2",
+    "schema_version": 2,
+    "production_ready": false
+  },
+  "frontend_assets": {
+    "/assets/index-BtUId_tm.js": "d017758c5f9ae20e",
+    "/assets/index-s1eEeJoI.css": "c097314ca343c268",
+    "/guacamole/all.js": "b31a4384599f7498"
+  },
+  "admin": "admin",
+  "pending_rdp_asset": {
+    "protocol": "rdp",
+    "security": "nla",
+    "rdp_certificate_sha256": null
+  },
+  "unconfirmed_rdp_session": "409 TARGET_HOST_KEY_UNKNOWN",
+  "confirmed": {
+    "rdp_certificate_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "security": "tls"
+  },
+  "probe_asset_removed_from_catalog": true,
+  "final_data_counts": "1|7|9 (soft-deleted rows retained by design)",
+  "status": "updated-test-service",
+  "finished_at": "2026-10-14T04:00:35Z",
+  "note": "The readiness check moved from migration 5 to 6; the first deploy attempt therefore rolled back and needed an explicit maintenance migrate run before the service would start."
+}

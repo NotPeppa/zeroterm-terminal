@@ -199,6 +199,16 @@ impl PgStore {
             .await
             .map_err(db)
     }
+    /// Whether any administrator exists, deleted ones included: bootstrap must never run twice.
+    pub async fn admin_exists(&self) -> StoreResult<bool> {
+        bounded(async {
+            sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM users WHERE role='admin')")
+                .fetch_one(&self.pool)
+                .await
+                .map_err(db)
+        })
+        .await
+    }
     pub async fn bootstrap_admin(
         &self,
         username: &str,
@@ -287,7 +297,7 @@ impl PgStore {
         tx.commit().await.map_err(db)
     }
     pub async fn authenticate_web(&self, secret: &str) -> StoreResult<Identity> {
-        let row=sqlx::query("SELECT u.*,s.id AS session_id,s.revoked_at,s.expires_at>clock_timestamp() AS session_valid,t.expires_at>clock_timestamp() AS token_valid FROM access_tokens t JOIN login_sessions s ON s.id=t.login_session_id JOIN users u ON u.id=s.user_id WHERE t.token_hash=$1").bind(hash(secret).as_slice()).fetch_optional(&self.pool).await.map_err(db)?.ok_or(ErrorCode::Unauthenticated)?;
+        let row=sqlx::query("SELECT u.*,s.id AS session_id,s.revoked_at,s.expires_at>clock_timestamp() AS session_valid,t.expires_at>clock_timestamp() AS token_valid,t.expires_at AS token_expires_at FROM access_tokens t JOIN login_sessions s ON s.id=t.login_session_id JOIN users u ON u.id=s.user_id WHERE t.token_hash=$1").bind(hash(secret).as_slice()).fetch_optional(&self.pool).await.map_err(db)?.ok_or(ErrorCode::Unauthenticated)?;
         identity_from_row(&row)
     }
     pub(super) async fn actor(
@@ -633,6 +643,7 @@ pub(super) fn identity_from_row(row: &PgRow) -> StoreResult<Identity> {
     Ok(Identity {
         user,
         login_session_id: row.get("session_id"),
+        access_expires_at: row.try_get("token_expires_at").ok().flatten(),
     })
 }
 async fn insert_user(

@@ -251,6 +251,7 @@ mod tests {
                 revision: 1,
             },
             login_session_id: Uuid::new_v4(),
+            access_expires_at: None,
         }
     }
     #[test]

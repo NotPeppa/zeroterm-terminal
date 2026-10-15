@@ -3,7 +3,7 @@ import { requireHTTPS, DEFAULT_DISPLAY, validateDisplay, type DisplaySize } from
 export type TargetProtocol = 'ssh' | 'rdp' | 'vnc';
 export type Role = 'admin' | 'operator' | 'auditor';
 export type User = { id: string; username: string; role: Role; enabled: boolean; revision: number };
-export type Me = { user: User; login_session_id: string; policy_revision: number; csrf_token: string };
+export type Me = { user: User; login_session_id: string; policy_revision: number; csrf_token: string; access_expires_at?: string | null };
 export type Account = { id: string; label: string; username: string | null; domain: string | null; credential_kind: 'none' | 'password' | 'private_key' };
 export type Asset = { id: string; name: string; protocol: TargetProtocol; tags?: string[]; group_id: string | null; group_name: string | null; accounts: Account[] };
 export type AssetGroup = { id: string; name: string; revision: number; parent_id: string | null; sort_order: number };
@@ -11,7 +11,7 @@ export type Page<T> = { items: T[]; next_cursor: string | null; policy_revision?
 /** Client-facing asset page also carries the visible group forest, for the ZeroTerm-style tree. */
 export type AssetPage = Page<Asset> & { policy_revision: number; groups?: AssetGroup[] };
 export type Ticket = { session_id: string; ws_token: string; connection_id: string; expires_at: string; target_protocol: TargetProtocol; stream_protocol: 'bastion.guac.v1' | 'bastion.ssh.v1' };
-export type Info = { server_id?: string; schema_version: 2; protocol_version: 2; stream_protocol: 'bastion.guac.v1'; production_ready: false; features: Record<'web_ssh' | 'web_rdp' | 'web_vnc' | 'recording_replay' | 'device_sessions', boolean>; recording: { required: boolean; available: boolean; format_version: 2 } };
+export type Info = { server_id?: string; schema_version: 2; protocol_version: 2; stream_protocol: 'bastion.guac.v1'; production_ready: false; features: Record<'web_ssh' | 'web_rdp' | 'web_vnc' | 'recording_replay' | 'device_sessions', boolean>; recording: { required: boolean; available: boolean; format_version: 2 }; password_min_length?: number };
 export type AdminAsset = { id: string; name: string; host: string; port: number; protocol: TargetProtocol; security: 'nla' | 'tls' | null; ssh_host_key: string | null; rdp_certificate_sha256: string | null; tags: string[]; group_id: string | null; enabled: boolean; revision: number };
 export type AdminAccount = Account & { asset_id: string; enabled: boolean; revision: number; credential_revision: number | null };
 export type RdpCertificateScan = { asset_id: string; host: string; port: number; revision: number; approved_sha256: string | null; approved_security: 'nla' | 'tls' | null; sha256: string; selected_protocol: 'tls' | 'nla' | 'nla-ex'; security: 'nla' | 'tls' };
@@ -38,14 +38,74 @@ export function validateInfo(info: Info): Info {
   return info;
 }
 export type RequestOptions = { method?: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE'; body?: unknown; revision?: number; signal?: AbortSignal; stream?: boolean };
+/** Latest access-token expiry any tab has learned from the server, so tabs adopt each other's rotations. */
+const EXPIRES_AT = 'bastion.access.expires_at';
+/** Renew this long before the server deadline; covers timer throttling and modest clock skew. */
+const REFRESH_LEAD = 120_000;
+/** Never re-arm faster than this, even if the client clock runs far ahead of the server. */
+const REFRESH_MIN_DELAY = 60_000;
 export class ApiClient {
   private csrf = '';
   private transport: typeof fetch;
   private origin: string;
   private development: boolean;
+  /** Server-issued access-token expiry this page last learned (ms epoch); 0 when signed out. */
+  private expiresAt = 0;
+  private timer: ReturnType<typeof setTimeout> | undefined;
+  private refreshing: Promise<void> | null = null;
   constructor(transport: typeof fetch = fetch, origin = location.origin, development = import.meta.env?.DEV === true) { this.transport = transport.bind(globalThis); this.origin = origin; this.development = development; }
-  clearAuth() { this.csrf = ''; }
+  clearAuth() { this.csrf = ''; this.expiresAt = 0; clearTimeout(this.timer); }
+  /**
+   * Record a server-issued access deadline and arm the silent refresh ahead of it. Timer refreshes
+   * swallow their errors: a real failure (family expired or revoked) resurfaces on the next request
+   * as a 401 the UI already handles, and a live console is policed server-side regardless.
+   */
+  private learn(at: string | null | undefined) {
+    const value = Date.parse(at ?? '');
+    if (!Number.isFinite(value)) return;
+    this.expiresAt = value;
+    try { if (value > (Date.parse(localStorage.getItem(EXPIRES_AT) ?? '') || 0)) localStorage.setItem(EXPIRES_AT, at!); } catch { /* Private mode: this page still refreshes itself. */ }
+    clearTimeout(this.timer);
+    this.timer = setTimeout(() => { void this.reauthenticate().catch(() => {}); }, Math.max(REFRESH_MIN_DELAY, value - REFRESH_LEAD - Date.now()));
+  }
+  /**
+   * Renew the token pair once, for the timer or after an expired access token.
+   *
+   * Refresh tokens are single-use and the store reads a replay as theft and revokes the whole login
+   * family, so two tabs must never present the same one. The Web Lock serialises rotation across
+   * tabs; inside it, a tab first checks whether another tab already rotated past what it knows (the
+   * EXPIRES_AT stamp) and adopts that pair from the shared cookie jar instead of rotating again.
+   * Without `navigator.locks` there is no safe way to coordinate, so the expiry surfaces as-is.
+   * The CSRF cookie is not rotated by refresh, so the token already held keeps working.
+   */
+  private async reauthenticate(): Promise<void> {
+    if (this.refreshing) return this.refreshing;
+    this.refreshing = this.rotate().finally(() => { this.refreshing = null; });
+    return this.refreshing;
+  }
+  private async rotate(): Promise<void> {
+    if (typeof navigator === 'undefined' || !navigator.locks) throw new ApiError('SESSION_EXPIRED', '浏览器不能协调多标签页刷新；请重新登录。', '', 401);
+    const seen = this.expiresAt;
+    await navigator.locks.request('bastion-auth-refresh', async () => {
+      let shared: string | null = null;
+      try { shared = localStorage.getItem(EXPIRES_AT); } catch { /* Fall through and rotate. */ }
+      if (shared && Date.parse(shared) > seen) { this.learn(shared); return; }
+      const result = await this.json<{ access_expires_at?: string }>('/api/v1/auth/refresh', { method: 'POST', body: {} });
+      this.learn(result?.access_expires_at);
+    });
+  }
   async response(path: string, options: RequestOptions = {}): Promise<Response> {
+    // Access tokens last 10 minutes but the login family lasts 7 days, so an expired access token is
+    // ordinary: renew it and replay the call once. Replaying writes is safe here because only the
+    // `authenticate` middleware emits SESSION_EXPIRED, before any handler runs.
+    try { return await this.fetch(path, options); }
+    catch (error) {
+      if (!(error instanceof ApiError) || error.code !== 'SESSION_EXPIRED') throw error;
+      await this.reauthenticate();
+      return this.fetch(path, options);
+    }
+  }
+  private async fetch(path: string, options: RequestOptions = {}): Promise<Response> {
     const base = new URL(this.origin); requireHTTPS(base.protocol, this.development);
     if (base.protocol === 'http:' && !['localhost', '127.0.0.1', '[::1]'].includes(base.hostname)) throw new ApiError('HTTPS_REQUIRED', 'HTTP 仅允许明确开发的 loopback。');
     const url = new URL(path, base);
@@ -84,11 +144,12 @@ export class ApiClient {
     catch { throw new ApiError(options.method && options.method !== 'GET' ? 'RESULT_UNKNOWN' : 'INVALID_RESPONSE', '无法读取 JSON 响应；请重新读取服务端状态。', response.headers.get('X-Request-Id') ?? '', response.status); }
   }
   async loadCsrf(signal?: AbortSignal) { const result = await this.json<{ csrf_token: string }>('/api/v1/auth/csrf', { signal }); if (!result?.csrf_token) throw new ApiError('INVALID_RESPONSE', '缺少 CSRF token。'); this.csrf = result.csrf_token; }
-  async loadMe(signal?: AbortSignal) { const result = await this.json<Me>('/api/v1/me', { signal }); if (!result?.user || typeof result.user.username !== 'string' || !result.login_session_id || !Number.isSafeInteger(result.policy_revision) || !result.csrf_token) throw new ApiError('INVALID_RESPONSE', '身份响应不完整。'); this.csrf = result.csrf_token; return result; }
+  async loadMe(signal?: AbortSignal) { const result = await this.json<Me>('/api/v1/me', { signal }); if (!result?.user || typeof result.user.username !== 'string' || !result.login_session_id || !Number.isSafeInteger(result.policy_revision) || !result.csrf_token) throw new ApiError('INVALID_RESPONSE', '身份响应不完整。'); this.csrf = result.csrf_token; this.learn(result.access_expires_at); return result; }
   async info(signal?: AbortSignal) { return validateInfo(await this.json<Info>('/api/v1/info', { signal })); }
   login(body: { username: string; password: string; device_label: string }, signal?: AbortSignal) { return this.json('/api/v1/auth/login', { method: 'POST', body, signal }); }
   logout(all = false, signal?: AbortSignal) { return this.json<void>(`/api/v1/auth/${all ? 'logout-all' : 'logout'}`, { method: 'POST', body: {}, signal }); }
-  refresh(signal?: AbortSignal) { return this.json<void>('/api/v1/auth/refresh', { method: 'POST', body: {}, signal }); }
+  /** Renew now instead of waiting for the next 401. Coordinated with every other tab; never replays a spent refresh token. */
+  refresh() { return this.reauthenticate(); }
   changePassword(current_password: string, new_password: string, signal?: AbortSignal) { return this.json<void>('/api/v1/me/password', { method: 'POST', body: { current_password, new_password }, signal }); }
   async assets(query?: Query, signal?: AbortSignal) { return validateAssets(await this.json<AssetPage>(`/api/v1/assets${queryString(query)}`, { signal })); }
   async asset(id: string, signal?: AbortSignal) { const asset = await this.json<Asset>(`/api/v1/assets/${encodeURIComponent(id)}`, { signal }); const value = validateAssets({ items: [asset], next_cursor: null, policy_revision: 1 }).items[0]; if (value.id !== id) throw new ApiError('INVALID_RESPONSE', '目标资产响应不匹配。'); return value; }

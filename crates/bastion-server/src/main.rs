@@ -36,6 +36,14 @@ enum Command {
         #[arg(long)]
         password_stdin: bool,
     },
+    /// Create the first administrator only if none exists, for unattended setup. The password comes
+    /// from BASTION_ADMIN_PASSWORD or BASTION_ADMIN_PASSWORD_FILE, or is generated and printed once.
+    EnsureAdmin {
+        #[arg(long)]
+        config: PathBuf,
+        #[arg(long, default_value = "admin")]
+        username: String,
+    },
     /// Recover a local user and revoke all of their login sessions.
     ResetUser {
         #[arg(long)]
@@ -96,6 +104,8 @@ async fn main() -> Result<()> {
     tracing_subscriber::fmt()
         .with_env_filter("bastion_server=info,bastion_gateway=info")
         .init();
+    // A bad BASTION_PASSWORD_MIN_LENGTH must stop startup, not surface on the first password change.
+    bastion_secrets::password_min_length()?;
     match Cli::parse().command {
         Command::Serve { config } => control::serve_production(config).await,
         Command::Migrate { config } => control::migrate(config).await,
@@ -104,6 +114,7 @@ async fn main() -> Result<()> {
             username,
             password_stdin,
         } => control::create_admin(config, username, password_stdin).await,
+        Command::EnsureAdmin { config, username } => control::ensure_admin(config, username).await,
         Command::ResetUser {
             config,
             username,

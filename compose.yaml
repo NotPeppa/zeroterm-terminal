@@ -1,8 +1,28 @@
 services:
+  # One-shot: generates secrets on a fresh install, skips when already initialized.
+  init:
+    image: zeroterm-bastion:local
+    restart: "no"
+    network_mode: none
+    entrypoint: ["sh", "/usr/local/share/zeroterm-bastion/docker-fresh-init.sh"]
+    configs:
+      - source: fresh_init
+        target: /usr/local/share/zeroterm-bastion/docker-fresh-init.sh
+    volumes:
+      - secrets:/etc/zeroterm-bastion/secrets
+      - database-auth:/run/bastion-db
+      - runtime-auth:/run/bastion-runtime
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+
   postgres:
     image: postgres:17-bookworm
     restart: unless-stopped
     networks: [app]
+    depends_on:
+      init:
+        condition: service_completed_successfully
     environment:
       POSTGRES_DB: bastion
       POSTGRES_USER: bastion
@@ -47,12 +67,16 @@ services:
         condition: service_healthy
       guacd:
         condition: service_started
+      bootstrap-admin:
+        condition: service_completed_successfully
     networks:
       app:
       ingress:
         ipv4_address: 172.30.63.2
       guac_bridge:
         ipv4_address: 172.30.61.2
+    environment:
+      BASTION_PASSWORD_MIN_LENGTH: ${BASTION_PASSWORD_MIN_LENGTH:-12}
     configs:
       - source: bastion_config
         target: /etc/zeroterm-bastion/production.toml
@@ -75,11 +99,91 @@ services:
       retries: 6
       start_period: 20s
 
+  # One-shot: creates or upgrades the tables with the owner connection. The app never migrates itself
+  # and never holds owner credentials; `bastion` starts only after this and grant-runtime succeed.
+  migrate:
+    image: zeroterm-bastion:local
+    restart: "no"
+    networks: [app]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["migrate", "--config", "/etc/zeroterm-bastion/maintenance.toml"]
+    configs:
+      - source: bastion_maintenance_config
+        target: /etc/zeroterm-bastion/maintenance.toml
+    volumes:
+      - secrets:/etc/zeroterm-bastion/secrets:ro
+      - database-auth:/run/bastion-db:ro
+      - runtime-auth:/run/bastion-runtime:ro
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+
+  # One-shot: refreshes the runtime role's least-privilege grants after every migration. Needs psql,
+  # so it uses the postgres image and reaches the server over the app network as the owner.
+  grant-runtime:
+    image: postgres:17-bookworm
+    restart: "no"
+    networks: [app]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      POSTGRES_DB: bastion
+      PGHOST: postgres
+      PGPASSFILE: /tmp/pgpass
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        umask 077
+        echo "postgres:5432:*:bastion:$$(cat /run/bastion-db/password)" > /tmp/pgpass
+        sh /usr/local/share/zeroterm-bastion/docker-runtime-role.sh
+    configs:
+      - source: runtime_role_setup
+        target: /usr/local/share/zeroterm-bastion/docker-runtime-role.sh
+    volumes:
+      - database-auth:/run/bastion-db:ro
+      - runtime-auth:/run/bastion-runtime:ro
+    # The owner-only secret files belong to UID 10001; read them as that UID instead of granting caps.
+    user: "10001:10001"
+    tmpfs: ["/tmp:size=1m,mode=0700,uid=10001,gid=10001"]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+
+  # One-shot: creates the first administrator only if none exists, using the runtime role. Password from
+  # BASTION_ADMIN_PASSWORD or BASTION_ADMIN_PASSWORD_FILE; if both are unset, one is generated and printed
+  # once to this service's log. Once an administrator exists these settings are ignored.
+  bootstrap-admin:
+    image: zeroterm-bastion:local
+    restart: "no"
+    networks: [app]
+    depends_on:
+      grant-runtime:
+        condition: service_completed_successfully
+    command: ["ensure-admin", "--config", "/etc/zeroterm-bastion/production.toml", "--username", "${BASTION_ADMIN_USERNAME:-admin}"]
+    environment:
+      BASTION_ADMIN_PASSWORD: ${BASTION_ADMIN_PASSWORD:-}
+      BASTION_ADMIN_PASSWORD_FILE: ${BASTION_ADMIN_PASSWORD_FILE:-}
+      BASTION_PASSWORD_MIN_LENGTH: ${BASTION_PASSWORD_MIN_LENGTH:-12}
+    configs:
+      - source: bastion_config
+        target: /etc/zeroterm-bastion/production.toml
+    volumes:
+      - secrets:/etc/zeroterm-bastion/secrets:ro
+      - runtime-auth:/run/bastion-runtime:ro
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+
   maintenance:
     profiles: [tools]
     image: zeroterm-bastion:local
     networks: [app]
     command: ["migrate", "--config", "/etc/zeroterm-bastion/maintenance.toml"]
+    environment:
+      BASTION_PASSWORD_MIN_LENGTH: ${BASTION_PASSWORD_MIN_LENGTH:-12}
     configs:
       - source: bastion_maintenance_config
         target: /etc/zeroterm-bastion/maintenance.toml
@@ -129,6 +233,8 @@ configs:
     file: ./.local/docker/nginx.conf
   runtime_role_setup:
     file: ./deploy/docker-runtime-role.sh
+  fresh_init:
+    file: ./deploy/docker-fresh-init.sh
 
 networks:
   app:

@@ -250,6 +250,9 @@ pub struct UserView {
 pub struct Identity {
     pub user: UserView,
     pub login_session_id: Uuid,
+    /// When the access token that produced this identity expires. The browser console schedules a
+    /// silent refresh from it, so it travels with every authenticated request.
+    pub access_expires_at: Option<DateTime<Utc>>,
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]

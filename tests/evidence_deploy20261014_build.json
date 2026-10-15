@@ -1,0 +1,8 @@
+{
+  "production_ready": false,
+  "change": "RDP first-connect certificate confirmation (0006) plus current workspace",
+  "build_seconds": 179.0,
+  "app_image_id": "sha256:ba847a85626e3478877acf19b1e5a625c4fc651a6943b3884f923ea7ff1a39f7",
+  "status": "passed",
+  "finished_at": "2026-10-14T03:50:27Z"
+}

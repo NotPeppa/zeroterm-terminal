@@ -1,0 +1,8 @@
+{
+  "production_ready": false,
+  "change": "current workspace: one-shot compose init/migrate/grant-runtime/bootstrap-admin, BASTION_PASSWORD_MIN_LENGTH, RDP first-connect confirmation",
+  "build_seconds": 1.0,
+  "image_id": "sha256:b58fba01f6f402e4469430c48947ea71c90179ea831876a9760ea6e5a243fe98",
+  "status": "passed",
+  "finished_at": "2026-10-14T09:11:10Z"
+}

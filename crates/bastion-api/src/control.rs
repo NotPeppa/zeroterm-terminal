@@ -455,6 +455,7 @@ async fn info(State(state): State<Arc<ControlApi>>) -> Json<Value> {
         "stream_protocol":STREAM_PROTOCOL,"production_ready":false,
         "stream_protocols":{"ssh":SSH_STREAM_PROTOCOL,"rdp":STREAM_PROTOCOL,"vnc":STREAM_PROTOCOL},
         "recording":{"required":state.recording_required,"format_version":2,"available":recording_available},
+        "password_min_length":bastion_secrets::password_min_length().unwrap_or(12),
         "features":{"web_ssh":usable,"web_rdp":rdp,"web_vnc":vnc,"recording_replay":replay_available,"device_sessions":true}}),
     )
 }
@@ -501,7 +502,7 @@ async fn me(
     headers: HeaderMap,
 ) -> ApiResult<Json<Value>> {
     Ok(Json(
-        json!({"user":identity.user,"login_session_id":identity.login_session_id,"policy_revision":state.store.policy_revision().await?,"csrf_token":browser::csrf_for_me(&headers)}),
+        json!({"user":identity.user,"login_session_id":identity.login_session_id,"policy_revision":state.store.policy_revision().await?,"csrf_token":browser::csrf_for_me(&headers),"access_expires_at":identity.access_expires_at}),
     ))
 }
 async fn login(
