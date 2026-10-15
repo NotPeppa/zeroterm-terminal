@@ -42,7 +42,7 @@ services:
     stop_grace_period: 30s
 
   guacd:
-    image: ${GUACD_IMAGE:?Set GUACD_IMAGE to the exact verified sha256 engine image ID}
+    image: ${GUACD_IMAGE:?Set GUACD_IMAGE to ghcr.io/notpeppa/zeroterm-terminal-guacd:1.6.0-strict-pin or its sha256 digest}
     restart: unless-stopped
     # NEVER attach to app/default/target networks; no database/secrets/recordings mounts.
     networks:

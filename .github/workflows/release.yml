@@ -16,9 +16,16 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build guacd engine
-        run: docker build -t zeroterm-guacd:1.6.0-strict-pin -f deploy/guacd/Dockerfile .
-      - name: Build bastion app
+      - name: Build and push guacd engine
+        run: |
+          docker build -t ghcr.io/${{ github.repository }}-guacd:1.6.0-strict-pin \
+            -t ghcr.io/${{ github.repository }}-guacd:latest \
+            -f deploy/guacd/Dockerfile .
+          docker push ghcr.io/${{ github.repository }}-guacd:1.6.0-strict-pin
+          docker push ghcr.io/${{ github.repository }}-guacd:latest
+          GUACD_DIGEST=$(docker image inspect ghcr.io/${{ github.repository }}-guacd:1.6.0-strict-pin --format '{{.Id}}' | cut -d: -f2)
+          echo "GUACD_DIGEST=$GUACD_DIGEST" >> $GITHUB_ENV
+      - name: Build and push bastion app
         run: |
           docker build -t ghcr.io/${{ github.repository }}:${{ github.ref_name }} \
             -t ghcr.io/${{ github.repository }}:latest .
@@ -27,6 +34,7 @@ jobs:
       - name: Update compose.yaml
         run: |
           sed -i "s|image: zeroterm-bastion:local|image: ghcr.io/${{ github.repository }}:${{ github.ref_name }}|" compose.yaml
+          sed -i "s|GUACD_IMAGE:.*}|GUACD_IMAGE:-ghcr.io/${{ github.repository }}-guacd@sha256:$GUACD_DIGEST}|" compose.yaml
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
@@ -38,12 +46,14 @@ jobs:
             ## 使用
             1. 下载 compose.yaml
             2. 按 README 或 deploy/docker.md 配置
-            3. 设置 GUACD_IMAGE（见下方）
-            4. docker compose up
-
-            ## guacd 引擎镜像
-            需要自己构建：
+            3. 拉取镜像后直接启动：
             ```sh
-            docker build -t zeroterm-guacd:1.6.0-strict-pin -f deploy/guacd/Dockerfile .
-            export GUACD_IMAGE=$(docker image inspect zeroterm-guacd:1.6.0-strict-pin --format '{{.Id}}')
+            docker compose pull
+            docker compose up -d
             ```
+
+            ## 镜像
+            - 应用：`ghcr.io/${{ github.repository }}:${{ github.ref_name }}`
+            - guacd 引擎：`ghcr.io/${{ github.repository }}-guacd:1.6.0-strict-pin`（已设置在 compose.yaml）
+
+            两个镜像都由 CI 从本仓库公开构建，guacd 的[安全补丁](deploy/guacd/)和[单元测试](tests/)已在构建时验证。

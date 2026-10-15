@@ -24,7 +24,7 @@
 
 ---
 
-## 2. 部署（Docker，约 10 分钟）
+## 2. 部署（Docker，约 5 分钟）
 
 ### 2.1 前置条件
 
@@ -33,7 +33,16 @@
 - 一个域名和证书，或者用自签证书做内网测试
 - 一个非 root 的运行用户
 
-### 2.2 检查网段不冲突
+### 2.2 获取部署文件
+
+从 [Releases](https://github.com/NotPeppa/zeroterm-terminal/releases) 下载最新版的 `compose.yaml`，
+或直接用仓库里的：
+
+```sh
+curl -fL https://github.com/NotPeppa/zeroterm-terminal/releases/latest/download/compose.yaml -o compose.yaml
+```
+
+### 2.3 检查网段不冲突
 
 默认占用的 Docker 网段：
 
@@ -46,7 +55,7 @@
 先确认这些网段在你机器上没有被别的容器或主机路由占用。如果冲突，需要同时改 `compose.yaml` 的固定 IP、
 `production.toml` 里的 `bridge_bind` / `allowed_source_ips` / `api_listen`，以及 `nginx.conf` 的上游地址。
 
-### 2.3 准备配置和证书
+### 2.4 准备配置和证书
 
 ```sh
 export PROJECT=zeroterm-bastion          # Compose 项目名，自己取
@@ -80,25 +89,16 @@ chmod 644 .local/docker/*.toml .local/docker/nginx.conf
 
 `deploy/nginx.example.conf` 里的 `server_name` 也要改成你的域名。
 
-### 2.4 构建引擎镜像（RDP/VNC 需要）
+### 2.5 启动应用（拉取镜像、初始化、建表、授权都自动完成）
 
 ```sh
-docker build -t zeroterm-guacd:1.6.0-strict-pin -f deploy/guacd/Dockerfile .
-# 冻结成镜像 ID，Compose 拒绝未设置 GUACD_IMAGE 的启动
-export GUACD_IMAGE=$(docker image inspect zeroterm-guacd:1.6.0-strict-pin --format '{{.Id}}')
-```
-
-只用 SSH 的话也建议照做，产品对引擎有严格的指纹校验补丁要求。
-
-### 2.5 启动应用（初始化、建表、授权都自动完成）
-
-```sh
-docker compose -p "$PROJECT" build bastion
+export PROJECT=zeroterm-bastion          # Compose 项目名，自己取
 
 # 管理员密码：可选。不设就自动生成，打印到日志里
 export BASTION_ADMIN_PASSWORD='至少 12 个字节的密码'
 
-# 先只起应用和 guacd，不开公网入口
+# 拉取镜像后直接启动
+docker compose -p "$PROJECT" pull
 docker compose -p "$PROJECT" up -d --wait bastion guacd
 ```
 
@@ -198,9 +198,8 @@ curl --fail https://你的域名/health/ready      # 期望输出 ok
 docker compose -p "$PROJECT" stop proxy
 sudo python3 deploy/guacd/egress.py remove "$PROJECT"
 
-# 取新代码，然后：
-export GUACD_IMAGE=$(docker image inspect zeroterm-guacd:1.6.0-strict-pin --format '{{.Id}}')
-docker compose -p "$PROJECT" build bastion
+# 取新代码或下载新的 compose.yaml
+docker compose -p "$PROJECT" pull
 docker compose -p "$PROJECT" up -d --wait bastion guacd   # 迁移和授权自动先跑
 
 sudo python3 deploy/guacd/egress.py install "$PROJECT"   # 容器重建后必须重装
@@ -242,7 +241,7 @@ cargo test  --locked --workspace
 cd web && npm ci && npm test && npm run build
 ```
 
-真实引擎验收要在获准的独立测试主机上跑（不会碰现有服务）：
+真实引擎验收要在获准的独立测试主机上跑，需要先构建 guacd：
 
 ```sh
 docker build -t zeroterm-guacd:1.6.0-strict-pin -f deploy/guacd/Dockerfile .
