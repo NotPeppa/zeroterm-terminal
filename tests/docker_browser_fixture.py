@@ -26,7 +26,7 @@ def dc(*command,**kwargs):return run('docker','compose','-p',project,'-f',str(ro
 if args.action=='stop':
     fixture=json.loads((root/'browser-fixture.json').read_text())
     assert fixture['server_id']==project
-    env=dict(os.environ,BASTION_HTTPS_PORT='127.0.0.1:'+str(fixture['port']),GUACD_IMAGE=fixture['engine_image_id'])
+    env=dict(os.environ,BASTION_HTTPS_PORT='127.0.0.1:'+str(fixture['port']),GUACD_IMAGE=fixture['engine_image_id'],BASTION_IMAGE=fixture['application_image_id'])
     ids=output('docker','ps','-aq','--filter','label=com.docker.compose.project='+project).splitlines()
     for identity in ids:
         row=json.loads(output('docker','inspect',identity))[0]
@@ -92,26 +92,25 @@ if args.subnet_offset:nginx=nginx.replace('172.30.63.',f'172.30.{63+args.subnet_
 (root/'nginx.conf').write_text(nginx)
 for name in ('production.toml','maintenance.toml','nginx.conf'):(root/name).chmod(0o644)
 database='zt_guac_v2_'+uuid.uuid4().hex[:12]
-override={'configs':{'bastion_config':{'file':str(root/'production.toml')},'bastion_maintenance_config':{'file':str(root/'maintenance.toml')},'nginx_config':{'file':str(root/'nginx.conf')}},'services':{'bastion':{'image':args.app_image},'maintenance':{'image':args.app_image,'environment':{'BASTION_DATABASE_NAME':database}},'guacd':{'image':engine},'postgres':{'environment':{'POSTGRES_DB':database},'healthcheck':{'test':['CMD-SHELL','pg_isready -U bastion -d '+database]}},'proxy':{'volumes':[{'type':'bind','source':str(certs),'target':'/etc/nginx/tls','read_only':True,'bind':{'create_host_path':False}}]},'target':{'image':args.target_image,'networks':['app'],'volumes':[str(certs)+':/certs'],'shm_size':'32m','mem_limit':'192m','memswap_limit':'384m','cpus':0.5}}}
+override={'configs':{'bastion_config':{'file':str(root/'production.toml')},'bastion_maintenance_config':{'file':str(root/'maintenance.toml')},'nginx_config':{'file':str(root/'nginx.conf')}},'services':{'bastion':{'image':args.app_image},'maintenance':{'image':args.app_image,'environment':{'BASTION_DATABASE_NAME':database}},'guacd':{'image':engine},'grant-runtime':{'environment':{'POSTGRES_DB':database}},'postgres':{'environment':{'POSTGRES_DB':database},'healthcheck':{'test':['CMD-SHELL','pg_isready -U bastion -d '+database]}},'proxy':{'volumes':[{'type':'bind','source':str(certs),'target':'/etc/nginx/tls','read_only':True,'bind':{'create_host_path':False}}]},'target':{'image':args.target_image,'networks':['app'],'volumes':[str(certs)+':/certs'],'shm_size':'32m','mem_limit':'192m','memswap_limit':'384m','cpus':0.5}}}
 if args.subnet_offset:
     compose=(ROOT/'compose.yaml').read_text()
     for part in [61,62,63]:compose=compose.replace(f'172.30.{part}.',f'172.30.{part+args.subnet_offset}.')
     (root/'compose.yaml').write_text(compose)
-    override['configs']['runtime_role_setup']={'file':str(ROOT/'deploy/docker-runtime-role.sh')}
 if args.recording_fault_library:
     mount={'type':'bind','source':str(root/'recordings'),'target':'/var/lib/zeroterm-bastion/recordings','bind':{'create_host_path':False}}
     override['services']['bastion']['volumes']=[mount,{'type':'bind','source':str(root/'fault'),'target':'/fault','bind':{'create_host_path':False}}]
     override['services']['bastion']['environment']={'LD_PRELOAD':'/fault/recording-fault.so'}
     override['services']['maintenance']['volumes']=[mount]
 (root/'override.json').write_text(json.dumps(override))
-env=dict(os.environ,BASTION_HTTPS_PORT='127.0.0.1:'+str(port),GUACD_IMAGE=engine)
+env=dict(os.environ,BASTION_HTTPS_PORT='127.0.0.1:'+str(port),GUACD_IMAGE=engine,BASTION_IMAGE=args.app_image)
 (root/'browser-fixture.json').write_text(json.dumps({'server_id':project,'port':port,'engine_image_id':engine}))
 (root/'browser-fixture.json').chmod(0o600)
 dc('config','--quiet')
 dc('run','--rm','--no-deps','-T','--entrypoint','sh','maintenance','/usr/local/share/zeroterm-bastion/docker-init.sh')
 dc('up','-d','--wait','--wait-timeout','90','postgres','target')
 dc('run','--rm','--no-deps','-T','maintenance','migrate','--config','/etc/zeroterm-bastion/maintenance.toml')
-dc('exec','-T','postgres','sh','-c','sed "s/\\r$//" /usr/local/share/zeroterm-bastion/docker-runtime-role.sh | sh')
+dc('exec','-T','postgres','sh',input=(ROOT/'deploy/docker-runtime-role.sh').read_text().replace('\r',''))
 password=secrets.token_urlsafe(24)
 dc('run','--rm','--no-deps','-T','maintenance','create-admin','--config','/etc/zeroterm-bastion/maintenance.toml','--username','admin','--password-stdin',input=password+'\n')
 dc('up','-d','--wait','--wait-timeout','90','bastion','guacd')

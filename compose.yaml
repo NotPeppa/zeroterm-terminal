@@ -5,9 +5,6 @@ services:
     restart: "no"
     network_mode: none
     entrypoint: ["sh", "/usr/local/share/zeroterm-bastion/docker-fresh-init.sh"]
-    configs:
-      - source: fresh_init
-        target: /usr/local/share/zeroterm-bastion/docker-fresh-init.sh
     volumes:
       - secrets:/etc/zeroterm-bastion/secrets
       - database-auth:/run/bastion-db
@@ -31,9 +28,6 @@ services:
       - database:/var/lib/postgresql/data
       - database-auth:/run/bastion-db:ro
       - runtime-auth:/run/bastion-runtime:ro
-    configs:
-      - source: runtime_role_setup
-        target: /usr/local/share/zeroterm-bastion/docker-runtime-role.sh
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U bastion -d bastion"]
       interval: 5s
@@ -42,7 +36,7 @@ services:
     stop_grace_period: 30s
 
   guacd:
-    image: ${GUACD_IMAGE:?Set GUACD_IMAGE to ghcr.io/notpeppa/zeroterm-terminal-guacd:1.6.0-strict-pin or its sha256 digest}
+    image: ${GUACD_IMAGE:-ghcr.io/notpeppa/zeroterm-terminal-guacd:1.6.0-strict-pin}
     restart: unless-stopped
     # NEVER attach to app/default/target networks; no database/secrets/recordings mounts.
     networks:
@@ -120,10 +114,10 @@ services:
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
 
-  # One-shot: refreshes the runtime role's least-privilege grants after every migration. Needs psql,
-  # so it uses the postgres image and reaches the server over the app network as the owner.
+  # One-shot: refreshes the runtime role's least-privilege grants after every migration. The app image
+  # ships psql and the script; it reaches the server over the app network as the owner.
   grant-runtime:
-    image: postgres:17-bookworm
+    image: ${BASTION_IMAGE:-ghcr.io/notpeppa/zeroterm-terminal:latest}
     restart: "no"
     networks: [app]
     depends_on:
@@ -139,9 +133,6 @@ services:
         umask 077
         echo "postgres:5432:*:bastion:$$(cat /run/bastion-db/password)" > /tmp/pgpass
         sh /usr/local/share/zeroterm-bastion/docker-runtime-role.sh
-    configs:
-      - source: runtime_role_setup
-        target: /usr/local/share/zeroterm-bastion/docker-runtime-role.sh
     volumes:
       - database-auth:/run/bastion-db:ro
       - runtime-auth:/run/bastion-runtime:ro
@@ -231,10 +222,6 @@ configs:
     file: ./.local/docker/maintenance.toml
   nginx_config:
     file: ./.local/docker/nginx.conf
-  runtime_role_setup:
-    file: ./deploy/docker-runtime-role.sh
-  fresh_init:
-    file: ./deploy/docker-fresh-init.sh
 
 networks:
   app:

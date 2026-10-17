@@ -1,12 +1,13 @@
-name: Build and release
+name: Build and push images
 on:
   push:
-    tags: ['v*']
+    branches:
+      - main
 jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
       packages: write
     steps:
       - uses: actions/checkout@v4
@@ -16,44 +17,21 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      # Image names must be lowercase; compose.yaml pulls ghcr.io/notpeppa/zeroterm-terminal[-guacd].
+      - name: Image names
+        run: |
+          image="ghcr.io/${GITHUB_REPOSITORY,,}"
+          echo "APP=$image" >> "$GITHUB_ENV"
+          echo "GUACD=$image-guacd" >> "$GITHUB_ENV"
+          echo "SHA=${GITHUB_SHA::12}" >> "$GITHUB_ENV"
+      # The layer cache keeps the FreeRDP/guacamole compile from rerunning when deploy/guacd is unchanged.
       - name: Build and push guacd engine
         run: |
-          docker build -t ghcr.io/${{ github.repository }}-guacd:1.6.0-strict-pin \
-            -t ghcr.io/${{ github.repository }}-guacd:latest \
-            -f deploy/guacd/Dockerfile .
-          docker push ghcr.io/${{ github.repository }}-guacd:1.6.0-strict-pin
-          docker push ghcr.io/${{ github.repository }}-guacd:latest
-          GUACD_DIGEST=$(docker image inspect ghcr.io/${{ github.repository }}-guacd:1.6.0-strict-pin --format '{{.Id}}' | cut -d: -f2)
-          echo "GUACD_DIGEST=$GUACD_DIGEST" >> $GITHUB_ENV
+          docker buildx build --push -f deploy/guacd/Dockerfile \
+            --cache-from type=gha,scope=guacd --cache-to type=gha,mode=max,scope=guacd \
+            -t "$GUACD:1.6.0-strict-pin" -t "$GUACD:latest" -t "$GUACD:sha-$SHA" .
       - name: Build and push bastion app
         run: |
-          docker build -t ghcr.io/${{ github.repository }}:${{ github.ref_name }} \
-            -t ghcr.io/${{ github.repository }}:latest .
-          docker push ghcr.io/${{ github.repository }}:${{ github.ref_name }}
-          docker push ghcr.io/${{ github.repository }}:latest
-      - name: Update compose.yaml with release tag
-        run: |
-          sed -i "s|GUACD_IMAGE:.*}|GUACD_IMAGE:-ghcr.io/${{ github.repository }}-guacd@sha256:$GUACD_DIGEST}|" compose.yaml
-          sed -i "s|BASTION_IMAGE:-ghcr.io/${{ github.repository }}:latest|BASTION_IMAGE:-ghcr.io/${{ github.repository }}:${{ github.ref_name }}|g" compose.yaml
-      - name: Create release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            compose.yaml
-            deploy/docker.md
-            README.md
-          body: |
-            ## 使用
-            1. 下载 compose.yaml
-            2. 按 README 或 deploy/docker.md 配置
-            3. 拉取镜像后直接启动：
-            ```sh
-            docker compose pull
-            docker compose up -d
-            ```
-
-            ## 镜像
-            - 应用：`ghcr.io/${{ github.repository }}:${{ github.ref_name }}`
-            - guacd 引擎：`ghcr.io/${{ github.repository }}-guacd:1.6.0-strict-pin`（已设置在 compose.yaml）
-
-            两个镜像都由 CI 从本仓库公开构建，guacd 的[安全补丁](deploy/guacd/)和[单元测试](tests/)已在构建时验证。
+          docker buildx build --push \
+            --cache-from type=gha,scope=app --cache-to type=gha,mode=max,scope=app \
+            -t "$APP:latest" -t "$APP:sha-$SHA" .

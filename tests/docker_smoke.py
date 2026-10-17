@@ -93,7 +93,7 @@ try:
     dc('up','-d','--wait','--wait-timeout','90','postgres')
     dc('run','--rm','--no-deps','-T','maintenance','migrate','--config',maintenance)
     dc('run','--rm','--no-deps','-T','maintenance','migrate','--config',maintenance)
-    dc('exec','-T','postgres','sh','-c','sed "s/\\r$//" /usr/local/share/zeroterm-bastion/docker-runtime-role.sh | sh')
+    dc('exec','-T','postgres','sh',input=(ROOT/'deploy/docker-runtime-role.sh').read_text().replace('\r',''))
     rights=dc('exec','-T','postgres','psql','-X','-U','bastion','-d',database,'-At','-c',
         "SELECT NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole AND NOT rolreplication "
         "AND NOT rolbypassrls AND NOT rolinherit AND NOT has_schema_privilege(rolname,'public','CREATE') "

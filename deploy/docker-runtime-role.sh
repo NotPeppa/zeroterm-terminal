@@ -1,5 +1,6 @@
 #!/bin/sh
-# Run as the default root user in the postgres container, never as the PostgreSQL UID.
+# Compose runs this as the grant-runtime one-shot from the app image (UID 10001, PGHOST/PGPASSFILE set).
+# It also works piped into `sh` inside the postgres container over the local socket.
 set -eu
 
 runtime_password=$(cat /run/bastion-runtime/password)

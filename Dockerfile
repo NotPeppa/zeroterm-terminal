@@ -33,7 +33,7 @@ RUN --mount=type=cache,id=${CACHE_NAMESPACE}-cargo-registry,target=/usr/local/ca
 
 FROM debian:bookworm-slim
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates curl libgcc-s1 openssh-client \
+    && apt-get install -y --no-install-recommends ca-certificates curl libgcc-s1 openssh-client postgresql-client \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --gid 10001 bastion \
     && useradd --uid 10001 --gid bastion --no-create-home \
@@ -43,8 +43,9 @@ RUN apt-get update \
         /var/lib/zeroterm-bastion/recordings
 COPY --from=server-build /app/bastion-server /usr/local/bin/bastion-server
 COPY --from=server-build /app/web-dist/ /opt/zeroterm-bastion/web/dist/
-COPY deploy/docker-init.sh /usr/local/share/zeroterm-bastion/docker-init.sh
-RUN sed -i 's/\r$//' /usr/local/share/zeroterm-bastion/docker-init.sh
+COPY deploy/docker-init.sh deploy/docker-fresh-init.sh deploy/docker-runtime-role.sh \
+     /usr/local/share/zeroterm-bastion/
+RUN sed -i 's/\r$//' /usr/local/share/zeroterm-bastion/*.sh
 USER 10001:10001
 WORKDIR /var/lib/zeroterm-bastion
 # HTTPS is published only by the co-located TLS reverse proxy.
