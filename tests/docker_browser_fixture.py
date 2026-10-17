@@ -11,6 +11,7 @@ parser.add_argument('--engine-image')
 parser.add_argument('--target-image')
 parser.add_argument('--subnet-offset',type=int,default=0,help='offset the three fixed fixture subnets to test alongside a live deployment')
 parser.add_argument('--recording-fault-library',help='test-only preload library; enables a bounded 512 MiB recording filesystem')
+parser.add_argument('--cgroup-parent',help='existing systemd slice (e.g. a CPU/memory-capped one) holding every bastion-side service; the target stays outside')
 args=parser.parse_args()
 assert 0<=args.subnet_offset<=160
 root=Path(args.directory).resolve()
@@ -101,6 +102,10 @@ if args.recording_fault_library:
     override['services']['bastion']['volumes']=[mount,{'type':'bind','source':str(root/'fault'),'target':'/fault','bind':{'create_host_path':False}}]
     override['services']['bastion']['environment']={'LD_PRELOAD':'/fault/recording-fault.so'}
     override['services']['maintenance']['volumes']=[mount]
+if args.cgroup_parent:
+    assert re.fullmatch(r'[a-z0-9-]+\.slice',args.cgroup_parent)
+    for service in ('init','postgres','migrate','grant-runtime','bootstrap-admin','guacd-net','guacd','bastion','proxy'):
+        override['services'].setdefault(service,{})['cgroup_parent']=args.cgroup_parent
 (root/'override.json').write_text(json.dumps(override))
 env=dict(os.environ,BASTION_HTTPS_PORT='127.0.0.1:'+str(port),GUACD_IMAGE=engine,BASTION_IMAGE=args.app_image)
 (root/'browser-fixture.json').write_text(json.dumps({'server_id':project,'port':port,'engine_image_id':engine}))
