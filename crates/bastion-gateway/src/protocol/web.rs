@@ -37,21 +37,17 @@ pub async fn run_web_session(
         })
     };
     if let Err(code) = valid {
-        let _ = timeout(
-            Duration::from_secs(2),
-            backend.transition(connection.id, ConnectionState::Failed, Some(code)),
-        )
-        .await;
+        let _ = backend
+            .transition(connection.id, ConnectionState::Failed, Some(code))
+            .await;
         return Err(code);
     }
     let lease = match registry.reserve(&connection, stop.clone()) {
         Ok(lease) => lease,
         Err(code) => {
-            let _ = timeout(
-                Duration::from_secs(2),
-                backend.transition(connection.id, ConnectionState::Failed, Some(code)),
-            )
-            .await;
+            let _ = backend
+                .transition(connection.id, ConnectionState::Failed, Some(code))
+                .await;
             return Err(code);
         }
     };
@@ -61,11 +57,9 @@ pub async fn run_web_session(
     let recording = match recording {
         Ok(recording) => recording,
         Err(code) => {
-            let _ = timeout(
-                Duration::from_secs(2),
-                backend.transition(connection.id, ConnectionState::Failed, Some(code)),
-            )
-            .await;
+            let _ = backend
+                .transition(connection.id, ConnectionState::Failed, Some(code))
+                .await;
             drop(lease);
             return Err(code);
         }
@@ -189,17 +183,13 @@ pub async fn run_web_session(
     } else {
         ConnectionState::Failed
     };
-    let _ = timeout(
-        Duration::from_secs(2),
-        backend.transition(connection.id, next, final_result.as_ref().err().copied()),
-    )
-    .await;
-    if next == ConnectionState::Closing {
-        let _ = timeout(
-            Duration::from_secs(2),
-            backend.transition(connection.id, ConnectionState::Closed, None),
-        )
+    let _ = backend
+        .transition(connection.id, next, final_result.as_ref().err().copied())
         .await;
+    if next == ConnectionState::Closing {
+        let _ = backend
+            .transition(connection.id, ConnectionState::Closed, None)
+            .await;
     }
     drop(lease);
     final_result

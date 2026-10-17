@@ -37,6 +37,8 @@ pub(super) fn db(error: sqlx::Error) -> ErrorCode {
     tracing::warn!(error_kind, "policy database operation failed");
     ErrorCode::PolicyStoreUnavailable
 }
+/// How long an end-of-connection state write keeps retrying an unavailable database.
+const TRANSITION_RETRY_DEADLINE: Duration = Duration::from_secs(60);
 pub async fn bounded<T>(
     future: impl std::future::Future<Output = StoreResult<T>>,
 ) -> StoreResult<T> {
@@ -512,6 +514,34 @@ impl PgStore {
         if matches!(state, ConnectionState::Connecting | ConnectionState::Active) {
             return Err(ErrorCode::InvalidArgument);
         }
+        // Every remaining state ends a connection, and its caller drops the runtime lease right after.
+        // A lost write would leave the row active with no task to finish it, still counted against the
+        // connection limits until restart, so a slow database delays this write instead of dropping it.
+        // Retrying is safe: once the row has moved on, `permits` turns a repeat into a no-op.
+        let deadline = tokio::time::Instant::now() + TRANSITION_RETRY_DEADLINE;
+        let mut pause = Duration::from_millis(250);
+        loop {
+            match self.transition_once(id, state, failure).await {
+                Err(ErrorCode::PolicyStoreUnavailable)
+                    if tokio::time::Instant::now() + pause < deadline =>
+                {
+                    tokio::time::sleep(pause).await;
+                    pause = (pause * 2).min(Duration::from_secs(5));
+                }
+                Err(code) => {
+                    tracing::error!(%id, state = state_string(state), ?code, "connection state change not recorded");
+                    return Err(code);
+                }
+                Ok(()) => return Ok(()),
+            }
+        }
+    }
+    async fn transition_once(
+        &self,
+        id: Uuid,
+        state: ConnectionState,
+        failure: Option<ErrorCode>,
+    ) -> StoreResult<()> {
         bounded(async {
             let mut tx=self.begin().await?;
             let row=sqlx::query("SELECT * FROM connections WHERE id=$1 FOR UPDATE").bind(id).fetch_optional(&mut *tx).await.map_err(db)?.ok_or(ErrorCode::ResourceNotFound)?;

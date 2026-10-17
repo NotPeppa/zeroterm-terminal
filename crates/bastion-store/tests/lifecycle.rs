@@ -273,3 +273,50 @@ async fn connection_recording_activation_revision_recovery_and_devices() {
             .unwrap();
     assert_eq!(schema, 2);
 }
+#[tokio::test]
+#[ignore = "requires BASTION_GUAC_STORE_FIXTURE or stdin: disposable zt-guac-v2- PostgreSQL schema2 owner fixture; no database is bundled"]
+async fn ending_a_connection_survives_a_database_stall_longer_than_one_budget() {
+    let (f, url) = pg_fixture::load::<Fixture>();
+    let store = PgStore::connect(url.expose(), &f.server_id, &f.gateway_id)
+        .await
+        .unwrap();
+    store.migrate().await.unwrap();
+    let (user, phc) = store.login_candidate(&f.username).await.unwrap().unwrap();
+    let login = store
+        .login_web(&user, &phc, "stalled end of connection", Uuid::new_v4())
+        .await
+        .unwrap();
+    let identity = store.authenticate_web(&login.access_token).await.unwrap();
+    let ticket = store
+        .issue_web_session(&identity, request(&f), Uuid::new_v4())
+        .await
+        .unwrap();
+    let connection = store
+        .consume_web_session(ticket.session_id, &ticket.ws_token, &identity)
+        .await
+        .unwrap();
+    // Hold the policy row every store transaction locks first for longer than the 2 s budget, as ten
+    // sessions failing at once did on a 1-CPU host. The ending write must wait it out, not be dropped.
+    let mut blocker = store.pool.begin().await.unwrap();
+    sqlx::query("SELECT policy_revision FROM server_settings WHERE singleton FOR UPDATE")
+        .fetch_one(&mut *blocker)
+        .await
+        .unwrap();
+    let ending = tokio::spawn({
+        let store = store.clone();
+        async move {
+            store
+                .transition(
+                    connection.id,
+                    ConnectionState::Failed,
+                    Some(ErrorCode::RecordingUnavailable),
+                )
+                .await
+        }
+    });
+    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+    blocker.rollback().await.unwrap();
+    ending.await.unwrap().unwrap();
+    let ended = store.connection(&identity, connection.id).await.unwrap();
+    assert_eq!(ended.state, ConnectionState::Failed);
+}
