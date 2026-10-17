@@ -55,3 +55,15 @@ test('unknown format, partial metadata, missing end, extra event and bad UTF-8 r
   mountReplay(root,api,life,()=>{},error=>errors.push(error));await flush();button(root,'播放 / 从头重播').click();await flush();assert.equal(errors.length,1);assert.match(root.textContent,/不宣称完整/);assert.equal(reads,['format','partial'].includes(mode)?0:1);life.dispose();
  });
 });
+
+test('recording rows are named by start time and target, not by ID; the ID stays in the tooltip',async t=>{
+ const root=dom(t),life=new RouteLifetime();
+ const item={id:'rec-uuid-0000-1111',format_version:2,state:'complete',connection_id:'conn',target_protocol:'ssh',bytes:2048,created_at:'2026-03-04T05:06:07Z',ended_at:null,user_snapshot:'alice',asset_snapshot:'db-prod',target_username:'root'};
+ const api={recordings:async()=>({items:[item],next_cursor:null})};
+ mountReplay(root,api,life,()=>{},()=>{});await flush();
+ const stamp=new Date(item.created_at).toLocaleString('zh-CN',{hour12:false});
+ const row=all(root).find(x=>x.tagName==='button'&&x.className.includes('console-target'));
+ assert.ok(row.textContent.includes(stamp));assert.match(row.textContent,/db-prod · alice → root/);assert.doesNotMatch(row.textContent,/rec-uuid/);assert.match(row.title,/rec-uuid-0000-1111/);
+ const heading=all(root).find(x=>x.tagName==='h1');assert.equal(heading.textContent,stamp);assert.match(heading.title,/rec-uuid-0000-1111/);
+ life.dispose();
+});

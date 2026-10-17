@@ -43,19 +43,28 @@ pub(super) async fn retain_audit(path: PathBuf, offline: bool, days: u32) -> Res
     }
     let config = Config::load(&path)?;
     let mut connection = audit_connection(&config).await?;
-    let result = bastion_store::maintain_audit_partitions(
-        &mut connection,
-        &config.server_id,
-        &config.gateway_id,
-        days as u16,
-    )
-    .await
-    .map_err(store_error)?;
+    // Each call drops at most one month in its own bounded transaction; repeat until none is left.
+    let (mut created, mut dropped) = (0usize, Vec::new());
+    let default_rows = loop {
+        let result = bastion_store::maintain_audit_partitions(
+            &mut connection,
+            &config.server_id,
+            &config.gateway_id,
+            days as u16,
+        )
+        .await
+        .map_err(store_error)?;
+        created += result.created.len();
+        match result.dropped {
+            Some(partition) => dropped.push(partition),
+            None => break result.default_rows,
+        }
+    };
     connection
         .close()
         .await
         .map_err(|_| anyhow::anyhow!("maintenance connection close failed"))?;
-    println!("Audit maintenance created {} monthly partitions, dropped {} expired partitions, default partition rows {}; repeat explicit offline maintenance to process more",result.created.len(),usize::from(result.dropped.is_some()),result.default_rows);
+    println!("Audit maintenance created {created} monthly partitions, dropped {} expired partitions older than {days} days{}, default partition rows {default_rows} (never dropped)",dropped.len(),if dropped.is_empty() { String::new() } else { format!(" ({})", dropped.join(", ")) });
     Ok(())
 }
 

@@ -1063,7 +1063,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Metadata page; no paths or key envelopes"
+            "description": "Metadata page; no paths or key envelopes. Each item also carries created_at/ended_at and the connection's user_snapshot, asset_snapshot and target_username taken when the connection was opened."
           }
         }
       }
@@ -1675,7 +1675,7 @@
         "summary": "List sanitized role-authorized audit events",
         "responses": {
           "200": {
-            "description": "Paged sanitized events, no ticket or target secrets"
+            "description": "Paged sanitized events, no ticket or target secrets Each item also carries actor_username and resource_name, resolved when read (null when the type has no name or the row is gone)."
           }
         }
       }
@@ -2458,6 +2458,62 @@
                 }
               }
             ]
+          },
+          "user_snapshot": {
+            "type": "string",
+            "description": "Username when the connection was opened (list only)"
+          },
+          "asset_snapshot": {
+            "type": "string",
+            "description": "Asset name when the connection was opened (list only)"
+          },
+          "account_label": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Current label of the target account (list only)"
+          },
+          "target_username": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Target username used for this connection (list only)"
+          },
+          "started_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "list only"
+          },
+          "ended_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "list only"
+          },
+          "bytes_in": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "list only"
+          },
+          "bytes_out": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "list only"
+          },
+          "recording_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "list only"
           }
         }
       },

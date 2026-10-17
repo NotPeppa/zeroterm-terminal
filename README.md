@@ -39,13 +39,16 @@
 
 ### 2.2 获取部署文件
 
-从仓库 main 分支下载 `compose.yaml` 和配置模板：
+从仓库 main 分支下载 `compose.yaml`、`.env` 模板和配置模板：
 
 ```sh
 curl -fL https://raw.githubusercontent.com/NotPeppa/zeroterm-terminal/main/compose.yaml -o compose.yaml
+curl -fL https://raw.githubusercontent.com/NotPeppa/zeroterm-terminal/main/.env.example -o .env.example
 curl -fL https://raw.githubusercontent.com/NotPeppa/zeroterm-terminal/main/config/production.example.toml -o production.example.toml
 # 用自带的 proxy 容器才需要；已有 nginx / Caddy 可以不下
 curl -fL https://raw.githubusercontent.com/NotPeppa/zeroterm-terminal/main/deploy/nginx.example.conf -o nginx.example.conf
+# 可选：磁盘维护脚本，见第 5 节
+curl -fL https://raw.githubusercontent.com/NotPeppa/zeroterm-terminal/main/deploy/maintenance.sh --create-dirs -o deploy/maintenance.sh
 ```
 
 ### 2.3 检查网段不冲突
@@ -64,6 +67,7 @@ curl -fL https://raw.githubusercontent.com/NotPeppa/zeroterm-terminal/main/deplo
 ### 2.4 准备配置和证书
 
 ```sh
+cp .env.example .env && chmod 600 .env    # 部署用的变量都写在这里，见 2.5
 mkdir -p .local/docker/tls
 cp production.example.toml .local/docker/production.toml
 cp nginx.example.conf       .local/docker/nginx.conf
@@ -93,21 +97,30 @@ chmod 644 .local/docker/*.toml .local/docker/nginx.conf
 
 `.local/docker/nginx.conf` 里的 `server_name` 也要改成你的域名。
 
+> **想把配置放在别处？** 默认目录是 `.local/docker`（相对 `compose.yaml`），整个 `.local/` 已被 git 忽略，
+> 适合 git clone 部署。只下载了 `compose.yaml` 的话，可以在 `.env` 里写 `BASTION_CONFIG_DIR=.`，
+> 配置直接平铺在同目录；也可以写绝对路径，如 `/etc/zeroterm-bastion`。上面命令里的 `.local/docker` 换成同一个目录。
+
 > **服务器上已经有 nginx / Caddy？** 证书和 `nginx.conf` 都只给自带的 `proxy` 容器用，可以不准备：
 > 不建 `.local/docker/tls/`，不复制 `nginx.example.conf`，`chmod` 那行去掉 `nginx.conf`。
 > 只需要 `production.toml` 和 `maintenance.toml`，证书在你自己的反代上配。具体看 [2.7](#27-已经有-nginx-或-caddy)。
 
 ### 2.5 启动应用（拉取镜像、初始化、建表、授权都自动完成）
 
+先改 `.env`（2.4 里从 `.env.example` 复制的）：
+
+| 变量 | 说明 |
+|---|---|
+| `COMPOSE_PROJECT_NAME` | Compose 项目名，自己取，代替每条命令的 `-p`。**定了之后不要改**，改了就是另起一套空的部署 |
+| `BASTION_ADMIN_PASSWORD` | 可选。不设就自动生成，打印到日志里，见下面"管理员密码" |
+| 其他 | 配置目录、镜像版本、端口、最小密码长度，模板里有注释和默认值，不改就用默认值 |
+
+所有 `docker compose` 命令都要在 `compose.yaml` 所在目录执行，Compose 会自动读同目录的 `.env`。
+
 ```sh
-export PROJECT=zeroterm-bastion          # Compose 项目名，自己取
-
-# 管理员密码：可选。不设就自动生成，打印到日志里
-export BASTION_ADMIN_PASSWORD='至少 12 个字节的密码'
-
 # 拉取镜像后直接启动（已有 nginx / Caddy 的话，末尾加上 bastion guacd，不起自带代理，见 2.7）
-docker compose -p "$PROJECT" pull
-docker compose -p "$PROJECT" up -d --wait
+docker compose pull
+docker compose up -d --wait
 curl --fail https://你的域名/health/ready      # 期望输出 ok
 ```
 
@@ -121,13 +134,13 @@ curl --fail https://你的域名/health/ready      # 期望输出 ok
 | `bootstrap-admin` | 还没有管理员时创建 `admin`；已经有管理员就跳过 |
 
 应用本身用的运行账号**没有改表权限，也改不了审计记录**；只有上面这几个一次性步骤拿得到 owner 账号。
-哪一步失败了，`docker compose -p "$PROJECT" logs init migrate grant-runtime bootstrap-admin` 能直接看到原因。
+哪一步失败了，`docker compose logs init migrate grant-runtime bootstrap-admin` 能直接看到原因。
 
 #### 管理员密码
 
 | 你怎么设 | 结果 |
 |---|---|
-| 什么都不设 | 自动生成一个 43 位随机密码，**只打印这一次**：`docker compose -p "$PROJECT" logs bootstrap-admin` |
+| 什么都不设 | 自动生成一个 43 位随机密码，**只打印这一次**：`docker compose logs bootstrap-admin` |
 | `BASTION_ADMIN_PASSWORD=...` | 用这个密码，日志里不会出现它 |
 | `BASTION_ADMIN_PASSWORD_FILE=/容器内路径` | 从文件读第一行，需要你自己把文件挂进 `bootstrap-admin` 容器 |
 | 密码短于最小长度 | 直接失败，应用不启动，不会悄悄改用生成的密码 |
@@ -138,8 +151,9 @@ curl --fail https://你的域名/health/ready      # 期望输出 ok
   中文等字符按 UTF-8 计算，一个汉字算 3 字节。
 - **只在第一次生效。** 已经有管理员之后，这些变量会被忽略，以后再 `up` 也不会重置密码。
   忘了密码用 `reset-user` 命令，不是改这个变量。
-- 环境变量会留在容器配置里（`docker inspect` 能看到），日志里的生成密码在删掉
-  `bootstrap-admin` 容器前也一直在。所以**首次登录后请到"个人设置"里改掉密码**。
+- 写在 `.env` 里的密码会留在磁盘上，也会留在容器配置里（`docker inspect` 能看到），日志里的生成密码在删掉
+  `bootstrap-admin` 容器前也一直在。所以**首次启动后把 `.env` 里的 `BASTION_ADMIN_PASSWORD` 删掉，
+  首次登录后到"个人设置"里改掉密码**。
 
 ### 2.6 guacd 的出站隔离（自动，不用操作）
 
@@ -153,7 +167,7 @@ guacd 本身没有任何权限，改不了这些规则。
 ### 2.7 已经有 nginx 或 Caddy
 
 自带的 `proxy` 容器是可选的。服务器上已经有 nginx / Caddy 占着 443，启动时就**只起应用和 guacd**：
-`docker compose -p "$PROJECT" up -d --wait bastion guacd`，
+`docker compose up -d --wait bastion guacd`，
 让你自己的反代指向应用的固定地址 `172.30.63.2:8080`（宿主机能直接访问这个地址，不需要映射端口）。
 这种情况下 2.4 里的证书和 `nginx.conf` 都不用准备，TLS 证书在你自己的反代上配。
 
@@ -166,7 +180,7 @@ guacd 本身没有任何权限，改不了这些规则。
 | 宿主机上（apt 装的 nginx / Caddy） | `["172.30.63.1/32"]`，这是 Docker 网桥的网关地址 |
 | 另一个 Docker 容器里 | 把那个容器接到 `<项目名>_ingress` 网络并固定一个 IP（如 `172.30.63.4`），填这个 IP |
 
-改完重启应用：`docker compose -p "$PROJECT" up -d --wait bastion`。
+改完重启应用：`docker compose up -d --wait bastion`。
 
 **2. 反代要满足这几条**，否则请求会被拒绝：
 
@@ -232,8 +246,8 @@ Caddy 默认会把客户端发来的 `Forwarded` 头原样转发，应用会因�
 
 | 现象 | 看这里 |
 |---|---|
-| 页面打不开 | `docker compose -p "$PROJECT" logs proxy bastion` |
-| 登录提示"服务不可用" | `docker compose -p "$PROJECT" logs bastion`，多半是迁移失败，看 `logs migrate grant-runtime` |
+| 页面打不开 | `docker compose logs proxy bastion` |
+| 登录提示"服务不可用" | `docker compose logs bastion`，多半是迁移失败，看 `logs migrate grant-runtime` |
 | 连不上目标 | `logs bastion`，注意是"网络策略拒绝"还是"主机指纹未确认" |
 | RDP 报安全模式错误 | 目标是否只支持 NLA；用资产页的"重新核验主机指纹"重新扫描 |
 | RDP 证书变化被拒 | Windows 自签名证书通常半年一换，重新扫码确认即可 |
@@ -244,28 +258,50 @@ Caddy 默认会把客户端发来的 `Forwarded` 头原样转发，应用会因�
 
 ```sh
 # 先下载新的 compose.yaml，然后：
-docker compose -p "$PROJECT" pull
-docker compose -p "$PROJECT" up -d --wait     # 迁移和授权自动先跑；已有反代的话末尾加 bastion guacd
+docker compose pull
+docker compose up -d --wait     # 迁移和授权自动先跑；已有反代的话末尾加 bastion guacd
 ```
 
-从使用 `egress.py` 的旧版本升级：先 `sudo python3 deploy/guacd/egress.py remove "$PROJECT"`
+从使用 `egress.py` 的旧版本升级：先 `sudo python3 deploy/guacd/egress.py remove 项目名`（`.env` 里的 `COMPOSE_PROJECT_NAME`）
 （用旧版仓库里的脚本）清掉宿主机上的旧规则，再按上面升级。之后就不再需要它了。
 
 迁移不需要手动执行：`up` 会先跑 `migrate` 和 `grant-runtime`，成功后才启动新版本的应用。
 迁移失败时应用不会启动，旧数据保持原样，用 `logs migrate` 查原因。
-有不可逆迁移的版本，升级前先做一次备份（见第 5 节）。
+有不可逆迁移的版本，升级前先做一次备份（见第 6 节）。
 
 **永远不要用 `docker compose down -v`**：那会删掉数据库、密钥和全部录制。
 
 ---
 
-## 5. 备份与恢复
+## 5. 磁盘维护（可选，手动）
+
+录像和审计事件**不会自动删除**，`production.toml` 里的 `retention_days` 只决定录像多久之后*可以*被清理。
+用量不大的部署可以一直不管；需要腾空间时，在 `compose.yaml` 所在目录手动执行
+[deploy/maintenance.sh](deploy/maintenance.sh)，它不会自己定时运行：
+
+```sh
+sh deploy/maintenance.sh status                    # 只读：磁盘占用、可清理的录像、审计月份
+sh deploy/maintenance.sh partition-audit           # 一次性：让审计可以按月清理
+sh deploy/maintenance.sh clean --audit-days 180    # 删除过期录像和 180 天前的审计月份
+```
+
+- `status` 随时可以跑，不影响服务。
+- `partition-audit` 和 `clean` 会先停 `bastion`（**所有在线会话断开**），做完再把原来在跑的服务拉起来，通常几十秒。
+  执行前会列出要删什么并要求确认，加 `--yes` 跳过确认。删除不可恢复，需要保留的话先备份（第 6 节）。
+- **想用审计清理，就尽早跑一次 `partition-audit`。** 它要在 2 秒内把现有审计复制一遍，日志越大越可能超时失败
+  （失败会整体回滚，不丢数据，只是转不过去）。转换后已有记录按月归档，并预建未来 12 个月的分区；
+  如果超过 12 个月没跑过 `clean`，之后的新记录会落进 default 分区，那部分**永远不会被删**，所以一年至少跑一次。
+- 不跑 `partition-audit` 也能用 `clean`，只是只清录像。
+- 录像所在磁盘剩余空间低于 `minimum_free_bytes`（默认 1 GiB）时，新连接会被拒绝，这是提醒你该清理了，不会把系统写坏。
+- 容器日志已在 `compose.yaml` 里限制为每个服务最多 3 × 10 MB。
+
+## 6. 备份与恢复
 
 要一起备份的东西（少一样都恢复不完整）：PostgreSQL、`secrets`、`database-auth`、`runtime-auth`、
 `recordings` 五个卷，以及所有还在用的 KEK 和一份 manifest。
 
 ```sh
-docker compose -p "$PROJECT" run --rm --no-deps maintenance verify-backup \
+docker compose run --rm --no-deps maintenance verify-backup \
     --config /etc/zeroterm-bastion/maintenance.toml --manifest /path/manifest.json
 ```
 
@@ -274,7 +310,7 @@ docker compose -p "$PROJECT" run --rm --no-deps maintenance verify-backup \
 
 ---
 
-## 6. 本地开发
+## 7. 本地开发
 
 需要 Rust 1.95+、Node 24。secrets 目录必须是 Unix 权限 `0700/0600`，不通过放宽权限来兼容 Windows 服务部署。
 
@@ -293,10 +329,13 @@ cd web && npm ci && npm test && npm run build
 docker build -t zeroterm-bastion:local .
 docker build -t zeroterm-guacd:1.6.0-strict-pin -f deploy/guacd/Dockerfile .
 
-# 用环境变量指定本地镜像
-export BASTION_IMAGE=zeroterm-bastion:local
-export GUACD_IMAGE=zeroterm-guacd:1.6.0-strict-pin
-docker compose -p test-local up -d
+# 在仓库根目录的 .env 里指定本地镜像
+cat >> .env <<'EOF'
+COMPOSE_PROJECT_NAME=test-local
+BASTION_IMAGE=zeroterm-bastion:local
+GUACD_IMAGE=zeroterm-guacd:1.6.0-strict-pin
+EOF
+docker compose up -d
 ```
 
 真实引擎验收要在获准的独立测试主机上跑，需要先构建 guacd：
@@ -311,7 +350,7 @@ python3 -u tests/docker_guacd_acceptance.py
 
 ---
 
-## 7. 安全边界（上线前请读完）
+## 8. 安全边界（上线前请读完）
 
 - 登录走 Cookie + CSRF + 严格 Origin 校验，没有 Bearer/长期 token 入口；WSS 票据 30 秒一次性。
 - SSH 在**同一个目标 socket 上**校验已批准的完整 host key，通过后才发认证。
@@ -323,7 +362,7 @@ python3 -u tests/docker_guacd_acceptance.py
   不算隔离证据，隔离要用实际连接测试证明（见 `tests/docker_guacd_acceptance.py`）。
 - 录制在写入并 flush 得到确认后才向浏览器转发画面；录制失败会断开连接而不是静默丢录制。
 
-## 8. 文档地图
+## 9. 文档地图
 
 | 文件 | 内容 |
 |---|---|

@@ -13,7 +13,7 @@ source = source.replace(/^import ['"].*\.css['"];\s*$/gm, '');
 for (const name of ['api', 'state']) source = source.replace(`from './${name}'`, `from '${new URL(`../src/${name}.ts`, import.meta.url).href}'`);
 for (const name of ['guac', 'workspaces', 'terminal']) source = source.replace(`from './${name}'`, `from '${workbenches}'`);
 assert.match(source, /void initialize\(\);\s*$/);
-source = source.replace(/void initialize\(\);\s*$/, 'export { editDialog, mountUsers, mountAdminAssets, mountAssets, mountConsole, mountGrants, confirmSshHostKey, confirmRdpCertificate, prepareSshConnection, getTarget, renderAssets, renderAccounts, renderRoute, showError, clearError, clearMemory, api }; export function fixtureRoute(value) { route = value; } export function fixtureAccess(identity, targets, discovery) { me = identity; assets = targets; info = discovery; } export function fixtureGroups(groups) { assetGroups = groups; }');
+source = source.replace(/void initialize\(\);\s*$/, 'export { editDialog, mountUsers, mountAdminAssets, mountAssets, mountConsole, mountGrants, mountActivity, confirmSshHostKey, confirmRdpCertificate, prepareSshConnection, getTarget, renderAssets, renderAccounts, renderRoute, showError, clearError, clearMemory, api }; export function fixtureRoute(value) { route = value; } export function fixtureAccess(identity, targets, discovery) { me = identity; assets = targets; info = discovery; } export function fixtureGroups(groups) { assetGroups = groups; }');
 let moduleCount = 0;
 class Element {
   constructor(tag) { this.tagName = tag; this.children = []; this.dataset = {}; this.attributes = {}; this.listeners = {}; this._text = ''; this._value = ''; this.hidden = false; this.disabled = false; this.required = false; this.className = ''; this.classList = { add: name => { this.className += ` ${name}`; } }; }
@@ -27,6 +27,7 @@ class Element {
   get options() { return this.children.filter(child => child.tagName === 'option'); }
   append(...children) { for (let child of children) { if (typeof child !== 'object') { const text = new Element('#text'); text.textContent = child; child = text; } child.parent = this; this.children.push(child); } }
   replaceChildren(...children) { for (const child of this.children) child.parent = null; this.children = []; this.append(...children); if (this.tagName === 'select') this._value = children[0]?.value ?? ''; }
+  closest(tag) { let value = this; while (value && value.tagName !== tag) value = value.parent; return value ?? null; }
   after(child) { child.parent = this.parent; this.parent.children.splice(this.parent.children.indexOf(this) + 1, 0, child); }
   setAttribute(name, value) { this.attributes[name] = value; }
   addEventListener(name, handler) { (this.listeners[name] ??= []).push(handler); }
@@ -58,7 +59,7 @@ const targetAccountPath = value => `/api/v1/admin/accounts/${encodeURIComponent(
 const deferred = () => { let resolve; const promise = new Promise(done => { resolve = done; }); return { promise, resolve }; };
 const managedUser = { id: 'user /2', username: 'Delete <user>', role: 'operator', enabled: true, revision: 8 };
 const userRow = (view, user = managedUser) => all(view).find(value => value.tagName === 'tr' && all(value).some(child => child.tagName === 'span' && child.textContent === user.id));
-async function fixture(t, mutation = async () => asset, { edit = false, read, open = true, routeId, access, groups, grants = false, users = false } = {}) {
+async function fixture(t, mutation = async () => asset, { edit = false, read, open = true, routeId, access, groups, grants = false, users = false, connections = false, audit = false } = {}) {
   const names = ['document', 'window', 'location', 'Option', 'HTMLInputElement'];
   const previous = new Map(names.map(name => [name, Object.getOwnPropertyDescriptor(globalThis, name)]));
   const body = new Element('body'), ids = new Map();
@@ -88,6 +89,8 @@ async function fixture(t, mutation = async () => asset, { edit = false, read, op
   if (users) { main.fixtureRoute({ name: 'users' }); main.fixtureAccess(identity(), [], null); main.mountUsers(life); }
   else if (access) { main.fixtureAccess(...access); if (groups) main.fixtureGroups(groups); main.renderAssets(); main.mountAssets(); }
   else if (grants) main.mountGrants(life);
+  else if (connections) main.mountActivity('connections', life);
+  else if (audit) main.mountActivity('audit', life);
   else main.mountAdminAssets(life);
   await flush();
   if (open) { button(ids.get('route-view'), users ? '删除' : edit ? '编辑资产与账号' : '新建资产').click(); await flush(); }
@@ -742,4 +745,34 @@ test('RDP re-verification warns when the certificate changed, and cancelling sav
   const result = main.confirmRdpCertificate({ ...rdpAsset, rdp_certificate_sha256: 'c'.repeat(64) }, main.life); await flush();
   const dialog = main.body.querySelector('dialog'); assert.match(dialog.textContent, /证书已变化/); assert.match(dialog.textContent, /安全模式：NLA/);
   button(dialog, '取消').click(); assert.equal(await result, false); assert.equal(main.calls.length, 1);
+});
+
+test('connection rows name the user, asset and account, and details expand under the clicked row', async t => {
+  const base = { ticket_id: 't', user_id: 'u1', login_session_id: 's', target_protocol: 'ssh', display: { width: 1280, height: 720, dpi: 96 }, protocol_version: 2, state: 'closed', created_at: '2026-01-01T00:00:00Z', started_at: null, ended_at: null, failure: null, bytes_in: 2048, bytes_out: 10, recording_id: null };
+  const first = { ...base, id: 'conn-1', asset_id: 'a1', account_id: 'c1', user_snapshot: 'alice', asset_snapshot: 'db-prod', account_label: 'Primary', target_username: 'root' };
+  const second = { ...base, id: 'conn-2', asset_id: 'a2', account_id: 'c2', user_snapshot: 'bob', asset_snapshot: 'web-01', account_label: null, target_username: null };
+  const main = await fixture(t, async () => null, { open: false, connections: true, read: async () => ({ items: [first, second], next_cursor: null }) });
+  const rows = () => all(main.view).filter(value => value.tagName === 'tr');
+  for (const text of ['alice', 'db-prod', 'Primary · root', 'web-01', 'c2']) assert.match(main.view.textContent, new RegExp(text));
+  const toggles = all(main.view).filter(value => value.tagName === 'button' && value.textContent === '详情');
+  toggles[0].click();
+  let list = rows(); const opened = list.findIndex(row => row.className.includes('row-detail'));
+  assert.equal(list[opened - 1].children.some(cell => cell.textContent.includes('db-prod')), true, 'details must follow the clicked row');
+  assert.match(list[opened].textContent, /2\.0 KiB/); assert.match(list[opened].textContent, /1280×720/);
+  assert.equal(toggles[0].attributes['aria-expanded'], 'true'); assert.equal(main.reads.filter(read => read.path.includes('conn-1')).length, 0);
+  toggles[0].click(); assert.equal(rows().some(row => row.className.includes('row-detail')), false); assert.equal(toggles[0].attributes['aria-expanded'], 'false');
+});
+
+test('audit rows name the actor, action and object, and the payload opens under the clicked row', async t => {
+  const event = { id: 'e1', occurred_at: '2026-01-01T00:00:00Z', actor_id: 'u1', actor_username: 'alice', login_session_id: 's1', action: 'asset.updated', resource_type: 'asset', resource_id: 'a1', resource_name: 'db-prod', request_id: 'r1', sanitized_payload: { port: 2222 } };
+  const failure = { id: 'e2', occurred_at: '2026-01-01T00:01:00Z', actor_id: null, actor_username: null, login_session_id: null, action: 'user.login_failure', resource_type: 'user', resource_id: null, resource_name: null, request_id: 'r2', sanitized_payload: { reason_code: 'UNAUTHENTICATED' } };
+  const main = await fixture(t, async () => null, { open: false, audit: true, read: async () => ({ items: [event, failure], next_cursor: null }) });
+  for (const text of ['alice', '修改资产', 'db-prod', '登录失败', '系统 / 未登录']) assert.match(main.view.textContent, new RegExp(text));
+  assert.doesNotMatch(all(main.view).filter(value => value.tagName === 'tr' && !value.className.includes('row-detail')).map(row => row.textContent).join(''), /r1|UNAUTHENTICATED/);
+  const toggles = all(main.view).filter(value => value.tagName === 'button' && value.textContent === '详情');
+  toggles[0].click();
+  const rows = all(main.view).filter(value => value.tagName === 'tr'), opened = rows.findIndex(row => row.className.includes('row-detail'));
+  assert.match(rows[opened - 1].textContent, /db-prod/); assert.match(rows[opened].textContent, /port2222/); assert.match(rows[opened].textContent, /r1/);
+  toggles[0].click(); assert.equal(all(main.view).some(row => row.className.includes('row-detail')), false);
+  const actionFilter = all(main.view).find(value => value.name === 'action'); assert(actionFilter.options.some(option => option.textContent === '登录失败' && option.value === 'user.login_failure'));
 });

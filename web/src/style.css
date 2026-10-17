@@ -864,6 +864,9 @@ tbody tr:hover td { background: rgba(255, 255, 255, 0.035); }
 tbody tr:last-child td { border-bottom: 0; }
 td.actions { white-space: nowrap; width: 1%; }
 td.actions .toolbar { flex-wrap: nowrap; gap: 6px; }
+tr.row-detail > td { background: var(--bg-elevated); padding: 16px 20px; }
+tbody tr.row-detail:hover td { background: var(--bg-elevated); }
+tr.row-detail .descriptions { margin-bottom: 12px; }
 td .sub {
   display: block;
   max-width: 280px;

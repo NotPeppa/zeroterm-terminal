@@ -7,7 +7,9 @@ user to own `public.audit_events` and have `CREATE` on the schema. The operation
 copies rows into a range-partitioned parent, preserves the append-only trigger,
 verifies counts, and keeps a default partition for out-of-window writes.
 
-`maintain_audit_partitions` creates the current and next UTC month and can drop
+`maintain_audit_partitions` creates the current UTC month plus the next 12 (so
+maintenance run as rarely as once a year keeps new events out of the default
+partition) and can drop
 at most one catalog-verified monthly partition per call when its upper bound is
 older than the requested retention period. It never drops the default partition
 and refuses overlap, registry drift, owner/schema drift, missing inheritance,

@@ -24,6 +24,8 @@ M1/prototype mode, API-token file, exec/SFTP/copy API or channel recordings.
 5. Stop admission and allow bounded drain before offline maintenance. `retain-recordings --config ...`
    removes only inactive expired managed files with safe ownership, then marks metadata expired.
    Do not delete active files/DB rows or disable append-only audit guards.
+   For Docker Compose, `deploy/maintenance.sh` wraps both steps (manual only, never scheduled): `status` is
+   read-only, `partition-audit` and `clean` stop/restart `bastion` around the offline commands.
 6. Offline audit partition/retention commands remain explicit owner-only actions with `--offline`;
    stop all gateways/other clients first, keep default partitions, and refresh runtime grants after schema
    maintenance. Runtime must not gain DDL or audit UPDATE/DELETE privileges.

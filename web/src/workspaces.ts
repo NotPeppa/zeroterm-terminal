@@ -46,6 +46,10 @@ export function mountReplay(parent: HTMLElement, api: ApiClient, life: RouteLife
   const stateOf = (recording: Recording) => String(recording.state ?? recording.status ?? 'unknown');
   const size = (value: unknown) => { const bytes = Number(value); if (!Number.isFinite(bytes) || bytes < 0) return '—'; return bytes < 1024 ? `${bytes} B` : bytes < 1048576 ? `${(bytes / 1024).toFixed(1)} KiB` : `${(bytes / 1048576).toFixed(1)} MiB`; };
   const clock = (us: number) => { const seconds = us / 1e6, minutes = Math.floor(seconds / 60); return `${minutes}:${(seconds - minutes * 60).toFixed(3).padStart(6, '0')}`; };
+  const when = (value: unknown) => { if (typeof value !== 'string' || !value) return ''; const date = new Date(value); return Number.isFinite(date.valueOf()) ? date.toLocaleString('zh-CN', { hour12: false }) : ''; };
+  // Recordings are named by when they were made and what they were of; the ID stays in the tooltip.
+  const heading = (recording: Recording) => when(recording.created_at) || short(recording.id);
+  const target = (recording: Recording) => [recording.asset_snapshot, [recording.user_snapshot, recording.target_username].filter(Boolean).join(' → ')].filter(Boolean).join(' · ');
 const short = (value: unknown) => { const text = String(value ?? ''); return text.length > 13 ? `${text.slice(0, 8)}…` : text; };
   const svg = (paths: string) => `<svg viewBox="0 0 24 24" aria-hidden="true">${paths}</svg>`;
 
@@ -61,7 +65,7 @@ const short = (value: unknown) => { const text = String(value ?? ''); return tex
   collapse.type = 'button'; collapse.title = '折叠录制列表'; collapse.setAttribute('aria-label', '折叠录制列表'); collapse.setAttribute('aria-expanded', 'true'); collapse.innerHTML = svg('<polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/>');
   const count = node('span', '0', 'console-side-count'); sideHead.append(collapse, node('span', '录制', 'console-side-title'), count);
   const searchBox = node('div', '', 'console-side-search'), search = node('input', '', 'console-search');
-  search.type = 'search'; search.placeholder = '搜索录制 ID、连接或状态'; search.setAttribute('aria-label', '搜索录制');
+  search.type = 'search'; search.placeholder = '搜索资产、用户、时间或状态'; search.setAttribute('aria-label', '搜索录制');
   searchBox.append(search); const pager = node('div', '', 'replay-pager'); side.append(sideHead, searchBox, rail, pager);
 
   const badge = node('span', '未选择', 'console-state'), protocol = node('span', '—', 'tag'), title = node('h1', '未选择录制', 'console-title'), account = node('span', '', 'console-account');
@@ -95,8 +99,8 @@ const short = (value: unknown) => { const text = String(value ?? ''); return tex
     badge.title = current ? `服务端状态 ${state}` : '尚未选择录制';
     protocol.textContent = String(current?.target_protocol ?? '—');
     protocol.className = `tag ${tones[String(current?.target_protocol ?? '')] ?? ''}`.trim();
-    title.textContent = short(id) || '未选择录制'; title.title = id;
-    const link = String(current?.connection_id ?? ''); account.textContent = link ? `连接 ${short(link)}` : ''; account.title = link;
+    title.textContent = current ? heading(current) : short(id) || '未选择录制'; title.title = `录制 ${id}`;
+    const link = String(current?.connection_id ?? ''); account.textContent = current && target(current) ? target(current) : link ? `连接 ${short(link)}` : ''; account.title = link ? `连接 ${link}` : '';
     syncButtons(); markActive();
     if (id === loadedId) return;
     clearStage(id ? '尚未回放。点击「播放 / 从头重播」开始。' : '从左侧选择一条录制，或在上方粘贴录制 ID 后打开。');
@@ -116,7 +120,7 @@ const short = (value: unknown) => { const text = String(value ?? ''); return tex
 
   function renderRail() {
     const query = search.value.trim().toLowerCase();
-    const shown = items.filter(item => !query || [String(item.id), String(item.connection_id ?? ''), stateOf(item), String(item.target_protocol ?? '')].some(value => value.toLowerCase().includes(query)));
+    const shown = items.filter(item => !query || [String(item.id), String(item.connection_id ?? ''), stateOf(item), String(item.target_protocol ?? ''), target(item), heading(item)].some(value => value.toLowerCase().includes(query)));
     count.textContent = query ? `${shown.length} / ${items.length}` : String(items.length);
     rail.replaceChildren(); rows.clear();
     if (!shown.length) { rail.append(node('p', items.length ? '没有匹配的录制' : '暂无可回放的录制', 'hint console-empty')); return; }
@@ -124,7 +128,7 @@ const short = (value: unknown) => { const text = String(value ?? ''); return tex
       const state = stateOf(recording), row = node('button', '', 'console-target');
       row.type = 'button'; row.title = `${recording.id} · 连接 ${recording.connection_id ?? '—'} · 服务端状态 ${state}`;
       const text = node('span', '', 'console-target-text');
-      text.append(node('span', String(recording.id), 'console-target-name'), node('span', `${recording.target_protocol ?? '—'} · ${size(recording.bytes)} · ${words[state] ?? state}`, 'console-target-account'));
+      text.append(node('span', heading(recording), 'console-target-name'), node('span', [target(recording), String(recording.target_protocol ?? '—'), size(recording.bytes), words[state] ?? state].filter(Boolean).join(' · '), 'console-target-account'));
       row.append(node('span', state, `tag dot ${tones[state] ?? ''}`.trim()), text);
       row.onclick = () => select(String(recording.id), recording);
       rows.set(row, String(recording.id)); rail.append(row);
@@ -166,7 +170,8 @@ const short = (value: unknown) => { const text = String(value ?? ''); return tex
       const detail = await api.recording(id, signal); if (!owns()) return;
       if (detail.format_version !== 2) throw new Error('UNSUPPORTED_RECORDING_FORMAT');
       if ((detail.state ?? detail.status) !== 'complete') throw new Error(`PARTIAL_RECORDING：服务端状态 ${detail.state ?? detail.status ?? 'unknown'}，不能声明完整。`);
-      loadedId = id; known.set(id, detail); select(id, detail);
+      // The detail read carries no names or times; keep the ones the list already provided.
+      const merged = { ...known.get(id), ...detail }; loadedId = id; known.set(id, merged); select(id, merged);
       const response = await api.recordingContent(id, signal), sequence = new ReplaySequence(detail.connection_id); let previous = 0;
       await readNDJSON(response, signal, async line => {
         const event = sequence.parse(line); let remaining = (event.elapsed_us - previous) / 1000;

@@ -1,5 +1,5 @@
 import './style.css';
-import { ApiClient, ApiError, groupTree, type Me, type Info, type Asset, type AdminAsset, type AssetGroup, type AdminAccount, type Credential, type Account, type Role, type Page, type Query, type TargetProtocol } from './api';
+import { ApiClient, ApiError, groupTree, type Me, type Info, type Asset, type AdminAsset, type AssetGroup, type AdminAccount, type Credential, type Account, type Role, type Page, type Query, type TargetProtocol, type Connection, type Audit } from './api';
 import { allowedInNavigation, allowedRoute, discoveryWarning, parseRoute, RouteLifetime, routes, stateMessage, type Route, type RouteName, type SessionState } from './state';
 import { mountSession, type Target } from './guac';
 import { mountTerminalSession } from './terminal';
@@ -855,35 +855,94 @@ function mountProfile(life: RouteLifetime) {
   })).reload;
 }
 const filterLabels: Record<string, string> = { from: '开始时间', to: '结束时间', actor_id: '操作者 ID', resource_id: '资源 ID', resource_type: '资源类型', action: '动作', state: '状态', target_protocol: '目标协议' };
-const filterOptions: Record<string, string[]> = { state: ['pending', 'connecting', 'active', 'closing', 'closed', 'failed', 'expired', 'revoked', 'interrupted'], target_protocol: ['ssh', 'rdp', 'vnc'] };
+const auditActions: Record<string, string> = {
+  'user.login_success': '登录成功', 'user.login_failure': '登录失败', 'user.logout': '退出登录', 'user.logout_all': '注销所有设备', 'user.refresh': '续期登录', 'user.refresh_replay': '登录令牌被重放',
+  'user.bootstrap': '创建首个管理员', 'user.created': '新建用户', 'user.updated': '修改用户', 'user.deleted': '删除用户', 'user.password_changed': '修改密码', 'user.password_reset': '重置密码', 'login_session.revoked': '注销设备登录',
+  'asset.created': '新建资产', 'asset.updated': '修改资产', 'asset.deleted': '删除资产', 'account.created': '新建账号', 'account.updated': '修改账号', 'account.deleted': '删除账号',
+  'asset_group.created': '新建分组', 'asset_group.renamed': '重命名分组', 'asset_group.moved': '移动分组', 'asset_group.deleted': '删除分组', 'grant.created': '新建授权', 'grant.updated': '修改授权',
+  'ticket.issued': '申请连接', 'ticket.consumed': '开始连接', 'ticket.rejected': '连接被拒绝', 'connection.active': '连接建立', 'connection.disconnect_requested': '请求断开', 'connection.interrupted': '连接中断',
+  'recording.preparing': '开始录制', 'recording.finalized': '录制结束', 'recording.viewed': '查看录制',
+  'audit.partition_upgrade': '审计分区转换', 'audit.partition_created': '新建审计分区', 'audit.partition_drop_started': '开始清理审计分区', 'audit.partition_dropped': '清理审计分区',
+};
+const resourceTypes: Record<string, string> = { user: '用户', login_session: '登录会话', asset: '资产', account: '账号', asset_group: '分组', grant: '授权', connection: '连接', recording: '录制', audit: '审计' };
+function actionTone(action: string) { return /failure|rejected|interrupted|replay|deleted|dropped/.test(action) ? 'red' : /revoked|logout|disconnect|reset/.test(action) ? 'orange' : /created|login_success|active|issued|consumed|bootstrap/.test(action) ? 'green' : 'blue'; }
+const filterOptions: Record<string, string[]> = { state: ['pending', 'connecting', 'active', 'closing', 'closed', 'failed', 'expired', 'revoked', 'interrupted'], target_protocol: ['ssh', 'rdp', 'vnc'], resource_type: Object.keys(resourceTypes), action: Object.keys(auditActions) };
+const optionLabels: Record<string, Record<string, string>> = { resource_type: resourceTypes, action: auditActions };
+/** Adds a toggle that opens content directly under its own table row; a second click closes it. */
+function rowDetails(toolbar: HTMLElement, content: () => Node) {
+  let expanded: HTMLElement | null = null;
+  const toggle = button('详情', () => {
+    if (expanded) { expanded.remove(); expanded = null; toggle.setAttribute('aria-expanded', 'false'); return; }
+    const row = toolbar.closest('tr'); if (!row) return;
+    const cell = node('td'); cell.colSpan = row.children.length; cell.append(content());
+    expanded = node('tr', '', 'row-detail'); expanded.append(cell); row.after(expanded); toggle.setAttribute('aria-expanded', 'true');
+  }, toolbar, 'link'); toggle.setAttribute('aria-expanded', 'false');
+}
+function describe(rows: [string, string | Node][], raw: unknown) {
+  const list = node('dl', '', 'descriptions');
+  for (const [term, value] of rows) { const dd = node('dd'); dd.append(value); list.append(node('dt', term), dd); }
+  const box = node('div'); box.append(list, details('原始数据', raw)); return box;
+}
+function payloadValue(value: unknown) { return value === null || value === undefined ? '—' : typeof value === 'object' ? JSON.stringify(value) : String(value); }
+function auditDetails(item: Audit) {
+  const action = String(item.action ?? ''), payload = item.sanitized_payload && typeof item.sanitized_payload === 'object' ? item.sanitized_payload as Record<string, unknown> : {};
+  const rows: [string, string | Node][] = [
+    ['时间', when(item.occurred_at)],
+    ['动作', stacked(auditActions[action] ?? action, action)],
+    ['对象', stacked(String(item.resource_name ?? '—'), item.resource_id)],
+    ['对象类型', resourceTypes[String(item.resource_type)] ?? String(item.resource_type ?? '—')],
+    ['操作者', item.actor_id ? stacked(String(item.actor_username ?? '—'), item.actor_id) : '系统 / 未登录'],
+    ['登录会话', mono(item.login_session_id)],
+    ['request_id', mono(item.request_id)],
+    ...Object.entries(payload).map(([key, value]): [string, string] => [key, payloadValue(value)]),
+  ];
+  return describe(rows, item);
+}
+// Names are the snapshot taken when the connection was opened; the account label is its current label.
+function accountText(item: Connection) { const parts = [item.account_label, item.target_username].filter(Boolean); return parts.length ? parts.join(' · ') : String(item.account_id); }
+function byteText(value: unknown) { const bytes = Number(value); if (!Number.isFinite(bytes) || bytes < 0) return '—'; return bytes < 1024 ? `${bytes} B` : bytes < 1048576 ? `${(bytes / 1024).toFixed(1)} KiB` : `${(bytes / 1048576).toFixed(1)} MiB`; }
+function connectionDetails(item: Connection) {
+  return describe([
+    ['连接 ID', mono(item.id)],
+    ['用户', stacked(item.user_snapshot ?? '—', item.user_id)],
+    ['资产', stacked(item.asset_snapshot ?? '—', item.asset_id)],
+    ['账号', stacked(accountText(item), item.account_id)],
+    ['状态', tag(item.state)],
+    ['目标协议', item.target_protocol ?? '—'],
+    ['创建 / 开始 / 结束', [item.created_at, item.started_at, item.ended_at].map(when).join(' → ')],
+    ['分辨率', item.display ? `${item.display.width}×${item.display.height} @ ${item.display.dpi} DPI` : '—'],
+    ['流量（入 / 出）', `${byteText(item.bytes_in)} / ${byteText(item.bytes_out)}`],
+    ['失败原因', item.failure ? tag(item.failure.code, 'red') : '—'],
+    ['登录会话', mono(item.login_session_id)],
+    ['录制 ID', mono(item.recording_id)],
+  ], item);
+}
 function mountActivity(kind: 'connections' | 'audit', life: RouteLifetime) {
   const filters = node('form', '', 'filters'); view.append(filters); const fields = kind === 'connections' ? ['from', 'to', 'actor_id', 'resource_id', 'state', 'target_protocol'] : ['from', 'to', 'actor_id', 'resource_id', 'resource_type', 'action'];
   for (const field of fields) {
     let input: HTMLInputElement | HTMLSelectElement;
-    if (filterOptions[field]) { input = node('select'); input.replaceChildren(new Option(`全部${filterLabels[field]}`, ''), ...filterOptions[field].map(value => new Option(value, value))); }
+    if (filterOptions[field]) { input = node('select'); input.replaceChildren(new Option(`全部${filterLabels[field]}`, ''), ...filterOptions[field].map(value => new Option(optionLabels[field]?.[value] ?? value, value))); }
     else { input = node('input'); input.placeholder = filterLabels[field]; if (field === 'from' || field === 'to') input.type = 'datetime-local'; }
     input.name = field; input.title = filterLabels[field]; input.setAttribute('aria-label', filterLabels[field]); filters.append(input);
   }
   const apply = node('button', '查询', 'primary'); apply.type = 'submit'; filters.append(apply);
   const page = kind === 'connections' ? paged(view, life, query => api.connections(query, life.signal), (items, output) => table(output, items, [
-    { label: '连接', value: item => mono(item.id) },
-    { label: '资产 / 账号', value: item => { const span = node('span'); span.append(mono(item.asset_id), mono(item.account_id)); (span.lastChild as HTMLElement).className = 'sub mono'; return span; } },
+    { label: '用户', value: item => stacked(item.user_snapshot ?? '—', item.user_id) },
+    { label: '资产 / 账号', value: item => { const span = node('span', item.asset_snapshot ?? String(item.asset_id)); span.append(node('span', accountText(item), 'sub')); return span; } },
     { label: '状态', value: item => tag(item.state) },
     { label: '目标协议', value: item => item.target_protocol ?? '—' },
     { label: '创建时间', value: item => when(item.created_at) },
     { label: '失败原因', value: item => item.failure ? tag(item.failure.code, 'red') : '—' },
   ], (item, toolbar) => {
-    button('详情', () => { void routeAction(life, async () => { const detail = await api.connection(item.id, life.signal); if (!life.signal.aborted) { const panel = node('section', '', 'card'); panel.append(node('h3', `连接 ${item.id}`), node('pre', JSON.stringify(detail, null, 2))); output.append(panel); panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } }); }, toolbar, 'link');
+    rowDetails(toolbar, () => connectionDetails(item));
     if (info?.features?.recording_replay) toolbar.append(link('录制', `#/recordings/${encodeURIComponent(item.id)}`));
     if (!['closed', 'failed', 'expired', 'revoked', 'interrupted'].includes(item.state)) button('断开', () => confirmDialog(`断开连接 ${item.id}`, async () => { await api.disconnect(item.id, life.signal); await page.reload(); }, life), toolbar, 'danger-text');
   })) : paged(view, life, query => api.audit(query, life.signal), (items, output) => table(output, items, [
     { label: '时间', value: item => when(item.occurred_at) },
-    { label: '动作', value: item => tag(String(item.action ?? '—'), 'blue') },
-    { label: '资源', value: item => stacked(String(item.resource_type ?? '—'), item.resource_id) },
-    { label: '操作者', value: item => mono(item.actor_id) },
-    { label: 'request_id', value: item => mono(item.request_id) },
-    { label: '详情', value: item => details('载荷', item.sanitized_payload ?? item) },
-  ]));
+    { label: '操作者', value: item => item.actor_id ? String(item.actor_username ?? item.actor_id) : node('span', '系统 / 未登录', 'muted') },
+    { label: '动作', value: item => { const action = String(item.action ?? '—'), result = tag(auditActions[action] ?? action, actionTone(action)); result.title = action; return result; } },
+    { label: '对象', value: item => stacked(String(item.resource_name ?? (item.resource_id ? '（已无记录）' : '—')), resourceTypes[String(item.resource_type)] ?? item.resource_type) },
+  ], (item, toolbar) => rowDetails(toolbar, () => auditDetails(item))));
   filters.onsubmit = event => { event.preventDefault(); const query: Query = {}; const values = new FormData(filters); for (const field of fields) { const value = String(values.get(field) ?? ''); if (value) query[field] = ['from', 'to'].includes(field) ? new Date(value).toISOString() : value; } void page.filter(query); };
 }
 function renderRoute() {

@@ -1,6 +1,14 @@
+# Bounded container logs for the long-running services; Docker's default json-file driver never rotates.
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: "3"
+
 services:
   # One-shot: generates secrets on a fresh install, skips when already initialized.
   init:
+    container_name: ${COMPOSE_PROJECT_NAME}-init
     image: ${BASTION_IMAGE:-ghcr.io/notpeppa/zeroterm-terminal:latest}
     restart: "no"
     network_mode: none
@@ -14,6 +22,8 @@ services:
     security_opt: ["no-new-privileges:true"]
 
   postgres:
+    container_name: ${COMPOSE_PROJECT_NAME}-postgres
+    logging: *default-logging
     image: postgres:17-bookworm
     restart: unless-stopped
     networks: [app]
@@ -39,6 +49,8 @@ services:
   # answer the app on 4822 and reach the app's per-session listener; host, targets and Internet are dropped.
   # The rules live and die with this container, so nothing has to be installed on the host.
   guacd-net:
+    container_name: ${COMPOSE_PROJECT_NAME}-guacd-net
+    logging: *default-logging
     image: ${GUACD_IMAGE:-ghcr.io/notpeppa/zeroterm-terminal-guacd:1.6.0-strict-pin}
     restart: unless-stopped
     # NEVER attach to app/default/target networks.
@@ -64,6 +76,8 @@ services:
       start_period: 5s
 
   guacd:
+    container_name: ${COMPOSE_PROJECT_NAME}-guacd
+    logging: *default-logging
     image: ${GUACD_IMAGE:-ghcr.io/notpeppa/zeroterm-terminal-guacd:1.6.0-strict-pin}
     restart: unless-stopped
     # Shares guacd-net's namespace and its rules; starts only once they are in place. No database/secrets/
@@ -85,6 +99,8 @@ services:
     pids_limit: 256
 
   bastion:
+    container_name: ${COMPOSE_PROJECT_NAME}-bastion
+    logging: *default-logging
     image: ${BASTION_IMAGE:-ghcr.io/notpeppa/zeroterm-terminal:latest}
     build:
       context: .
@@ -131,6 +147,7 @@ services:
   # One-shot: creates or upgrades the tables with the owner connection. The app never migrates itself
   # and never holds owner credentials; `bastion` starts only after this and grant-runtime succeed.
   migrate:
+    container_name: ${COMPOSE_PROJECT_NAME}-migrate
     image: ${BASTION_IMAGE:-ghcr.io/notpeppa/zeroterm-terminal:latest}
     restart: "no"
     networks: [app]
@@ -152,6 +169,7 @@ services:
   # One-shot: refreshes the runtime role's least-privilege grants after every migration. The app image
   # ships psql and the script; it reaches the server over the app network as the owner.
   grant-runtime:
+    container_name: ${COMPOSE_PROJECT_NAME}-grant-runtime
     image: ${BASTION_IMAGE:-ghcr.io/notpeppa/zeroterm-terminal:latest}
     restart: "no"
     networks: [app]
@@ -182,6 +200,7 @@ services:
   # BASTION_ADMIN_PASSWORD or BASTION_ADMIN_PASSWORD_FILE; if both are unset, one is generated and printed
   # once to this service's log. Once an administrator exists these settings are ignored.
   bootstrap-admin:
+    container_name: ${COMPOSE_PROJECT_NAME}-bootstrap-admin
     image: ${BASTION_IMAGE:-ghcr.io/notpeppa/zeroterm-terminal:latest}
     restart: "no"
     networks: [app]
@@ -204,6 +223,7 @@ services:
     security_opt: ["no-new-privileges:true"]
 
   maintenance:
+    container_name: ${COMPOSE_PROJECT_NAME}-maintenance
     profiles: [tools]
     image: ${BASTION_IMAGE:-ghcr.io/notpeppa/zeroterm-terminal:latest}
     networks: [app]
@@ -223,6 +243,8 @@ services:
     security_opt: ["no-new-privileges:true"]
 
   proxy:
+    container_name: ${COMPOSE_PROJECT_NAME}-proxy
+    logging: *default-logging
     image: nginx:stable-alpine
     restart: unless-stopped
     networks:
@@ -239,7 +261,7 @@ services:
         target: /etc/nginx/conf.d/default.conf
     volumes:
       - type: bind
-        source: ./.local/docker/tls
+        source: ${BASTION_CONFIG_DIR:-./.local/docker}/tls
         target: /etc/nginx/tls
         read_only: true
         bind:
@@ -252,11 +274,11 @@ services:
 
 configs:
   bastion_config:
-    file: ./.local/docker/production.toml
+    file: ${BASTION_CONFIG_DIR:-./.local/docker}/production.toml
   bastion_maintenance_config:
-    file: ./.local/docker/maintenance.toml
+    file: ${BASTION_CONFIG_DIR:-./.local/docker}/maintenance.toml
   nginx_config:
-    file: ./.local/docker/nginx.conf
+    file: ${BASTION_CONFIG_DIR:-./.local/docker}/nginx.conf
 
 networks:
   app:

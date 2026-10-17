@@ -148,7 +148,7 @@ impl PgStore {
             Collection::Audit=>(AUDIT_METADATA,"audit_events u","u.occurred_at","($9::uuid IS NULL OR u.actor_id=$9) AND ($10::uuid IS NULL OR u.resource_id=$10) AND ($11::text IS NULL OR u.resource_type=$11) AND ($12::text IS NULL OR u.action=$12)",Uuid::nil(),true),
             Collection::Assets|Collection::Asset(_)=>(ASSET_METADATA,"assets u","u.created_at",ASSET_FILTER,match collection {Collection::Asset(id)=>id,_=>Uuid::nil()},false),
             Collection::DeviceSessions=>("jsonb_build_object('id',u.id,'device_label',u.device_label,'current',u.id=$15,'created_at',u.created_at,'expires_at',u.expires_at,'revoked_at',u.revoked_at)","login_sessions u","u.created_at","u.user_id=$5",Uuid::nil(),false),
-            Collection::Recordings=>("jsonb_build_object('id',u.id,'connection_id',u.connection_id,'target_protocol',u.target_protocol,'format_version',u.format_version,'bytes',u.bytes,'checksum',u.checksum,'state',u.state,'retention_until',u.retention_until,'last_written_seq',u.last_written_seq,'last_synced_seq',u.last_synced_seq)","recordings u JOIN connections c ON c.id=u.connection_id","u.created_at","(c.user_id=$5 OR $6) AND ($16::uuid IS NULL OR u.connection_id=$16)",Uuid::nil(),false),
+            Collection::Recordings=>("jsonb_build_object('id',u.id,'connection_id',u.connection_id,'target_protocol',u.target_protocol,'format_version',u.format_version,'bytes',u.bytes,'checksum',u.checksum,'state',u.state,'retention_until',u.retention_until,'last_written_seq',u.last_written_seq,'last_synced_seq',u.last_synced_seq,'created_at',u.created_at,'ended_at',u.ended_at,'user_snapshot',c.user_snapshot,'asset_snapshot',c.asset_snapshot,'target_username',c.target_username)","recordings u JOIN connections c ON c.id=u.connection_id","u.created_at","(c.user_id=$5 OR $6) AND ($16::uuid IS NULL OR u.connection_id=$16)",Uuid::nil(),false),
         };
         let comparison = if descending { "<" } else { ">" };
         let direction = if descending { "DESC" } else { "ASC" };
@@ -231,8 +231,9 @@ impl PgStore {
         .await
     }
 }
-const CONNECTION_METADATA:&str="jsonb_build_object('id',u.id,'ticket_id',u.ticket_id,'user_id',u.user_id,'login_session_id',u.login_session_id,'asset_id',u.asset_id,'account_id',u.account_id,'target_protocol',u.target_protocol,'protocol_version',u.protocol_version,'display',jsonb_build_object('width',u.width,'height',u.height,'dpi',u.dpi),'state',u.state,'created_at',u.created_at,'started_at',u.started_at,'ended_at',u.ended_at,'user_snapshot',u.user_snapshot,'asset_snapshot',u.asset_snapshot,'bytes_in',u.bytes_in,'bytes_out',u.bytes_out,'failure',CASE WHEN u.failure_code IS NULL THEN NULL ELSE jsonb_build_object('code',canonical_failure_code(u.failure_code)) END,'recording_id',(SELECT r.id FROM recordings r WHERE r.connection_id=u.id))";
-const AUDIT_METADATA:&str="to_jsonb(u) || jsonb_build_object('sanitized_payload',CASE WHEN jsonb_typeof(u.sanitized_payload->'reason_code')='string' THEN jsonb_set(u.sanitized_payload,'{reason_code}',to_jsonb(canonical_failure_code(u.sanitized_payload->>'reason_code'))) ELSE u.sanitized_payload END)";
+const CONNECTION_METADATA:&str="jsonb_build_object('id',u.id,'ticket_id',u.ticket_id,'user_id',u.user_id,'login_session_id',u.login_session_id,'asset_id',u.asset_id,'account_id',u.account_id,'target_protocol',u.target_protocol,'protocol_version',u.protocol_version,'display',jsonb_build_object('width',u.width,'height',u.height,'dpi',u.dpi),'state',u.state,'created_at',u.created_at,'started_at',u.started_at,'ended_at',u.ended_at,'user_snapshot',u.user_snapshot,'asset_snapshot',u.asset_snapshot,'account_label',(SELECT t.label FROM target_accounts t WHERE t.id=u.account_id),'target_username',u.target_username,'bytes_in',u.bytes_in,'bytes_out',u.bytes_out,'failure',CASE WHEN u.failure_code IS NULL THEN NULL ELSE jsonb_build_object('code',canonical_failure_code(u.failure_code)) END,'recording_id',(SELECT r.id FROM recordings r WHERE r.connection_id=u.id))";
+// Names are resolved at read time so the log stays readable; soft-deleted rows still resolve, unknown types stay null.
+const AUDIT_METADATA:&str="to_jsonb(u) || jsonb_build_object('sanitized_payload',CASE WHEN jsonb_typeof(u.sanitized_payload->'reason_code')='string' THEN jsonb_set(u.sanitized_payload,'{reason_code}',to_jsonb(canonical_failure_code(u.sanitized_payload->>'reason_code'))) ELSE u.sanitized_payload END,'actor_username',(SELECT au.username FROM users au WHERE au.id=u.actor_id),'resource_name',CASE u.resource_type WHEN 'user' THEN (SELECT ru.username FROM users ru WHERE ru.id=u.resource_id) WHEN 'asset' THEN (SELECT ra.name FROM assets ra WHERE ra.id=u.resource_id) WHEN 'asset_group' THEN (SELECT rg.name FROM asset_groups rg WHERE rg.id=u.resource_id) WHEN 'account' THEN (SELECT ra.name||' / '||rt.label FROM target_accounts rt JOIN assets ra ON ra.id=rt.asset_id WHERE rt.id=u.resource_id) WHEN 'connection' THEN (SELECT rc.user_snapshot||' → '||rc.asset_snapshot FROM connections rc WHERE rc.id=u.resource_id) WHEN 'recording' THEN (SELECT rc.user_snapshot||' → '||rc.asset_snapshot FROM recordings rr JOIN connections rc ON rc.id=rr.connection_id WHERE rr.id=u.resource_id) WHEN 'grant' THEN (SELECT gu.username||' → '||ga.name||' / '||gt.label FROM grants g JOIN users gu ON gu.id=g.user_id JOIN assets ga ON ga.id=g.asset_id JOIN target_accounts gt ON gt.id=g.account_id WHERE g.id=u.resource_id) WHEN 'login_session' THEN (SELECT su.username||' · '||rs.device_label FROM login_sessions rs JOIN users su ON su.id=rs.user_id WHERE rs.id=u.resource_id) END)";
 const ASSET_FILTER:&str="u.enabled AND u.deleted_at IS NULL AND ($4='00000000-0000-0000-0000-000000000000'::uuid OR u.id=$4) AND ($6 OR EXISTS(SELECT 1 FROM target_accounts t JOIN grants g ON g.account_id=t.id AND g.asset_id=t.asset_id WHERE t.asset_id=u.id AND t.enabled AND t.deleted_at IS NULL AND g.user_id=$5 AND g.enabled AND (g.expires_at IS NULL OR g.expires_at>clock_timestamp()))) AND ($17::uuid IS NULL OR u.group_id=$17) AND (NOT $18 OR u.group_id IS NULL)";
 // Assets/Asset reject auditors above, so $6 (admin || auditor) is admin-only here.
 const ADMIN_ASSET_FILTER:&str="u.deleted_at IS NULL AND ($17::uuid IS NULL OR u.group_id=$17) AND (NOT $18 OR u.group_id IS NULL)";
@@ -301,6 +302,18 @@ mod tests {
         assert!(CONNECTION_METADATA.contains("canonical_failure_code"));
         assert!(!CONNECTION_METADATA.contains("secret_hash"));
         assert!(!CONNECTION_METADATA.contains("wrapped_dek"));
+        for forbidden in [
+            "password_hash",
+            "secret_hash",
+            "refresh_hash",
+            "wrapped_dek",
+            "key_pem",
+        ] {
+            assert!(
+                !AUDIT_METADATA.contains(forbidden),
+                "audit names must not read {forbidden}"
+            );
+        }
     }
     /// The ZeroTerm client tree needs the hierarchy next to the assets; it must never widen what a user can see.
     #[test]

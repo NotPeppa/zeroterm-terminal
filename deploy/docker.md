@@ -32,7 +32,9 @@ and the previous limit of 128 caused real failures. These samples are not a prod
 From the checkout root, after checking that `172.30.61.0/29`, `172.30.62.0/24` and `172.30.63.0/29` conflict with no existing Docker/host subnet:
 
 ```sh
-export PROJECT=zt-guac-v2-prod
+# All deployment variables live in .env next to compose.yaml; Compose reads it on every command, so no
+# export and no -p. Set COMPOSE_PROJECT_NAME there once and never change it (a new name is a new, empty stack).
+cp .env.example .env && chmod 600 .env
 mkdir -p .local/docker/tls
 cp config/production.example.toml .local/docker/production.toml
 cp deploy/nginx.example.conf .local/docker/nginx.conf
@@ -44,17 +46,19 @@ sed 's|^database_url_file = .*|database_url_file = "/run/bastion-db/database-url
 chmod 644 .local/docker/*.toml .local/docker/nginx.conf
 # Install the real trusted certificate chain and private key as:
 # .local/docker/tls/bastion-chain.pem / .local/docker/tls/bastion-key.pem
+# To keep these files elsewhere, set BASTION_CONFIG_DIR (relative to compose.yaml, or absolute) in .env and
+# use that directory instead of .local/docker above.
 
 # Both images come prebuilt from ghcr.io; no local build and no local image ID are required. Pin a specific
-# publish with BASTION_IMAGE=ghcr.io/notpeppa/zeroterm-terminal@sha256:... and GUACD_IMAGE=... to keep only
+# publish with BASTION_IMAGE=ghcr.io/notpeppa/zeroterm-terminal@sha256:... and GUACD_IMAGE=... in .env to keep only
 # reviewed IDs. guacd's egress rules are installed by guacd-net on every start; nothing runs on the host.
-docker compose -p "$PROJECT" up -d --wait
+docker compose up -d --wait
 curl --fail https://YOUR-EXACT-PUBLIC-ORIGIN/health/ready
 ```
 
 ### Using an existing nginx or Caddy instead of the bundled proxy
 
-The bundled `proxy` service is optional. Start only `docker compose -p "$PROJECT" up -d --wait bastion guacd`,
+The bundled `proxy` service is optional. Start only `docker compose up -d --wait bastion guacd`,
 keep 443 for your own server, and point it at the API's fixed ingress address `172.30.63.2:8080` (reachable
 from the host; no published port needed). `.local/docker/tls/` and `.local/docker/nginx.conf` are only read by the bundled proxy, so they can
 be left out entirely; `up bastion guacd` does not need them. TLS terminates on your own server. Then set:
@@ -110,7 +114,7 @@ refreshed explicitly after migrations; runtime owns no schema/table, cannot perf
   app-canary/target/host/Internet checks from guacd's namespace (`tests/docker_guacd_acceptance.py` does).
 
 Deployments that used the old host-level `egress.py` should remove those rules once with that older script
-(`sudo python3 deploy/guacd/egress.py remove "$PROJECT"`) before or after upgrading; they are no longer used.
+(`sudo python3 deploy/guacd/egress.py remove <COMPOSE_PROJECT_NAME>`) before or after upgrading; they are no longer used.
 
 Engine source is official guacamole-server 1.6.0 and FreeRDP 2.11.7, archive SHA-256 checked before extraction.
 The patch advertises the separate `zt-strict-cert-pin` RDP argument; missing/malformed/lowercase-64-hex mismatch

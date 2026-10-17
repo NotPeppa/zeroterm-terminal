@@ -83,11 +83,20 @@ fn name(start: DateTime<Utc>) -> StoreResult<String> {
     }
     Ok(format!("audit_events_m_{}", start.format("%Y%m")))
 }
+/// Months created ahead of the current one, so maintenance run as rarely as once a
+/// year still keeps every new event out of the never-dropped default partition.
+pub const AUDIT_MONTHS_AHEAD: u32 = 12;
 async fn month(
     tx: &mut Transaction<'_, Postgres>,
-    next: bool,
+    ahead: u32,
 ) -> StoreResult<(DateTime<Utc>, DateTime<Utc>)> {
-    let start:DateTime<Utc>=sqlx::query_scalar("SELECT date_trunc('month',clock_timestamp())+CASE WHEN $1 THEN interval '1 month' ELSE interval '0' END").bind(next).fetch_one(&mut **tx).await.map_err(db)?;
+    let start: DateTime<Utc> = sqlx::query_scalar(
+        "SELECT date_trunc('month',clock_timestamp())+make_interval(months=>$1)",
+    )
+    .bind(ahead as i32)
+    .fetch_one(&mut **tx)
+    .await
+    .map_err(db)?;
     let end = start
         .checked_add_months(Months::new(1))
         .ok_or(ErrorCode::InvalidArgument)?;
@@ -148,7 +157,7 @@ pub async fn audit_partition_upgrade(
     })
     .await
 }
-/// Create current/next months and drop at most one whole expired managed month.
+/// Create the current and next AUDIT_MONTHS_AHEAD months and drop at most one whole expired managed month.
 /// Each DDL transaction has its own two-second total budget. Run only offline;
 /// repeat while `dropped` is Some. Default rows are reported and NEVER deleted.
 pub async fn maintain_audit_partitions(
@@ -161,10 +170,10 @@ pub async fn maintain_audit_partitions(
         return Err(ErrorCode::InvalidArgument);
     }
     let mut result = AuditPartitionMaintenance::default();
-    for next in [false, true] {
+    for ahead in 0..=AUDIT_MONTHS_AHEAD {
         let created=bounded(async {
             let mut tx=connection.begin().await.map_err(db)?;guard(&mut tx,server_id,gateway_id).await?;registry_guard(&mut tx).await?;
-            let (start,end)=month(&mut tx,next).await?;let partition=name(start)?;
+            let (start,end)=month(&mut tx,ahead).await?;let partition=name(start)?;
             let exists:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM public.audit_partition_registry WHERE partition_name=$1)").bind(&partition).fetch_one(&mut *tx).await.map_err(db)?;
             if exists {validate_partition(&mut tx,&partition).await?;tx.commit().await.map_err(db)?;return Ok(None);}
             let overlap:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM public.audit_events_default WHERE occurred_at>=$1 AND occurred_at<$2)").bind(start).bind(end).fetch_one(&mut *tx).await.map_err(db)?;

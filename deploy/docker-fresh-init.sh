@@ -19,4 +19,4 @@ if populated "$secret_dir" && populated "$owner_dir" && populated "$runtime_dir"
     exit 0
 fi
 
-exec /usr/local/share/zeroterm-bastion/docker-init.sh
+exec sh /usr/local/share/zeroterm-bastion/docker-init.sh
