@@ -75,8 +75,16 @@ config = {
         'bastion': {'image':fixture_image,'entrypoint':['sleep','infinity'],
             'networks':{'app':{},'guac_bridge':{'ipv4_address':app}},
             'volumes':[f'{ROOT}/tests/guacd-fixture:/checks:ro',f'{certs}:/certs:ro']},
-        'guacd': {'image':trust_image,'networks':{'guac_bridge':{'ipv4_address':guacd}},
+        # Same egress design as compose.yaml: guacd-net owns the namespace and its rules, guacd joins it.
+        'guacd-net': {'image':trust_image,'networks':{'guac_bridge':{'ipv4_address':guacd}},
+            'environment':{'ZT_APP_IP':app},'user':'0:0',
+            'entrypoint':['sh','/usr/local/share/zeroterm-guacd/netns-guard.sh'],
+            'volumes':['guacd-netns:/run/zt-netns'],'read_only':True,'tmpfs':['/run:size=1m,mode=0755'],
+            'cap_drop':['ALL'],'cap_add':['NET_ADMIN'],'security_opt':['no-new-privileges:true']},
+        'guacd': {'image':trust_image,'network_mode':'service:guacd-net','depends_on':['guacd-net'],
+            'entrypoint':['/usr/local/share/zeroterm-guacd/wait-netns.sh'],
             'command':['-f','-b','0.0.0.0','-l','4822','-L','debug'], 'environment':{'WLOG_LEVEL':'INFO'},
+            'volumes':['guacd-netns:/run/zt-netns:ro'],
             'read_only':True,'cap_drop':['ALL'],'security_opt':['no-new-privileges:true'],
             'tmpfs':['/tmp:uid=10002,gid=10002,mode=0700,size=16m']},
         'target': {'image':fixture_image,'networks':['app'],
@@ -84,10 +92,10 @@ config = {
     },
     'networks':{'app':{'ipam':{'config':[{'subnet':str(app_subnet)}]}},'guac_bridge':{'internal':True,'enable_ipv6':False,
         'ipam':{'config':[{'subnet':str(subnet)}]}}},
+    'volumes':{'guacd-netns':{}},
 }
 (root/'engine-compose.json').write_text(json.dumps(config))
 dc = ['docker','compose','-p',project,'-f',str(root/'engine-compose.json')]
-installed = False
 redirect_process = None
 redirect_name = project+'-redirect-probe'
 result = {'production_ready':False,'project':project,'subnet':str(subnet),
@@ -98,8 +106,6 @@ result = {'production_ready':False,'project':project,'subnet':str(subnet),
     'windows_nla_verified':False,'application_api_browser_recording_verified':False}
 try:
     run(*dc,'up','-d')
-    run('python3',str(ROOT/'deploy/guacd/egress.py'),'install',project)
-    installed = True
     target_id = output(*dc,'ps','-q','target')
     target = json.loads(output('docker','inspect',target_id))[0]
     target_ip = target['NetworkSettings']['Networks'][project+'_app']['IPAddress']
@@ -164,12 +170,15 @@ try:
     assert 'access granted): username badpassfixture' not in rdp_log and 'Session started successfully for user badpassfixture' not in rdp_log
     result['tls_marker_is_not_os_login']={'wrong_password_account_rejected':True,'new_os_session_started':False}
     result['xrdp_wrong_pin_no_auth'] = True
-    # Egress checks execute in guacd network namespace using Python from a separate
+    # Egress checks execute in guacd's network namespace (owned by guacd-net) using Python from a separate
     # disposable utility process; they DO NOT add a network to guacd.
-    guac_id = output(*dc,'ps','-q','guacd')
+    guac_id = output(*dc,'ps','-q','guacd-net')
     net = json.loads(output('docker','inspect',guac_id))[0]
     assert list(net['NetworkSettings']['Networks'])==[project+'_guac_bridge']
-    assert not net['Mounts'] or all(m['Type']=='tmpfs' for m in net['Mounts'])
+    engine = json.loads(output('docker','inspect',output(*dc,'ps','-q','guacd')))[0]
+    assert engine['HostConfig']['NetworkMode']=='container:'+net['Id'] and engine['HostConfig']['CapAdd'] in (None,[])
+    # guacd itself only has its tmpfs and the read-only readiness marker volume.
+    assert all(m['Type']=='tmpfs' or (m['Destination']=='/run/zt-netns' and not m['RW']) for m in engine['Mounts'])
     canary = 'import socket,time;s=socket.socket();s.bind(("'+app+'",8080));s.listen(8);time.sleep(60)'
     run(*dc,'exec','-d','bastion','python3','-c',canary)
     for attempt in range(20):
@@ -204,8 +213,6 @@ finally:
         if redirect_process.poll() is None:
             run('docker','rm','--force',redirect_name,check=False)
         redirect_process.wait(timeout=15)
-    # Remove ONLY rules owned by this project before removing its containers.
-    if installed: run('python3',str(ROOT/'deploy/guacd/egress.py'),'remove',project,check=False)
     run(*dc,'down','--volumes','--remove-orphans',check=False)
     after = json.loads(output('docker','ps','--format','json').replace('\n',',').join(['[',']']))
     current = {c['ID']:c['Names'] for c in after if c['Names'].startswith('zeroterm-test-')}

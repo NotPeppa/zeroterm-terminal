@@ -31,7 +31,6 @@ if args.action=='stop':
     for identity in ids:
         row=json.loads(output('docker','inspect',identity))[0]
         assert row['Config']['Labels']['com.docker.compose.project']==project
-    if (root/'egress-installed').exists():run('python3',str(ROOT/'deploy/guacd/egress.py'),'remove',project)
     restored=project+'-restored-postgres'
     owned=run('docker','ps','-aq','--filter','name=^'+restored+'$',capture_output=True).stdout.strip()
     if owned:
@@ -114,8 +113,6 @@ dc('exec','-T','postgres','sh',input=(ROOT/'deploy/docker-runtime-role.sh').read
 password=secrets.token_urlsafe(24)
 dc('run','--rm','--no-deps','-T','maintenance','create-admin','--config','/etc/zeroterm-bastion/maintenance.toml','--username','admin','--password-stdin',input=password+'\n')
 dc('up','-d','--wait','--wait-timeout','90','bastion','guacd')
-run('python3',str(ROOT/'deploy/guacd/egress.py'),'install',project)
-(root/'egress-installed').touch()
 dc('up','-d','--wait','--wait-timeout','90','proxy')
 browser=urllib.request.build_opener(urllib.request.ProxyHandler({}),urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()),urllib.request.HTTPSHandler(context=ssl.create_default_context(cafile=str(certs/'proxy.pem'))))
 csrf=None

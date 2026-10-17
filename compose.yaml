@@ -35,13 +35,48 @@ services:
       retries: 12
     stop_grace_period: 30s
 
-  guacd:
+  # Owns guacd's network namespace and installs its egress rules inside it on every start: guacd may only
+  # answer the app on 4822 and reach the app's per-session listener; host, targets and Internet are dropped.
+  # The rules live and die with this container, so nothing has to be installed on the host.
+  guacd-net:
     image: ${GUACD_IMAGE:-ghcr.io/notpeppa/zeroterm-terminal-guacd:1.6.0-strict-pin}
     restart: unless-stopped
-    # NEVER attach to app/default/target networks; no database/secrets/recordings mounts.
+    # NEVER attach to app/default/target networks.
     networks:
       guac_bridge:
         ipv4_address: 172.30.61.3
+    environment:
+      ZT_APP_IP: 172.30.61.2
+    user: "0:0"
+    entrypoint: ["sh", "/usr/local/share/zeroterm-guacd/netns-guard.sh"]
+    volumes:
+      - guacd-netns:/run/zt-netns
+    read_only: true
+    tmpfs: ["/run:size=1m,mode=0755"]
+    cap_drop: [ALL]
+    cap_add: [NET_ADMIN]
+    security_opt: ["no-new-privileges:true"]
+    healthcheck:
+      test: ["CMD-SHELL", "test \"$$(cat /run/zt-netns/ready)\" = \"$$(readlink /proc/self/ns/net)\" && iptables -S OUTPUT | grep -qx -- '-P OUTPUT DROP'"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+  guacd:
+    image: ${GUACD_IMAGE:-ghcr.io/notpeppa/zeroterm-terminal-guacd:1.6.0-strict-pin}
+    restart: unless-stopped
+    # Shares guacd-net's namespace and its rules; starts only once they are in place. No database/secrets/
+    # recordings mounts, no capabilities, so it can neither change the rules nor leave the namespace.
+    network_mode: service:guacd-net
+    depends_on:
+      guacd-net:
+        condition: service_healthy
+        restart: true
+    entrypoint: ["/usr/local/share/zeroterm-guacd/wait-netns.sh"]
+    command: ["-f", "-b", "0.0.0.0", "-l", "4822", "-L", "info"]
+    volumes:
+      - guacd-netns:/run/zt-netns:ro
     read_only: true
     tmpfs: ["/tmp:size=16m,mode=0700,uid=10002,gid=10002"]
     cap_drop: [ALL]
@@ -245,3 +280,4 @@ volumes:
   runtime-auth:
   secrets:
   recordings:
+  guacd-netns:

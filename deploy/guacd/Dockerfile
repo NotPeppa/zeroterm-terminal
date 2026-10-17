@@ -52,9 +52,13 @@ FROM debian:bookworm-slim AS runtime
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libssl3 libcairo2 libjpeg62-turbo libpng16-16 libuuid1 libpango-1.0-0 \
     libssh2-1 libvncclient1 libwebp7 libpulse0 libavcodec59 libavformat59 \
-    libavutil57 libswscale6 ca-certificates fonts-dejavu-core fonts-noto-cjk \
+    libavutil57 libswscale6 ca-certificates fonts-dejavu-core fonts-noto-cjk iptables \
     && rm -rf /var/lib/apt/lists/* \
-    && groupadd -g 10002 guacd && useradd -u 10002 -g guacd -M -s /usr/sbin/nologin guacd
+    && groupadd -g 10002 guacd && useradd -u 10002 -g guacd -M -s /usr/sbin/nologin guacd \
+    && install -d -m 0755 /run/zt-netns
+# The egress guard (run as root with NET_ADMIN by the guacd-net service) and guacd's start gate.
+COPY deploy/guacd/netns-guard.sh deploy/guacd/wait-netns.sh /usr/local/share/zeroterm-guacd/
+RUN sed -i 's/\r$//' /usr/local/share/zeroterm-guacd/*.sh && chmod 0755 /usr/local/share/zeroterm-guacd/*.sh
 COPY --from=build /usr/local/ /usr/local/
 COPY --from=build /src/guacamole-server-1.6.0/LICENSE /src/guacamole-server-1.6.0/NOTICE /usr/share/doc/guacd/
 RUN ldconfig && printf '%s\n' 'guacd=1.6.0' 'freerdp=2.11.7' 'rdp_arg=zt-strict-cert-pin' 'required_arg=zt-target-ready' 'ssh_arg=zt-ssh-display-only' 'patch=zt-pin-v5-clipboard-unicode' \

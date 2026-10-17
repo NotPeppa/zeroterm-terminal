@@ -73,7 +73,6 @@ def existing_containers():
     rows=subprocess.check_output(['docker','ps','--format','{{json .}}'],text=True).splitlines()
     return {row['ID']:row['Names'] for row in map(json.loads,rows) if row['Names'].startswith('zeroterm-test-')}
 original_containers=existing_containers()
-installed=False
 result={'production_ready':False,'project':project,'database':database,'engine_image_id':engine_id,
     'target_protocol_acceptance':False,'windows_nla_verified':False,'browser_canvas_ime_verified':False}
 try:
@@ -104,8 +103,6 @@ try:
     dc('run','--rm','--no-deps','-T','maintenance','create-admin','--config',maintenance,'--username','admin','--password-stdin',
         input='fictional-deployment-password-123\n')
     dc('up','-d','--wait','--wait-timeout','90','bastion','guacd')
-    subprocess.run(['python3',str(ROOT/'deploy/guacd/egress.py'),'install',project],check=True)
-    installed=True
     dc('up','-d','--wait','--wait-timeout','90','proxy')
     with request('/health/ready') as response: assert response.read()==b'ok'
     with request('/api/v1/info') as response: info=json.load(response)
@@ -168,7 +165,6 @@ except BaseException as error:
     result.update(status='failed',error=str(error)); dc('logs','--no-color','--tail','80',check=False)
     raise
 finally:
-    if installed: subprocess.run(['python3',str(ROOT/'deploy/guacd/egress.py'),'remove',project],check=True)
     dc('down','--volumes','--remove-orphans',check=False)
     result['existing_test_containers_unchanged']=existing_containers()==original_containers
     (root/'deployment-evidence.json').write_text(json.dumps(result,indent=2)+'\n')
