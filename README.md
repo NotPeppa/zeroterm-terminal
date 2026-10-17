@@ -29,17 +29,23 @@
 ### 2.1 前置条件
 
 - Linux 服务器，Docker 26 + Compose 2.26（实测版本）
-- 至少 2 核 4 GB 内存（源码编译本身很吃资源，低配机器建议用预先构建好的镜像）
+- **1 核 1 GB 可以支撑 10 路正常交互**：全部服务硬限制在 1 CPU / 1 GiB / 不许 swap 的环境里实测，
+  同时在线 4 路 SSH + 3 路 RDP + 3 路 VNC（默认上限），内存峰值 264 MiB，CPU 占单核 8–14%，
+  SSH 按键回显 p50 约 350 ms。空闲时约 85 MiB。
+  **多路同时持续大量输出**（例如几个终端一起刷屏）在 1 核下**没有在独立环境验证过**：
+  测试机自身内存不够，结果不可信。这类场景建议 2 核起步
 - 一个域名和证书，或者用自签证书做内网测试
 - 一个非 root 的运行用户
 
 ### 2.2 获取部署文件
 
-从 [Releases](https://github.com/NotPeppa/zeroterm-terminal/releases) 下载最新版的 `compose.yaml`，
-或直接用仓库里的：
+从仓库 main 分支下载 `compose.yaml` 和配置模板：
 
 ```sh
-curl -fL https://github.com/NotPeppa/zeroterm-terminal/releases/latest/download/compose.yaml -o compose.yaml
+curl -fL https://raw.githubusercontent.com/NotPeppa/zeroterm-terminal/main/compose.yaml -o compose.yaml
+curl -fL https://raw.githubusercontent.com/NotPeppa/zeroterm-terminal/main/config/production.example.toml -o production.example.toml
+# 用自带的 proxy 容器才需要；已有 nginx / Caddy 可以不下
+curl -fL https://raw.githubusercontent.com/NotPeppa/zeroterm-terminal/main/deploy/nginx.example.conf -o nginx.example.conf
 ```
 
 ### 2.3 检查网段不冲突
@@ -58,11 +64,9 @@ curl -fL https://github.com/NotPeppa/zeroterm-terminal/releases/latest/download/
 ### 2.4 准备配置和证书
 
 ```sh
-export PROJECT=zeroterm-bastion          # Compose 项目名，自己取
-
 mkdir -p .local/docker/tls
-cp config/production.example.toml .local/docker/production.toml
-cp deploy/nginx.example.conf      .local/docker/nginx.conf
+cp production.example.toml .local/docker/production.toml
+cp nginx.example.conf       .local/docker/nginx.conf
 
 # 维护用配置只差数据库连接串（owner 权限）
 sed 's|^database_url_file = .*|database_url_file = "/run/bastion-db/database-url"|' \
@@ -87,7 +91,11 @@ chmod 644 .local/docker/*.toml .local/docker/nginx.conf
 # .local/docker/tls/bastion-key.pem     私钥
 ```
 
-`deploy/nginx.example.conf` 里的 `server_name` 也要改成你的域名。
+`.local/docker/nginx.conf` 里的 `server_name` 也要改成你的域名。
+
+> **服务器上已经有 nginx / Caddy？** 证书和 `nginx.conf` 都只给自带的 `proxy` 容器用，可以不准备：
+> 不建 `.local/docker/tls/`，不复制 `nginx.example.conf`，`chmod` 那行去掉 `nginx.conf`。
+> 只需要 `production.toml` 和 `maintenance.toml`，证书在你自己的反代上配。具体看 [2.7](#27-已经有-nginx-或-caddy)。
 
 ### 2.5 启动应用（拉取镜像、初始化、建表、授权都自动完成）
 
@@ -97,9 +105,10 @@ export PROJECT=zeroterm-bastion          # Compose 项目名，自己取
 # 管理员密码：可选。不设就自动生成，打印到日志里
 export BASTION_ADMIN_PASSWORD='至少 12 个字节的密码'
 
-# 拉取镜像后直接启动
+# 拉取镜像后直接启动（已有 nginx / Caddy 的话，末尾加上 bastion guacd，不起自带代理，见 2.7）
 docker compose -p "$PROJECT" pull
-docker compose -p "$PROJECT" up -d --wait bastion guacd
+docker compose -p "$PROJECT" up -d --wait
+curl --fail https://你的域名/health/ready      # 期望输出 ok
 ```
 
 这一条命令会按顺序跑完几个一次性步骤，每步成功后才进入下一步，任何一步失败应用都不会启动：
@@ -132,22 +141,61 @@ docker compose -p "$PROJECT" up -d --wait bastion guacd
 - 环境变量会留在容器配置里（`docker inspect` 能看到），日志里的生成密码在删掉
   `bootstrap-admin` 容器前也一直在。所以**首次登录后请到"个人设置"里改掉密码**。
 
-### 2.6 装防火墙规则，最后开代理
+### 2.6 guacd 的出站隔离（自动，不用操作）
 
-```sh
+guacd 负责解析 RDP/VNC 目标发来的数据，按"它可能被攻破"来设计：它只能回应应用、连回应用，
+碰不到宿主机、目标机和公网。
 
-# 装宿主机出站规则：只允许本项目 guacd 的 IP
-sudo python3 deploy/guacd/egress.py install "$PROJECT"
+这由 `guacd-net` 容器自动完成：它持有 guacd 的网络命名空间，每次启动都在里面写好防火墙规则，
+规则写好之前 guacd 不会启动。宿主机重启、容器重建都会自动重新生效，**不需要 sudo，也不改宿主机防火墙**。
+guacd 本身没有任何权限，改不了这些规则。
 
-# 确认应用健康后，最后一步才开代理
-docker compose -p "$PROJECT" up -d --wait proxy
-curl --fail https://你的域名/health/ready      # 期望输出 ok
+### 2.7 已经有 nginx 或 Caddy
+
+自带的 `proxy` 容器是可选的。服务器上已经有 nginx / Caddy 占着 443，启动时就**只起应用和 guacd**：
+`docker compose -p "$PROJECT" up -d --wait bastion guacd`，
+让你自己的反代指向应用的固定地址 `172.30.63.2:8080`（宿主机能直接访问这个地址，不需要映射端口）。
+这种情况下 2.4 里的证书和 `nginx.conf` 都不用准备，TLS 证书在你自己的反代上配。
+
+**1. 把反代的来源 IP 加进 `production.toml` 的 `trusted_proxies`**
+
+应用只接受白名单 IP 发来的转发头，其他请求一律返回 403。
+
+| 你的反代跑在哪 | `trusted_proxies` 填什么 |
+|---|---|
+| 宿主机上（apt 装的 nginx / Caddy） | `["172.30.63.1/32"]`，这是 Docker 网桥的网关地址 |
+| 另一个 Docker 容器里 | 把那个容器接到 `<项目名>_ingress` 网络并固定一个 IP（如 `172.30.63.4`），填这个 IP |
+
+改完重启应用：`docker compose -p "$PROJECT" up -d --wait bastion`。
+
+**2. 反代要满足这几条**，否则请求会被拒绝：
+
+- `X-Forwarded-For` 只能有一个值，必须**覆盖**，不能在客户端传来的值后面追加
+- `X-Forwarded-Proto` 必须是 `https`
+- 不能带 `Forwarded` 头
+- 支持 WebSocket，并保留客户端原始的 `Host`
+
+**nginx**：把 [deploy/nginx.example.conf](deploy/nginx.example.conf) 里 `location /` 那一整段复制进你的
+server 块，它已经满足上面所有要求。顺手把 `location = /metrics { return 404; }` 也带上。
+
+**Caddy**：
+
+```caddy
+bastion.example.com {
+    reverse_proxy 172.30.63.2:8080 {
+        header_up X-Forwarded-For {remote_host}
+        header_up -Forwarded
+        flush_interval -1
+    }
+}
 ```
 
-跳过 egress 这一"步会**直接对外暴露一个没有出站限制的容器**。规则在容器重建或重启后需要重装，
-重装后要重新验证再开代理。
+Caddy 默认会把客户端发来的 `Forwarded` 头原样转发，应用会因此拒绝请求，所以要用 `-Forwarded` 删掉；
+`flush_interval -1` 让录制回放不被缓冲。
 
-### 2.7 完整走一遍
+不管用哪种反代，`production.toml` 里的 `public_origin` 都要和浏览器地址栏完全一致。
+
+### 2.8 完整走一遍
 
 上面全部命令连起来就是 [deploy/docker.md](deploy/docker.md) 的 Fresh setup 一节；
 生产值班、备份恢复、KEK 轮换、审计清理等操作看 [deploy/README.md](deploy/README.md)。
@@ -195,16 +243,13 @@ curl --fail https://你的域名/health/ready      # 期望输出 ok
 ## 4. 升级
 
 ```sh
-docker compose -p "$PROJECT" stop proxy
-sudo python3 deploy/guacd/egress.py remove "$PROJECT"
-
-# 取新代码或下载新的 compose.yaml
+# 先下载新的 compose.yaml，然后：
 docker compose -p "$PROJECT" pull
-docker compose -p "$PROJECT" up -d --wait bastion guacd   # 迁移和授权自动先跑
-
-sudo python3 deploy/guacd/egress.py install "$PROJECT"   # 容器重建后必须重装
-docker compose -p "$PROJECT" up -d --wait proxy
+docker compose -p "$PROJECT" up -d --wait     # 迁移和授权自动先跑；已有反代的话末尾加 bastion guacd
 ```
+
+从使用 `egress.py` 的旧版本升级：先 `sudo python3 deploy/guacd/egress.py remove "$PROJECT"`
+（用旧版仓库里的脚本）清掉宿主机上的旧规则，再按上面升级。之后就不再需要它了。
 
 迁移不需要手动执行：`up` 会先跑 `migrate` 和 `grant-runtime`，成功后才启动新版本的应用。
 迁移失败时应用不会启动，旧数据保持原样，用 `logs migrate` 查原因。
@@ -274,14 +319,15 @@ python3 -u tests/docker_guacd_acceptance.py
   证书链验证通过但指纹不符也会被拒（不会因为 CA 可信就放行）。
 - VNC 经典密码最多 8 字节，只有显式信任的网段可用，不要当作有加密或身份保证。
 - guacd 容器没有数据库、KEK、录制卷，也没有目标网络出口，只有一条通往应用的专用 bridge。
-- 宿主机出站规则必须实际安装并**实测**；只把网络标成 `internal` 不算隔离证据。
+- guacd 的出站规则由 `guacd-net` 写在它自己的网络命名空间里，随容器自动生效；只把网络标成 `internal`
+  不算隔离证据，隔离要用实际连接测试证明（见 `tests/docker_guacd_acceptance.py`）。
 - 录制在写入并 flush 得到确认后才向浏览器转发画面；录制失败会断开连接而不是静默丢录制。
 
 ## 8. 文档地图
 
 | 文件 | 内容 |
 |---|---|
-| [deploy/docker.md](deploy/docker.md) | 完整部署 runbook：拓扑、初始化、egress、隔离验证 |
+| [deploy/docker.md](deploy/docker.md) | 完整部署 runbook：拓扑、初始化、guacd 隔离与验证 |
 | [deploy/README.md](deploy/README.md) | 运维：备份恢复、KEK 轮换、审计保留 |
 | [docs/RFC-005-guacamole-browser.md](docs/RFC-005-guacamole-browser.md) | 当前实现合同（schema/protocol family 2） |
 | [docs/ssh-xterm.md](docs/ssh-xterm.md) | SSH 改用 xterm.js 的合同与验收门槛 |

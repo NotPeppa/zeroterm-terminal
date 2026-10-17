@@ -1,6 +1,6 @@
 # RFC-005 operations
 
-See [Docker deployment](docker.md) for the reviewed topology, fresh initialization, egress rules,
+See [Docker deployment](docker.md) for the reviewed topology, fresh initialization, guacd isolation,
 explicit migration and owner/runtime role separation. Browser-only family 2 has no native SSH listener,
 M1/prototype mode, API-token file, exec/SFTP/copy API or channel recordings.
 
@@ -30,7 +30,8 @@ M1/prototype mode, API-token file, exec/SFTP/copy API or channel recordings.
 7. KEK rotation: preserve all old keys used by recordings/backups, create a new owner0600 key, update
    active version plus `kek_files`, run explicit `rewrap-keys --config ...`, then independently verify the
    backup before retiring keys. Do not rewrite recording files or drop key versions still referenced.
-8. After container recreation/reboot, reinstall narrowly scoped host egress rules and **retest** before
+8. guacd's egress rules are reinstalled by the `guacd-net` service on every start, including after reboot
+   or recreation; nothing is installed on the host. After changing the topology, **retest** isolation before
    enabling the public proxy. guacd must have only its private bridge, no DB/KEK/recording mounts, and no
    access to host gateway, database or target-network services.
 

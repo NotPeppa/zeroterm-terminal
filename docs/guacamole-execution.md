@@ -3,6 +3,57 @@
 Release status: **`production_ready=false`**. This file records executed checks, not a support promise.
 The patched engine is a ZeroTerm candidate derived from official tags, not stock guacd behavior.
 
+## 1 CPU / 1 GiB capacity measurement and a lost end-of-connection write, 2026-10-17 UTC
+
+At the user's request the bastion-side services (app, guacd, guacd-net, postgres, proxy) were placed in one
+temporary systemd slice capped at `CPUQuota=100%`, `MemoryMax=1G`, `MemorySwapMax=0` on the test host, with
+the fixture target and a Playwright browser outside it. Raw outputs from these runs are kept outside the repository. [tests/browser_capacity.mjs](../tests/browser_capacity.mjs)
+opens the default ten sessions (4 SSH / 3 RDP / 3 VNC across four operators; the 11th is refused), runs an
+interactive phase with pointer input and a stress phase where three SSH sessions flood output, and samples
+the slice's own cgroup counters and pressure (PSI). The browser runs on the test host itself: the client link
+to it measured about 12 KB/s, which would have measured the link.
+
+Interactive phase, all ten connected (run 3):
+slice memory about 180 MiB, peak 264 MiB of 1024, swap 0, no OOM, 8–14% of one core, keystroke echo p50 about
+350 ms. This passed on two runs and supports the README's 1-core/1-GB statement for normal interactive use.
+
+The stress phase failed in all three runs and is **not** attributed to the bastion. A sampler of
+`pg_stat_activity` during run 3 rules out the
+suspected single-row policy lock: one waiter in one of 174 seconds, median 17 transactions/s, at most 10 of 20
+pool connections. The test host itself (939 MiB, also running the live and legacy services) had about 150 MiB
+available and about 830 MiB of swap in use; the target container had 138 MiB swapped out, and the first sessions
+to drop were RDP/VNC with target-side errors. A trustworthy answer for sustained multi-session output on one core
+needs a larger host where only the bastion is capped; until then the README recommends two cores for it.
+
+Run 1 exposed a real defect: ten
+sessions ending in the same second left two rows `active` forever, still counted against the connection limit,
+with no task left to finish them; admin disconnect moved them only to `closing`. Their audit trail ends at
+`recording.finalized` with no `connection.failed`. The final state write had one attempt bounded by a caller-side
+2 s timeout whose error was discarded; that outer timeout also cancelled the store's own budget before it could
+log. `PgStore::transition` now retries an unavailable database with backoff for up to 60 s and logs a final
+failure; the five caller-side timeouts in `web.rs` are removed so they cannot cancel it. A new PostgreSQL test
+holds the policy row for 5 s while a connection ends: it fails with `PolicyStoreUnavailable` on the unfixed
+build and passes on the fixed one, and all seven PostgreSQL suites pass. The first "unfixed" run falsely passed because
+the shared cargo cache judged the older-mtime unfixed files as unchanged and reused fixed binaries; it was rebuilt
+with fresh mtimes and forced Rust stages. The production `Dockerfile` uses the same cache mount, so building
+sources older than the cache's last build can ship stale binaries; not changed here. In a later run on the fixed
+image, nine sessions again ended in one second and all ten rows reached a terminal state with sealed recordings.
+`production_ready=false`.
+
+## guacd egress rules inside its own network namespace, 2026-10-16 UTC
+
+At the user's request the host-level `deploy/guacd/egress.py` (iptables on the host, reinstalled by hand after
+every reboot or container recreation) was replaced by a `guacd-net` service that owns guacd's network namespace
+and installs the same policy inside it on every start ([netns-guard.sh](../deploy/guacd/netns-guard.sh)); guacd
+joins that namespace with no capabilities and starts only once the guard's marker matches its own namespace
+([wait-netns.sh](../deploy/guacd/wait-netns.sh)). A throwaway project on the test host with shifted subnets
+showed from guacd's namespace: the app's ephemeral listener reachable; the app on a low port, the host's bridge
+address, the Internet, postgres on the app network and Docker's embedded DNS unreachable; the app reaches
+guacd:4822; guacd cannot alter the rules; after restarting only the guard, guacd leaves the old namespace and
+rejoins; Docker refuses to start guacd while the guard is stopped; and no rule is added to the host firewall
+(the only host rules for that subnet are the two Docker creates for any internal network). The full engine
+acceptance runner was updated to the same structure but was not rerun. `production_ready=false`.
+
 ## Current workspace deployed to the live service, 2026-10-14 UTC
 
 The user asked to put every current workspace change on the test service. The whole tree was packaged

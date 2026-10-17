@@ -7,15 +7,15 @@ existing production/test project name for these steps.
 
 ## Fresh setup
 
-`docker compose up bastion` now runs three one-shot services first, each only after the previous one
+`docker compose up bastion` now runs four one-shot services first, each only after the previous one
 succeeds: `init` (fresh secrets; skips when all three secret volumes are populated, refuses a partial
-state), `migrate` (owner connection) and `grant-runtime` (least-privilege runtime grants). The
-application itself still never migrates and never holds owner credentials; it starts only after these
-exit 0, and startup rejects a schema older than the binary expects (currently migration 0006). Upgrades
-and restored family-2 backups therefore migrate on the next `up`; take a backup first when a release
-contains an irreversible migration. The explicit commands below remain valid and are idempotent: run by
-hand, the one-shots afterwards find nothing to do. Create the first administrator through `maintenance`
-(no fixed IPs), because `run bastion` collides with a running bastion's fixed addresses.
+state), `migrate` (owner connection), `grant-runtime` (least-privilege runtime grants) and
+`bootstrap-admin` (first administrator, only if none exists). The application itself still never migrates
+and never holds owner credentials; it starts only after these exit 0, and startup rejects a schema older
+than the binary expects (currently migration 0006). Upgrades and restored family-2 backups therefore
+migrate on the next `up`; take a backup first when a release contains an irreversible migration. The
+one-shots are idempotent. If you ever run a CLI command by hand, use `maintenance` (no fixed IPs), because
+`run bastion` collides with a running bastion's fixed addresses.
 
 Linux Docker 26 / Compose 2.26 are the tested engine-host versions. Heavy source builds use one job;
 low-memory machines should receive prebuilt reviewed images. No 1 GiB runtime or concurrency acceptance
@@ -23,7 +23,8 @@ claim follows from these settings.
 
 The TLS proxy and Rust service have separate network namespaces. Only the proxy publishes 443;
 it reaches the API at `172.30.63.2:8080` on the dedicated ingress network. Rust trusts forwarding headers
-only from the proxy's fixed `172.30.63.3` address and rejects untrusted API requests. The proxy has no
+only from the proxy's fixed `172.30.63.3` address (or your own proxy's address, see below) and rejects
+untrusted API requests. The proxy has no
 target or guacd bridge network. This permits Rust container restart without stranding the proxy in an
 old namespace. guacd's bounded PID limit is 256: ten mixed sessions measured 158 processes/threads,
 and the previous limit of 128 caused real failures. These samples are not a production capacity promise.
@@ -44,27 +45,39 @@ chmod 644 .local/docker/*.toml .local/docker/nginx.conf
 # Install the real trusted certificate chain and private key as:
 # .local/docker/tls/bastion-chain.pem / .local/docker/tls/bastion-key.pem
 
-docker build -t zeroterm-guacd:1.6.0-strict-pin -f deploy/guacd/Dockerfile .
-python3 -u tests/docker_guacd_acceptance.py --engine-image zeroterm-guacd:1.6.0-strict-pin
-# Freeze the exact accepted local image; Compose refuses an unset GUACD_IMAGE.
-export GUACD_IMAGE=$(docker image inspect zeroterm-guacd:1.6.0-strict-pin --format '{{.Id}}')
-docker compose -p "$PROJECT" build bastion
-docker compose -p "$PROJECT" run --rm --no-deps --entrypoint sh maintenance \
-    /usr/local/share/zeroterm-bastion/docker-init.sh
-docker compose -p "$PROJECT" up -d --wait postgres
-docker compose -p "$PROJECT" run --rm --no-deps maintenance migrate \
-    --config /etc/zeroterm-bastion/maintenance.toml
-docker compose -p "$PROJECT" exec -T postgres sh -c \
-    'sed "s/\r$//" /usr/local/share/zeroterm-bastion/docker-runtime-role.sh | sh'
-docker compose -p "$PROJECT" run --rm --no-deps bastion create-admin \
-    --config /etc/zeroterm-bastion/production.toml --username admin
-# Bring up app/guacd WITHOUT the public TLS proxy first.
-docker compose -p "$PROJECT" up -d --wait bastion guacd
-sudo python3 deploy/guacd/egress.py install "$PROJECT"
-# Verify isolation for this deployment before allowing interactive sessions.
-docker compose -p "$PROJECT" up -d --wait proxy
+# Both images come prebuilt from ghcr.io; no local build and no local image ID are required. Pin a specific
+# publish with BASTION_IMAGE=ghcr.io/notpeppa/zeroterm-terminal@sha256:... and GUACD_IMAGE=... to keep only
+# reviewed IDs. guacd's egress rules are installed by guacd-net on every start; nothing runs on the host.
+docker compose -p "$PROJECT" up -d --wait
 curl --fail https://YOUR-EXACT-PUBLIC-ORIGIN/health/ready
 ```
+
+### Using an existing nginx or Caddy instead of the bundled proxy
+
+The bundled `proxy` service is optional. Start only `docker compose -p "$PROJECT" up -d --wait bastion guacd`,
+keep 443 for your own server, and point it at the API's fixed ingress address `172.30.63.2:8080` (reachable
+from the host; no published port needed). `.local/docker/tls/` and `.local/docker/nginx.conf` are only read by the bundled proxy, so they can
+be left out entirely; `up bastion guacd` does not need them. TLS terminates on your own server. Then set:
+
+- `trusted_proxies` in `production.toml` to the address your proxy appears as. A host-level proxy arrives
+  from the Docker bridge gateway `172.30.63.1`; a proxy running in a container on the `<project>_ingress`
+  network needs that container's fixed IP instead.
+- The proxy must satisfy the app's forwarding-header check: exactly one `X-Forwarded-For` (overwritten,
+  never appended), exactly one `X-Forwarded-Proto: https`, no `Forwarded` header, and WebSocket upgrade
+  headers with the client's `Host` preserved. The `location /` block of `deploy/nginx.example.conf`
+  already does this. For Caddy, use:
+
+```caddy
+bastion.example.com {
+    reverse_proxy 172.30.63.2:8080 {
+        header_up X-Forwarded-For {remote_host}
+        header_up -Forwarded
+        flush_interval -1
+    }
+}
+```
+
+Caddy forwards a client-supplied `Forwarded` header by default, which the app rejects, so it must be deleted.
 
 Initialization refuses nonempty secret volumes or any arguments. `bastion-server init` generates only KEK;
 owner/runtime DB passwords are independent `/dev/urandom` 32-byte values, never reused API tokens.
@@ -74,31 +87,30 @@ refreshed explicitly after migrations; runtime owns no schema/table, cannot perf
 
 ## Guacd isolation and capability gate
 
-- guacd is non-root UID 10002, read-only, capabilities dropped, tmpfs HOME only. No DB/KEK/recording mount.
-- guacd has exactly one IPv4-only private bridge; no default/app/target network and no public 4822.
+- guacd is non-root UID 10002, read-only, capabilities dropped, tmpfs HOME only. No DB/KEK/recording mount;
+  its only volume is the read-only readiness marker described below.
+- guacd has no network of its own: it joins the namespace of `guacd-net`, which has exactly one IPv4-only
+  private bridge address (`172.30.61.3`); no default/app/target network and no public 4822.
 - Rust/app alone has target network and DB reachability; API binds its ingress IP and metrics binds loopback. Neither binds the guacd bridge IP.
-- Root host egress rules match **only this project's guacd IPv4 /32**. An independently hash-named
-  chain permits established replies and app-IP TCP ports 32768..60999, then drops everything else.
-  Host INPUT is denied for that source, including root-host gateway services. The script never flushes
-  global firewall chains. Do not enable container IPv6 without an independently reviewed IPv6 firewall.
+- `guacd-net` ([netns-guard.sh](guacd/netns-guard.sh)) runs as root with only `NET_ADMIN` and installs
+  rules **inside that namespace** on every start: default DROP for IPv4 and IPv6; INPUT accepts loopback,
+  established replies and the app's `172.30.61.2` → 4822; OUTPUT accepts loopback (except Docker's embedded
+  DNS `127.0.0.11`), established replies and the app IP on TCP 32768..60999. Traffic to the host's bridge
+  address, targets and the Internet never leaves the namespace. Nothing is installed on the host and no
+  host-wide chain is touched, so rules cannot drift from the containers across reboots or recreation.
+- guacd starts only after the guard has written the rules: the guard records this namespace's identity in
+  the `guacd-netns` volume, and guacd's entrypoint ([wait-netns.sh](guacd/wait-netns.sh)) refuses to start
+  until the marker matches its own namespace, so a stale marker from an earlier start never passes. Compose
+  also waits for the guard's healthcheck, which re-verifies the marker and the DROP policy every 10 s.
 - These ports are the kernel ephemeral range, **not a per-connection firewall allowlist**. Rust checks the
   allocated port is within that range, only listens there for a deadline-bound single accept, and validates
   guacd source IP. Do not run another app service on that range; the app namespace is trusted. A stronger
-  per-port host allowlist would require a separately privileged lifecycle helper and is not claimed here.
-- Docker bridge netfilter must actually process same-bridge traffic; run positive bridge and negative
-  app-canary/target/host/Internet checks. `internal: true` by itself proves nothing about host reachability.
+  per-port allowlist would require a separately privileged lifecycle helper and is not claimed here.
+- `internal: true` by itself proves nothing about host reachability; run positive bridge and negative
+  app-canary/target/host/Internet checks from guacd's namespace (`tests/docker_guacd_acceptance.py` does).
 
-Install/remove rules while the matching app/guacd containers still exist. Remove old project rules before
-recreating those containers, then install/retest new ones before enabling the proxy. Reinstall after reboot;
-otherwise do not open the interactive service. A container-network recreation changes source IP state.
-
-```sh
-docker compose -p "$PROJECT" stop proxy
-sudo python3 deploy/guacd/egress.py remove "$PROJECT"
-# perform reviewed recreation/upgrade; preserve the volumes
-sudo python3 deploy/guacd/egress.py install "$PROJECT"
-# independently retest before restarting proxy
-```
+Deployments that used the old host-level `egress.py` should remove those rules once with that older script
+(`sudo python3 deploy/guacd/egress.py remove "$PROJECT"`) before or after upgrading; they are no longer used.
 
 Engine source is official guacamole-server 1.6.0 and FreeRDP 2.11.7, archive SHA-256 checked before extraction.
 The patch advertises the separate `zt-strict-cert-pin` RDP argument; missing/malformed/lowercase-64-hex mismatch
