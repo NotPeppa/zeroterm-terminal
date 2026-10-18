@@ -8,7 +8,7 @@ use russh::{
 use std::{borrow::Cow, collections::VecDeque, net::Shutdown};
 use tokio::{sync::mpsc, time::Instant};
 
-struct PinnedHost {
+pub(super) struct PinnedHost {
     key: PublicKey,
 }
 impl client::Handler for PinnedHost {
@@ -30,7 +30,34 @@ impl Drop for SocketGuard {
     }
 }
 type SshChannel = Channel<client::Msg>;
-async fn accepted(channel: &mut SshChannel) -> Result<(), ErrorCode> {
+/// What the target reported before closing its shell channel; the native entry relays it.
+#[derive(Clone, Debug, Default)]
+pub(crate) struct TargetExit {
+    pub eof: bool,
+    pub status: Option<u32>,
+    pub signal: Option<(russh::Sig, bool, String)>,
+}
+/// State shared between `run` and the native SSH adapter (RFC-006 §7.3). The browser passes none.
+pub(crate) struct NativeLink {
+    /// Input credit in `input_charge` units. The adapter takes it before queueing a frame and `pump`
+    /// returns it once the target write completed, so `pump`'s own credit check can never trip and
+    /// input backpressure reaches the adapter instead of closing the session.
+    pub pacer: Arc<Semaphore>,
+    pub exit: std::sync::Mutex<TargetExit>,
+}
+impl NativeLink {
+    pub fn new(queue_bytes: usize) -> Self {
+        Self {
+            pacer: Arc::new(Semaphore::new(queue_bytes)),
+            exit: Default::default(),
+        }
+    }
+}
+/// At least 128 per frame: keeps the queued frame count within `pump`'s input queue capacity.
+pub(crate) fn input_charge(frame: usize) -> usize {
+    frame.max(128)
+}
+pub(super) async fn accepted(channel: &mut SshChannel) -> Result<(), ErrorCode> {
     loop {
         match channel.wait().await {
             Some(ChannelMsg::Success) => return Ok(()),
@@ -39,6 +66,223 @@ async fn accepted(channel: &mut SshChannel) -> Result<(), ErrorCode> {
             _ => return Err(ErrorCode::TargetRequestRejected),
         }
     }
+}
+
+/// One authenticated, pinned target socket, shared by all native channels.
+pub(super) struct TargetSession {
+    pub handle: client::Handle<PinnedHost>,
+    _guard: SocketGuard,
+}
+pub(super) async fn connect_target(
+    connection: &Connection,
+    target: &Target,
+    backend: &dyn GatewayBackend,
+    limits: &RuntimeLimits,
+) -> Result<TargetSession, ErrorCode> {
+    authorize(backend, connection).await?;
+    let approved = target
+        .ssh_host_key
+        .as_deref()
+        .filter(|key| bastion_store::valid_ssh_host_key(key))
+        .ok_or(ErrorCode::TargetHostKeyUnknown)?;
+    let key = PublicKey::from_openssh(approved).map_err(|_| ErrorCode::TargetHostKeyUnknown)?;
+    let username = target
+        .username
+        .as_deref()
+        .filter(|value| !value.is_empty())
+        .ok_or(ErrorCode::InvalidArgument)?;
+    let address = target.address.resolve().await?;
+    let socket = tokio::net::TcpStream::connect(address)
+        .await
+        .map_err(|_| ErrorCode::TargetUnreachable)?;
+    socket
+        .set_nodelay(true)
+        .map_err(|_| ErrorCode::TargetUnreachable)?;
+    let raw = socket
+        .into_std()
+        .map_err(|_| ErrorCode::TargetUnreachable)?;
+    let guard = SocketGuard(raw.try_clone().map_err(|_| ErrorCode::TargetUnreachable)?);
+    let socket = tokio::net::TcpStream::from_std(raw).map_err(|_| ErrorCode::TargetUnreachable)?;
+    let mut config = client::Config {
+        window_size: limits.queue_bytes as u32,
+        maximum_packet_size: (MAX_DATA_BYTES - 1) as u32,
+        channel_buffer_size: limits.queue_bytes / MAX_DATA_BYTES,
+        keepalive_interval: Some(Duration::from_secs(15)),
+        keepalive_max: 2,
+        ..Default::default()
+    };
+    // Negotiate the approved key's algorithm; don't accidentally choose another server key.
+    config.preferred.key = Cow::Owned(match key.algorithm() {
+        Algorithm::Rsa { .. } => vec![
+            Algorithm::Rsa {
+                hash: Some(russh::keys::HashAlg::Sha512),
+            },
+            Algorithm::Rsa {
+                hash: Some(russh::keys::HashAlg::Sha256),
+            },
+        ],
+        algorithm => vec![algorithm],
+    });
+    let mut session = client::connect_stream(Arc::new(config), socket, PinnedHost { key })
+        .await
+        .map_err(|error| {
+            if matches!(error, russh::Error::UnknownKey) {
+                ErrorCode::TargetHostKeyChanged
+            } else {
+                ErrorCode::TargetUnreachable
+            }
+        })?;
+    // Host key was checked on this socket, before any target credentials are submitted.
+    authorize(backend, connection).await?;
+    let credential = match &target.auth {
+        TargetAuth::Encrypted {
+            context,
+            envelope,
+            keys,
+        } => keys
+            .open(context, envelope)
+            .map_err(|_| ErrorCode::TargetAuthFailed)?,
+        TargetAuth::None => return Err(ErrorCode::TargetAuthFailed),
+    };
+    if !credential.validate_lengths() {
+        return Err(ErrorCode::TargetAuthFailed);
+    }
+    let auth = match &credential {
+        Credential::Password { password } => {
+            session
+                .authenticate_password(username, password.as_str())
+                .await
+        }
+        Credential::PrivateKey {
+            key_pem,
+            passphrase,
+        } => {
+            // Key decryption can be expensive; don't block Tokio's runtime or cancellation.
+            let pem = zeroize::Zeroizing::new(key_pem.clone());
+            let phrase = zeroize::Zeroizing::new(passphrase.clone());
+            let private = tokio::task::spawn_blocking(move || {
+                russh::keys::decode_secret_key(&pem, phrase.as_deref())
+            })
+            .await
+            .map_err(|_| ErrorCode::TargetAuthFailed)?
+            .map_err(|_| ErrorCode::TargetAuthFailed)?;
+            authorize(backend, connection).await?;
+            session
+                .authenticate_publickey(
+                    username,
+                    PrivateKeyWithHashAlg::new(Arc::new(private), None),
+                )
+                .await
+        }
+        Credential::None => return Err(ErrorCode::TargetAuthFailed),
+    }
+    .map_err(|_| ErrorCode::TargetAuthFailed)?;
+    drop(credential);
+    if !auth.success() {
+        return Err(ErrorCode::TargetAuthFailed);
+    }
+    Ok(TargetSession {
+        handle: session,
+        _guard: guard,
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn open_shell(
+    session: &client::Handle<PinnedHost>,
+    connection: &Connection,
+    backend: &dyn GatewayBackend,
+    recording: &SessionRecording,
+    outgoing: &mpsc::Sender<Vec<u8>>,
+    stop: &CancellationToken,
+    limits: &RuntimeLimits,
+    initial: &[u8],
+    initial_size: (u32, u32),
+) -> Result<SshChannel, ErrorCode> {
+    let mut channel = session
+        .channel_open_session()
+        .await
+        .map_err(|_| ErrorCode::TargetRequestRejected)?;
+    channel
+        .request_pty(
+            true,
+            "xterm-256color",
+            initial_size.0,
+            initial_size.1,
+            0,
+            0,
+            &[],
+        )
+        .await
+        .map_err(|_| ErrorCode::TargetRequestRejected)?;
+    accepted(&mut channel).await?;
+    channel
+        .request_shell(true)
+        .await
+        .map_err(|_| ErrorCode::TargetRequestRejected)?;
+    accepted(&mut channel).await?;
+    authorize(backend, connection).await?;
+    recording.activate().await?;
+    output(
+        recording,
+        outgoing,
+        initial,
+        stop,
+        limits.stall_timeout,
+        true,
+    )
+    .await?;
+    output(
+        recording,
+        outgoing,
+        &[TERMINAL_READY],
+        stop,
+        limits.stall_timeout,
+        false,
+    )
+    .await?;
+    Ok(channel)
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(super) async fn run_on_target(
+    session: &client::Handle<PinnedHost>,
+    connection: &Connection,
+    backend: &dyn GatewayBackend,
+    recording: &SessionRecording,
+    incoming: &mut mpsc::Receiver<Vec<u8>>,
+    outgoing: &mpsc::Sender<Vec<u8>>,
+    stop: &CancellationToken,
+    limits: &RuntimeLimits,
+    native: &NativeLink,
+) -> Result<(), ErrorCode> {
+    let initial = incoming.recv().await.ok_or(ErrorCode::TargetUnreachable)?;
+    let initial_size = terminal_size(&initial)?;
+    let channel = open_shell(
+        session,
+        connection,
+        backend,
+        recording,
+        outgoing,
+        stop,
+        limits,
+        &initial,
+        initial_size,
+    )
+    .await?;
+    pump(
+        connection,
+        backend,
+        recording,
+        incoming,
+        outgoing,
+        stop,
+        limits,
+        channel,
+        initial_size,
+        Some(native),
+    )
+    .await
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -53,6 +297,7 @@ pub(super) async fn run(
     limits: &RuntimeLimits,
     started: Instant,
     deadline: Instant,
+    native: Option<&NativeLink>,
 ) -> Result<(), ErrorCode> {
     // Only a bounded initial size is admitted before ready; no user input.
     let initial = tokio::select! {
@@ -61,159 +306,28 @@ pub(super) async fn run(
     };
     let initial_size = terminal_size(&initial)?;
     let startup = async {
-        authorize(backend, connection).await?;
-        let approved = target
-            .ssh_host_key
-            .as_deref()
-            .filter(|key| bastion_store::valid_ssh_host_key(key))
-            .ok_or(ErrorCode::TargetHostKeyUnknown)?;
-        let key = PublicKey::from_openssh(approved).map_err(|_| ErrorCode::TargetHostKeyUnknown)?;
-        let username = target
-            .username
-            .as_deref()
-            .filter(|value| !value.is_empty())
-            .ok_or(ErrorCode::InvalidArgument)?;
-        let address = target.address.resolve().await?;
-        let socket = tokio::net::TcpStream::connect(address)
-            .await
-            .map_err(|_| ErrorCode::TargetUnreachable)?;
-        socket
-            .set_nodelay(true)
-            .map_err(|_| ErrorCode::TargetUnreachable)?;
-        let raw = socket
-            .into_std()
-            .map_err(|_| ErrorCode::TargetUnreachable)?;
-        let guard = SocketGuard(raw.try_clone().map_err(|_| ErrorCode::TargetUnreachable)?);
-        let socket =
-            tokio::net::TcpStream::from_std(raw).map_err(|_| ErrorCode::TargetUnreachable)?;
-        let mut config = client::Config {
-            window_size: limits.queue_bytes as u32,
-            maximum_packet_size: (MAX_DATA_BYTES - 1) as u32,
-            channel_buffer_size: limits.queue_bytes / MAX_DATA_BYTES,
-            keepalive_interval: Some(Duration::from_secs(15)),
-            keepalive_max: 2,
-            ..Default::default()
-        };
-        // Negotiate the approved key's algorithm; don't accidentally choose another server key.
-        config.preferred.key = Cow::Owned(match key.algorithm() {
-            Algorithm::Rsa { .. } => vec![
-                Algorithm::Rsa {
-                    hash: Some(russh::keys::HashAlg::Sha512),
-                },
-                Algorithm::Rsa {
-                    hash: Some(russh::keys::HashAlg::Sha256),
-                },
-            ],
-            algorithm => vec![algorithm],
-        });
-        let mut session = client::connect_stream(Arc::new(config), socket, PinnedHost { key })
-            .await
-            .map_err(|error| {
-                if matches!(error, russh::Error::UnknownKey) {
-                    ErrorCode::TargetHostKeyChanged
-                } else {
-                    ErrorCode::TargetUnreachable
-                }
-            })?;
-        // Host key was checked on this socket, before any target credentials are submitted.
-        authorize(backend, connection).await?;
-        let credential = match &target.auth {
-            TargetAuth::Encrypted {
-                context,
-                envelope,
-                keys,
-            } => keys
-                .open(context, envelope)
-                .map_err(|_| ErrorCode::TargetAuthFailed)?,
-            TargetAuth::None => return Err(ErrorCode::TargetAuthFailed),
-        };
-        if !credential.validate_lengths() {
-            return Err(ErrorCode::TargetAuthFailed);
-        }
-        let auth = match &credential {
-            Credential::Password { password } => {
-                session
-                    .authenticate_password(username, password.as_str())
-                    .await
-            }
-            Credential::PrivateKey {
-                key_pem,
-                passphrase,
-            } => {
-                // Key decryption can be expensive; don't block Tokio's runtime or cancellation.
-                let pem = zeroize::Zeroizing::new(key_pem.clone());
-                let phrase = zeroize::Zeroizing::new(passphrase.clone());
-                let private = tokio::task::spawn_blocking(move || {
-                    russh::keys::decode_secret_key(&pem, phrase.as_deref())
-                })
-                .await
-                .map_err(|_| ErrorCode::TargetAuthFailed)?
-                .map_err(|_| ErrorCode::TargetAuthFailed)?;
-                authorize(backend, connection).await?;
-                session
-                    .authenticate_publickey(
-                        username,
-                        PrivateKeyWithHashAlg::new(Arc::new(private), None),
-                    )
-                    .await
-            }
-            Credential::None => return Err(ErrorCode::TargetAuthFailed),
-        }
-        .map_err(|_| ErrorCode::TargetAuthFailed)?;
-        drop(credential);
-        if !auth.success() {
-            return Err(ErrorCode::TargetAuthFailed);
-        }
-        let mut channel = session
-            .channel_open_session()
-            .await
-            .map_err(|_| ErrorCode::TargetRequestRejected)?;
-        channel
-            .request_pty(
-                true,
-                "xterm-256color",
-                initial_size.0,
-                initial_size.1,
-                0,
-                0,
-                &[],
-            )
-            .await
-            .map_err(|_| ErrorCode::TargetRequestRejected)?;
-        accepted(&mut channel).await?;
-        channel
-            .request_shell(true)
-            .await
-            .map_err(|_| ErrorCode::TargetRequestRejected)?;
-        accepted(&mut channel).await?;
-        authorize(backend, connection).await?;
-        recording.activate().await?;
-        output(
+        let target_session = connect_target(connection, target, backend, limits).await?;
+        let session = &target_session.handle;
+        let channel = open_shell(
+            session,
+            connection,
+            backend,
             recording,
             outgoing,
+            stop,
+            limits,
             &initial,
-            stop,
-            limits.stall_timeout,
-            true,
+            initial_size,
         )
         .await?;
-        output(
-            recording,
-            outgoing,
-            &[TERMINAL_READY],
-            stop,
-            limits.stall_timeout,
-            false,
-        )
-        .await?;
-        Ok::<_, ErrorCode>((session, channel, guard, initial_size))
+        Ok::<_, ErrorCode>((target_session, channel, initial_size))
     };
     let closed = async {
         while !incoming.is_closed() {
             tokio::time::sleep(Duration::from_millis(25)).await;
         }
     };
-    let (session, channel, _guard, initial_size) = tokio::select! {
+    let (target_session, channel, initial_size) = tokio::select! {
         biased;
         _ = stop.cancelled() => return Err(ErrorCode::LoginSessionRevoked),
         _ = closed => return Err(ErrorCode::LoginSessionRevoked),
@@ -231,6 +345,7 @@ pub(super) async fn run(
             limits,
             channel,
             initial_size,
+            native,
         ),
     )
     .await
@@ -238,7 +353,9 @@ pub(super) async fn run(
     // Guard shuts the TCP socket even when these bounded best-effort messages fail.
     let _ = timeout(
         Duration::from_secs(1),
-        session.disconnect(russh::Disconnect::ByApplication, "", "en"),
+        target_session
+            .handle
+            .disconnect(russh::Disconnect::ByApplication, "", "en"),
     )
     .await;
     result
@@ -255,6 +372,7 @@ async fn pump(
     limits: &RuntimeLimits,
     channel: SshChannel,
     initial_size: (u32, u32),
+    native: Option<&NativeLink>,
 ) -> Result<(), ErrorCode> {
     let (mut reader, writer) = channel.split();
     let credits = Arc::new(Semaphore::new(limits.queue_bytes));
@@ -265,7 +383,8 @@ async fn pump(
     // Poll writes independently: awaiting data() in the read loop can deadlock
     // russh when its bounded echo queue fills before the next input is sent.
     let forwarding = async {
-        while let Some((bytes, _credit)) = input_rx.recv().await {
+        while let Some((bytes, credit)) = input_rx.recv().await {
+            let charge = input_charge(bytes.len());
             let write = async {
                 if bytes[0] == TERMINAL_DATA {
                     writer
@@ -287,6 +406,10 @@ async fn pump(
             tokio::select! {
                 _ = stop.cancelled() => return Err(ErrorCode::LoginSessionRevoked),
                 result = timeout(limits.stall_timeout, write) => result.map_err(|_| ErrorCode::TargetTimeout)??,
+            }
+            drop(credit);
+            if let Some(link) = native {
+                link.pacer.add_permits(charge);
             }
         }
         Ok::<_, ErrorCode>(())
@@ -312,9 +435,9 @@ async fn pump(
         tokio::select! {
             biased;
             _ = stop.cancelled() => return Err(ErrorCode::LoginSessionRevoked),
-            _ = tokio::time::sleep_until(last_input+limits.idle_timeout) => return Err(ErrorCode::TargetTimeout),
+            _ = tokio::time::sleep_until(last_input+limits.idle_timeout), if native.is_none() => return Err(ErrorCode::TargetTimeout),
             _ = tokio::time::sleep_until(rendered+limits.stall_timeout), if outstanding>0 => return Err(ErrorCode::TargetTimeout),
-            _ = checks.tick() => authorize(backend,connection).await?,
+            _ = checks.tick(), if native.is_none() => authorize(backend,connection).await?,
             result = &mut forwarding => return result,
             Some(bytes) = resized_rx.recv() => output(recording,outgoing,&bytes,stop,limits.stall_timeout,true).await?,
             message = reader.wait(), if !target_closed && outstanding + MAX_DATA_BYTES <= limits.queue_bytes => {
@@ -331,7 +454,14 @@ async fn pump(
                         }
                     },
                     Some(ChannelMsg::Close) => target_closed=true,
-                    Some(ChannelMsg::Eof|ChannelMsg::ExitStatus{..}|ChannelMsg::WindowAdjusted{..}) => {},
+                    Some(ChannelMsg::WindowAdjusted{..}) => {},
+                    // Recorded for the native entry to relay after the output drained; the browser ignores them.
+                    Some(ChannelMsg::Eof) => if let Some(link)=native {link.exit.lock().unwrap().eof=true;},
+                    Some(ChannelMsg::ExitStatus{exit_status}) => if let Some(link)=native {link.exit.lock().unwrap().status=Some(exit_status);},
+                    Some(ChannelMsg::ExitSignal{signal_name,core_dumped,error_message,..}) => match native {
+                        Some(link) => link.exit.lock().unwrap().signal=Some((signal_name,core_dumped,error_message.chars().take(256).collect())),
+                        None => return Err(ErrorCode::TargetRequestRejected),
+                    },
                     None => return Err(ErrorCode::TargetUnreachable),
                     _ => return Err(ErrorCode::TargetRequestRejected),
                 }

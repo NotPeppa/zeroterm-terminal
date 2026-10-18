@@ -213,6 +213,7 @@ mod tests {
             asset_id: Uuid::new_v4(),
             account_id: Uuid::new_v4(),
             target_protocol: TargetProtocol::Ssh,
+            transport: Transport::Websocket,
             display: Display::default(),
             protocol_version: 2,
             state: ConnectionState::Connecting,

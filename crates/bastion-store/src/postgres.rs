@@ -10,6 +10,14 @@ use std::{str::FromStr, sync::Arc, time::Duration};
 use uuid::Uuid;
 
 pub type StoreResult<T> = Result<T, ErrorCode>;
+tokio::task_local! {
+    /// Client address of the HTTP request being served; set once per request by the API layer.
+    pub static CLIENT_IP: std::net::IpAddr;
+}
+/// Text form for an `inet` bind; None outside a request (CLI maintenance, background tasks).
+pub(super) fn client_ip() -> Option<String> {
+    CLIENT_IP.try_with(|ip| ip.to_string()).ok()
+}
 pub(super) fn db(error: sqlx::Error) -> ErrorCode {
     if let sqlx::Error::Database(ref detail) = error {
         if detail.is_unique_violation() {
@@ -77,6 +85,20 @@ impl PgStore {
             .map_err(db)?;
         Ok(Self {
             pool,
+            server_id: server_id.into(),
+            gateway_id: gateway_id.into(),
+            session_limits: Arc::new(std::sync::RwLock::new([10, 3, 20])),
+        })
+    }
+    /// A pool that opens no connection until first use; for routing tests that must not reach a database.
+    pub fn connect_lazy(url: &str, server_id: &str, gateway_id: &str) -> StoreResult<Self> {
+        let options = PgConnectOptions::from_str(url)
+            .map_err(db)?
+            .disable_statement_logging();
+        Ok(Self {
+            pool: PgPoolOptions::new()
+                .acquire_timeout(Duration::from_millis(100))
+                .connect_lazy_with(options),
             server_id: server_id.into(),
             gateway_id: gateway_id.into(),
             session_limits: Arc::new(std::sync::RwLock::new([10, 3, 20])),
@@ -161,7 +183,7 @@ impl PgStore {
             return Err(ErrorCode::ResourceConflict);
         }
         let schema_ready: bool = sqlx::query_scalar(
-            "SELECT EXISTS(SELECT 1 FROM _sqlx_migrations WHERE version=6 AND success)",
+            "SELECT EXISTS(SELECT 1 FROM _sqlx_migrations WHERE version=1 AND success)",
         )
         .fetch_one(&self.pool)
         .await
@@ -259,14 +281,32 @@ impl PgStore {
         label: &str,
         request_id: Uuid,
     ) -> StoreResult<LoginResponse> {
-        self.login_inner(verified, verified_hash, label, request_id)
+        self.login_inner(verified, verified_hash, label, ClientType::Web, request_id)
             .await
+    }
+    /// Native (ZeroTerm Bearer) login: same password, family and expiry policy, separate token domain.
+    pub async fn login_native(
+        &self,
+        verified: &UserView,
+        verified_hash: &str,
+        label: &str,
+        request_id: Uuid,
+    ) -> StoreResult<LoginResponse> {
+        self.login_inner(
+            verified,
+            verified_hash,
+            label,
+            ClientType::Native,
+            request_id,
+        )
+        .await
     }
     async fn login_inner(
         &self,
         verified: &UserView,
         verified_hash: &str,
         label: &str,
+        client: ClientType,
         request_id: Uuid,
     ) -> StoreResult<LoginResponse> {
         bounded(async {
@@ -275,15 +315,20 @@ impl PgStore {
             let user=user_view(&row)?;
             if !user.enabled || user.revision!=verified.revision || row.get::<String,_>("password_hash")!=verified_hash {return Err(ErrorCode::Unauthenticated); }
             let access=Secret::random();let refresh=Secret::random();let session=Uuid::new_v4();
-            let expiry:DateTime<Utc>=sqlx::query_scalar("INSERT INTO login_sessions(id,user_id,device_label,family_id,refresh_hash,expires_at) VALUES($1,$2,$3,$4,$5,clock_timestamp()+interval '7 days') RETURNING expires_at")
-                .bind(session).bind(user.id).bind(label).bind(Uuid::new_v4()).bind(refresh.hash().as_slice()).fetch_one(&mut *tx).await.map_err(db)?;
+            let expiry:DateTime<Utc>=sqlx::query_scalar("INSERT INTO login_sessions(id,user_id,device_label,family_id,refresh_hash,expires_at,client_type) VALUES($1,$2,$3,$4,$5,clock_timestamp()+interval '7 days',$6) RETURNING expires_at")
+                .bind(session).bind(user.id).bind(label).bind(Uuid::new_v4()).bind(refresh.hash().as_slice()).bind(client.as_str()).fetch_one(&mut *tx).await.map_err(db)?;
             let access_expiry=insert_tokens(&mut tx,session,&access,&refresh,expiry).await?;
-            audit(&mut tx,Some(user.id),Some(session),"user.login_success","login_session",Some(session),request_id,json!({"device_label":label})).await?;
+            audit(&mut tx,Some(user.id),Some(session),"user.login_success","login_session",Some(session),request_id,json!({"device_label":label,"client_type":client})).await?;
             tx.commit().await.map_err(db)?;
             Ok(LoginResponse {user,access_token:access.expose().into(),refresh_token:refresh.expose().into(),login_session_id:session,access_expires_at:access_expiry,refresh_expires_at:expiry})
         }).await
     }
-    pub async fn login_failure(&self, request_id: Uuid) -> StoreResult<()> {
+    /// `attempted` is the normalized username when it was well-formed, so investigators can see what was tried.
+    pub async fn login_failure(
+        &self,
+        request_id: Uuid,
+        attempted: Option<&str>,
+    ) -> StoreResult<()> {
         let mut tx = self.begin().await?;
         audit(
             &mut tx,
@@ -293,13 +338,20 @@ impl PgStore {
             "user",
             None,
             request_id,
-            json!({"reason_code":"UNAUTHENTICATED"}),
+            json!({"reason_code":"UNAUTHENTICATED","attempted_username":attempted}),
         )
         .await?;
         tx.commit().await.map_err(db)
     }
     pub async fn authenticate_web(&self, secret: &str) -> StoreResult<Identity> {
-        let row=sqlx::query("SELECT u.*,s.id AS session_id,s.revoked_at,s.expires_at>clock_timestamp() AS session_valid,t.expires_at>clock_timestamp() AS token_valid,t.expires_at AS token_expires_at FROM access_tokens t JOIN login_sessions s ON s.id=t.login_session_id JOIN users u ON u.id=s.user_id WHERE t.token_hash=$1").bind(hash(secret).as_slice()).fetch_optional(&self.pool).await.map_err(db)?.ok_or(ErrorCode::Unauthenticated)?;
+        self.authenticate(secret, ClientType::Web).await
+    }
+    pub async fn authenticate_native(&self, secret: &str) -> StoreResult<Identity> {
+        self.authenticate(secret, ClientType::Native).await
+    }
+    /// A token from the other login family is indistinguishable from an unknown one.
+    async fn authenticate(&self, secret: &str, client: ClientType) -> StoreResult<Identity> {
+        let row=sqlx::query("SELECT u.*,s.id AS session_id,s.revoked_at,s.expires_at>clock_timestamp() AS session_valid,t.expires_at>clock_timestamp() AS token_valid,t.expires_at AS token_expires_at FROM access_tokens t JOIN login_sessions s ON s.id=t.login_session_id JOIN users u ON u.id=s.user_id WHERE t.token_hash=$1 AND s.client_type=$2").bind(hash(secret).as_slice()).bind(client.as_str()).fetch_optional(&self.pool).await.map_err(db)?.ok_or(ErrorCode::Unauthenticated)?;
         identity_from_row(&row)
     }
     pub(super) async fn actor(
@@ -322,14 +374,29 @@ impl PgStore {
         Ok(())
     }
     pub async fn refresh_web(&self, secret: &str, request_id: Uuid) -> StoreResult<LoginResponse> {
-        self.refresh_inner(secret, request_id).await
+        self.refresh_inner(secret, ClientType::Web, request_id)
+            .await
     }
-    async fn refresh_inner(&self, secret: &str, request_id: Uuid) -> StoreResult<LoginResponse> {
+    pub async fn refresh_native(
+        &self,
+        secret: &str,
+        request_id: Uuid,
+    ) -> StoreResult<LoginResponse> {
+        self.refresh_inner(secret, ClientType::Native, request_id)
+            .await
+    }
+    async fn refresh_inner(
+        &self,
+        secret: &str,
+        client: ClientType,
+        request_id: Uuid,
+    ) -> StoreResult<LoginResponse> {
         bounded(async {
-            // Policy lock precedes identity/token locks, including replay revocation.
+            // Policy lock precedes identity/token locks, including replay revocation. A refresh token
+            // from the other login family is unknown here, so it can neither rotate nor revoke it.
             let mut tx=self.begin().await?;
-            let row=sqlx::query("SELECT r.id AS refresh_id,r.state,r.expires_at>clock_timestamp() AS refresh_valid,u.*,s.id AS session_id,s.revoked_at,s.expires_at AS family_expiry,s.expires_at>clock_timestamp() AS session_valid,true AS token_valid FROM refresh_tokens r JOIN login_sessions s ON s.id=r.login_session_id JOIN users u ON u.id=s.user_id WHERE r.token_hash=$1 FOR UPDATE OF u,s,r")
-                .bind(hash(secret).as_slice()).fetch_optional(&mut *tx).await.map_err(db)?.ok_or(ErrorCode::Unauthenticated)?;
+            let row=sqlx::query("SELECT r.id AS refresh_id,r.state,r.expires_at>clock_timestamp() AS refresh_valid,u.*,s.id AS session_id,s.revoked_at,s.expires_at AS family_expiry,s.expires_at>clock_timestamp() AS session_valid,true AS token_valid FROM refresh_tokens r JOIN login_sessions s ON s.id=r.login_session_id JOIN users u ON u.id=s.user_id WHERE r.token_hash=$1 AND s.client_type=$2 FOR UPDATE OF u,s,r")
+                .bind(hash(secret).as_slice()).bind(client.as_str()).fetch_optional(&mut *tx).await.map_err(db)?.ok_or(ErrorCode::Unauthenticated)?;
             let session:Uuid=row.get("session_id");let uid:Uuid=row.get("id");
             if row.get::<String,_>("state")!="active" {
                 revoke_session(&mut tx,session).await?;
@@ -555,6 +622,18 @@ impl PgStore {
         }).await
     }
     pub async fn connection(&self, identity: &Identity, id: Uuid) -> StoreResult<Connection> {
+        self.connection_for(identity, id, false).await
+    }
+    /// Native clients read only their own connections, whatever the caller's role.
+    pub async fn own_connection(&self, identity: &Identity, id: Uuid) -> StoreResult<Connection> {
+        self.connection_for(identity, id, true).await
+    }
+    async fn connection_for(
+        &self,
+        identity: &Identity,
+        id: Uuid,
+        own: bool,
+    ) -> StoreResult<Connection> {
         bounded(async {
             let mut tx = self.begin().await?;
             self.actor(&mut tx, identity, false).await?;
@@ -562,7 +641,7 @@ impl PgStore {
             let row = sqlx::query("SELECT * FROM connections WHERE id=$1 AND (user_id=$2 OR $3)")
                 .bind(id)
                 .bind(identity.user.id)
-                .bind(matches!(identity.user.role, Role::Admin | Role::Auditor))
+                .bind(!own && matches!(identity.user.role, Role::Admin | Role::Auditor))
                 .fetch_optional(&mut *tx)
                 .await
                 .map_err(db)?
@@ -725,8 +804,8 @@ pub(super) async fn audit(
     request_id: Uuid,
     payload: Value,
 ) -> StoreResult<()> {
-    sqlx::query("INSERT INTO audit_events(id,actor_id,login_session_id,action,resource_type,resource_id,request_id,sanitized_payload) VALUES($1,$2,$3,$4,$5,$6,$7,$8)")
-        .bind(Uuid::new_v4()).bind(actor).bind(session).bind(action).bind(kind).bind(resource).bind(request_id).bind(payload).execute(&mut **tx).await.map_err(db)?;
+    sqlx::query("INSERT INTO audit_events(id,actor_id,login_session_id,action,resource_type,resource_id,request_id,sanitized_payload,client_ip) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9::inet)")
+        .bind(Uuid::new_v4()).bind(actor).bind(session).bind(action).bind(kind).bind(resource).bind(request_id).bind(payload).bind(client_ip()).execute(&mut **tx).await.map_err(db)?;
     Ok(())
 }
 pub(super) async fn revoke_session(
@@ -791,10 +870,20 @@ pub(super) fn connection_view(r: &PgRow) -> StoreResult<Connection> {
         account_id: r.get("account_id"),
         target_protocol: serde_json::from_value(parse("target_protocol")?)
             .map_err(|_| ErrorCode::InternalError)?,
-        display: Display {
-            width: r.get::<i32, _>("width") as u32,
-            height: r.get::<i32, _>("height") as u32,
-            dpi: r.get::<i32, _>("dpi") as u32,
+        transport: serde_json::from_value(parse("transport")?)
+            .map_err(|_| ErrorCode::InternalError)?,
+        // Native rows store no display (schema CHECK); they carry the nominal recording-header default.
+        display: match (
+            r.get::<Option<i32>, _>("width"),
+            r.get::<Option<i32>, _>("height"),
+            r.get::<Option<i32>, _>("dpi"),
+        ) {
+            (Some(width), Some(height), Some(dpi)) => Display {
+                width: width as u32,
+                height: height as u32,
+                dpi: dpi as u32,
+            },
+            _ => Display::default(),
         },
         protocol_version: r.get::<i32, _>("protocol_version") as u32,
         state: serde_json::from_value(parse("state")?).map_err(|_| ErrorCode::InternalError)?,

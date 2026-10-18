@@ -8,6 +8,7 @@ license.workspace = true
 [dependencies]
 axum = { workspace = true, features = ["ws"] }
 anyhow.workspace = true
+async-trait.workspace = true
 bastion-gateway.workspace = true
 bastion-domain.workspace = true
 bastion-secrets.workspace = true

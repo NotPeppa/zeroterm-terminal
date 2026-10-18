@@ -94,6 +94,155 @@ pub struct WebSessionResponse {
     pub stream_protocol: &'static str,
 }
 
+/// Which login family a token belongs to. Browser cookies and native Bearer tokens never cross over.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ClientType {
+    Web,
+    Native,
+}
+impl ClientType {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Web => "web",
+            Self::Native => "native",
+        }
+    }
+}
+/// Client-to-bastion leg of a connection (RFC-006). The target side is identical for both.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Transport {
+    #[default]
+    Websocket,
+    NativeSsh,
+}
+impl Transport {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Websocket => "websocket",
+            Self::NativeSsh => "native_ssh",
+        }
+    }
+    /// The only login family allowed to issue, consume or keep a connection of this transport.
+    pub fn client_type(self) -> ClientType {
+        match self {
+            Self::Websocket => ClientType::Web,
+            Self::NativeSsh => ClientType::Native,
+        }
+    }
+}
+/// RFC-006 native protocol family advertised in `/info.native` and ticket responses.
+pub const NATIVE_PROTOCOL_VERSION: u32 = 1;
+/// Native capabilities currently open (RFC-006 §14.1), in canonical order.
+pub const NATIVE_CAPABILITIES: &[&str] = &["shell", "exec", "sftp"];
+/// A ticket asks for a non-empty subset of the open capabilities, in any order; unknown,
+/// duplicate or not-yet-open capabilities are invalid input.
+pub fn validate_native_capabilities(capabilities: &[String]) -> Result<(), ErrorCode> {
+    let valid = !capabilities.is_empty()
+        && capabilities.iter().enumerate().all(|(index, capability)| {
+            NATIVE_CAPABILITIES.contains(&capability.as_str())
+                && !capabilities[..index].contains(capability)
+        });
+    if valid {
+        Ok(())
+    } else {
+        Err(ErrorCode::InvalidArgument)
+    }
+}
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct NativeTicketRequest {
+    pub asset_id: Uuid,
+    pub account_id: Uuid,
+    pub capabilities: Vec<String>,
+}
+/// Store result of native issuance; the API adds the public gateway address.
+pub struct NativeTicketIssued {
+    pub ticket_id: Uuid,
+    pub ticket_secret: String,
+    pub connection_id: Uuid,
+    pub capabilities: Vec<String>,
+    pub expires_at: DateTime<Utc>,
+}
+/// What the SSH gateway gets from a consumed `zt1:` ticket: the connecting row and the capabilities
+/// the ticket was issued for (in request order), which bound the channel requests it may accept.
+#[derive(Clone, Debug)]
+pub struct NativeSession {
+    pub connection: Connection,
+    pub capabilities: Vec<String>,
+}
+/// How one native `exec` channel ended (RFC-006 §14.3); audited as `exec.completed`. Output is
+/// never recorded, only these counters.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct ExecOutcome {
+    /// Target `exit-status`; None when the command ended by signal or without reporting one.
+    pub exit_status: Option<u32>,
+    /// Target `exit-signal` name as sent (e.g. `TERM`).
+    pub exit_signal: Option<String>,
+    pub stdin_bytes: u64,
+    pub stdout_bytes: u64,
+    pub stderr_bytes: u64,
+    pub duration_ms: u64,
+}
+
+/// One SFTP audit row (RFC-006 §14.4); never carries file contents.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum SftpAudit {
+    /// Target result for a mutation; fsync is counted only in Session.
+    Operation {
+        op: SftpOp,
+        path: Vec<u8>,
+        target_path: Option<Vec<u8>>,
+        status: u32,
+    },
+    /// Successful CLOSE, an unfinished handle, or a refused write-intent OPEN. Paths remain raw
+    /// until the store sanitizes them; no variant can supply its own connection/actor identity.
+    File {
+        path: Vec<u8>,
+        flags: u32,
+        status: Option<u32>,
+        read_bytes: u64,
+        write_bytes: u64,
+        sha256: Option<String>,
+        read_sha256: Option<String>,
+        write_sha256: Option<String>,
+    },
+    /// Final per-request counters and SFTP frame bytes, including local unsupported responses.
+    Session {
+        requests: std::collections::BTreeMap<String, u64>,
+        input_bytes: u64,
+        output_bytes: u64,
+    },
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SftpOp {
+    Setstat,
+    Fsetstat,
+    Remove,
+    Mkdir,
+    Rmdir,
+    Rename,
+    Symlink,
+    PosixRename,
+    Hardlink,
+}
+impl SftpOp {
+    pub fn as_action(self) -> &'static str {
+        match self {
+            Self::Setstat => "sftp.setstat",
+            Self::Fsetstat => "sftp.fsetstat",
+            Self::Remove => "sftp.remove",
+            Self::Mkdir => "sftp.mkdir",
+            Self::Rmdir => "sftp.rmdir",
+            Self::Rename => "sftp.rename",
+            Self::Symlink => "sftp.symlink",
+            Self::PosixRename => "sftp.posix-rename",
+            Self::Hardlink => "sftp.hardlink",
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ConnectionState {
@@ -132,6 +281,8 @@ pub struct Connection {
     pub asset_id: Uuid,
     pub account_id: Uuid,
     pub target_protocol: TargetProtocol,
+    pub transport: Transport,
+    /// Native connections have no pixel display and carry the nominal default (recording header only).
     pub display: Display,
     pub protocol_version: u32,
     pub state: ConnectionState,
@@ -347,6 +498,48 @@ mod tests {
         }
         .validate()
         .is_err());
+        let native = |caps: &[&str]| {
+            validate_native_capabilities(&caps.iter().map(|c| c.to_string()).collect::<Vec<_>>())
+        };
+        for accepted in [
+            &["shell"][..],
+            &["exec"],
+            &["sftp"],
+            &["shell", "exec"],
+            &["exec", "shell", "sftp"],
+        ] {
+            assert!(native(accepted).is_ok(), "{accepted:?}");
+        }
+        for rejected in [
+            &[][..],
+            &["unknown"],
+            &["shell", "sftp", "sftp"],
+            &["shell", "shell"],
+            &["exec", "shell", "exec"],
+            &["Shell"],
+            &["pty"],
+            &[""],
+        ] {
+            assert!(native(rejected).is_err(), "{rejected:?}");
+        }
+        let ticket = serde_json::json!({"asset_id":Uuid::new_v4(),"account_id":Uuid::new_v4(),"capabilities":["shell"]});
+        assert!(serde_json::from_value::<NativeTicketRequest>(ticket.clone()).is_ok());
+        for (field, value) in [
+            ("purpose", serde_json::json!("terminal")),
+            ("display", serde_json::json!({})),
+        ] {
+            let mut extra = ticket.clone();
+            extra[field] = value;
+            assert!(serde_json::from_value::<NativeTicketRequest>(extra).is_err());
+        }
+        let mut missing = ticket;
+        missing.as_object_mut().unwrap().remove("capabilities");
+        assert!(serde_json::from_value::<NativeTicketRequest>(missing).is_err());
+        assert_eq!(Transport::NativeSsh.client_type(), ClientType::Native);
+        assert_eq!(
+            serde_json::to_value(Transport::NativeSsh).unwrap(),
+            "native_ssh"
+        );
         for state in [
             ConnectionState::Closed,
             ConnectionState::Failed,

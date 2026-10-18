@@ -333,6 +333,42 @@ impl GatewayBackend for Backend {
         self.authorize(connection).await?;
         self.store.activate_recording(recording).await
     }
+    async fn activate_native_connection(&self, connection: &Connection) -> Result<(), ErrorCode> {
+        self.authorize(connection).await?;
+        self.store.activate_native_connection(connection).await
+    }
+    async fn exec_completed(
+        &self,
+        connection: &Connection,
+        command: &[u8],
+        outcome: &bastion_domain::ExecOutcome,
+    ) -> Result<(), ErrorCode> {
+        self.store
+            .exec_completed(connection, command, outcome)
+            .await
+    }
+    async fn sftp_audit(
+        &self,
+        connection: &Connection,
+        entry: &bastion_domain::SftpAudit,
+    ) -> Result<(), ErrorCode> {
+        self.store.sftp_audit(connection, entry).await
+    }
+    async fn sftp_rejected(
+        &self,
+        connection: &Connection,
+        reason: ErrorCode,
+    ) -> Result<(), ErrorCode> {
+        self.store.sftp_rejected(connection, reason).await
+    }
+    async fn exec_rejected(
+        &self,
+        connection: &Connection,
+        command: &[u8],
+        reason: ErrorCode,
+    ) -> Result<(), ErrorCode> {
+        self.store.exec_rejected(connection, command, reason).await
+    }
     async fn checkpoint_recording(
         &self,
         id: Uuid,
@@ -461,20 +497,65 @@ pub async fn serve_production(path: PathBuf) -> Result<()> {
         recording: Some(recording),
         shutdown: shutdown.clone(),
     });
-    let api = Arc::new(
-        bastion_api::ControlApi::new(store.clone(), keys, network, config.guacd.clone())?
-            .with_service_state(shutdown.clone(), true, false)
-            .with_recordings(production.recording_directory.clone())
-            .with_browser(
-                config
-                    .public_origin
-                    .clone()
-                    .context("HTTPS origin required")?,
-                backend.clone(),
-                shutdown.clone(),
-            )?,
-    );
+    let origin = config
+        .public_origin
+        .clone()
+        .context("HTTPS origin required")?;
+    let origin_host = origin
+        .parse::<axum::http::Uri>()
+        .ok()
+        .and_then(|uri| uri.host().map(str::to_owned))
+        .context("HTTPS origin required")?;
+    let native = crate::native::load(&path, &origin_host, |name| std::env::var(name).ok())?;
+    let mut api = bastion_api::ControlApi::new(store.clone(), keys, network, config.guacd.clone())?
+        .with_service_state(shutdown.clone(), true, false)
+        .with_recordings(production.recording_directory.clone())
+        .with_browser(origin, backend.clone(), shutdown.clone())?;
+    let mut native_listener = None;
+    if let Some(native) = &native {
+        let gateway = bastion_api::NativeGateway::new(
+            config.gateway_id.clone(),
+            native.public_host.clone(),
+            native.public_port,
+            native.public_key()?,
+        );
+        let listener = TcpListener::bind(native.listen)
+            .await
+            .context("cannot bind BASTION_NATIVE_SSH_LISTEN")?;
+        native_listener = Some((listener, gateway.listener_running()));
+        api = api.with_native(gateway);
+    }
+    let api = Arc::new(api);
     let http_listener = TcpListener::bind(config.api_listen).await?;
+    // RFC-006 §7: the SSH listener shares the API's ticket store, limiter, registry and shutdown.
+    let mut native_task = match (native, native_listener) {
+        (Some(native), Some((listener, running))) => {
+            let listener_config = bastion_gateway::NativeListenerConfig {
+                host_key: native.host_key,
+                max_unauthenticated: native.max_unauthenticated,
+                handshake_timeout: Duration::from_secs(10),
+            };
+            let tickets = Arc::new(bastion_api::NativeTicketService(api.clone()));
+            let gateway_backend: Arc<dyn GatewayBackend> = backend.clone();
+            let stop = shutdown.clone();
+            tracing::info!(listen=%native.listen,"native SSH entry listening");
+            Some(tokio::spawn(async move {
+                let result = bastion_gateway::serve_native(
+                    listener,
+                    listener_config,
+                    tickets,
+                    gateway_backend,
+                    stop.clone(),
+                    running,
+                )
+                .await;
+                // A listener that stopped on its own is a service failure, not a silent downgrade.
+                stop.cancel();
+                result
+            }))
+        }
+        _ => None,
+    };
     let signal_shutdown = shutdown.clone();
     let signal = tokio::spawn(async move {
         #[cfg(unix)]
@@ -565,6 +646,11 @@ pub async fn serve_production(path: PathBuf) -> Result<()> {
             None => (&mut http_task).await,
         };
         result.context("HTTP task failed")??;
+        if let Some(task) = native_task.as_mut() {
+            task.await
+                .context("native SSH task failed")?
+                .map_err(|code| anyhow::anyhow!("native SSH listener: {code}"))?;
+        }
         shutdown_registry
             .drain(Duration::from_secs(10))
             .await
@@ -578,6 +664,9 @@ pub async fn serve_production(path: PathBuf) -> Result<()> {
     let _ = ownership.await;
     if drained.is_err() {
         http_task.abort();
+        if let Some(task) = native_task.as_mut() {
+            task.abort();
+        }
         if let Some(task) = metrics_task.as_mut() {
             task.abort();
         }

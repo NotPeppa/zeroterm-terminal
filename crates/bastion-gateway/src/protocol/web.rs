@@ -12,10 +12,35 @@ pub async fn run_web_session(
     connection: Connection,
     target: Target,
     backend: Arc<dyn GatewayBackend>,
-    mut incoming: mpsc::Receiver<Vec<u8>>,
+    incoming: mpsc::Receiver<Vec<u8>>,
     outgoing: mpsc::Sender<Vec<u8>>,
     stop: CancellationToken,
     config: GuacdConfig,
+) -> Result<(), ErrorCode> {
+    run_session(
+        connection,
+        target,
+        backend,
+        incoming,
+        outgoing,
+        stop,
+        Some(config),
+        None,
+    )
+    .await
+}
+/// One connection lifecycle for both entries: registry lease, recording, state transitions. The
+/// native SSH adapter passes its link and no guacd configuration (SSH targets only).
+#[allow(clippy::too_many_arguments)]
+pub(super) async fn run_session(
+    connection: Connection,
+    target: Target,
+    backend: Arc<dyn GatewayBackend>,
+    mut incoming: mpsc::Receiver<Vec<u8>>,
+    outgoing: mpsc::Sender<Vec<u8>>,
+    stop: CancellationToken,
+    config: Option<GuacdConfig>,
+    native: Option<Arc<super::ssh::NativeLink>>,
 ) -> Result<(), ErrorCode> {
     let registry = backend.registry();
     let limits = registry.limits().clone();
@@ -23,6 +48,13 @@ pub async fn run_web_session(
     let valid = if connection.state != ConnectionState::Connecting
         || connection.protocol_version != PROTOCOL_VERSION
         || connection.target_protocol != target.protocol
+        || connection.transport
+            != if native.is_some() {
+                Transport::NativeSsh
+            } else {
+                Transport::Websocket
+            }
+        || (native.is_some() && target.protocol != TargetProtocol::Ssh)
         || incoming.max_capacity() > capacity
         || outgoing.max_capacity() > capacity
     {
@@ -32,7 +64,10 @@ pub async fn run_web_session(
             if target.protocol == TargetProtocol::Ssh {
                 Ok(())
             } else {
-                config.validate()
+                config
+                    .as_ref()
+                    .ok_or(ErrorCode::InvalidArgument)
+                    .and_then(GuacdConfig::validate)
             }
         })
     };
@@ -77,13 +112,15 @@ pub async fn run_web_session(
                 &limits,
                 started,
                 deadline,
+                native.as_deref(),
             )
             .await;
         }
+        let config = config.as_ref().ok_or(ErrorCode::InvalidArgument)?;
         let startup = async {
             authorize(backend.as_ref(), &connection).await?;
-            let mut bridge = TargetBridge::start(&config, &target, deadline, &stop).await?;
-            let mut stream = tokio::select! {_ = bridge.ended.changed()=>return Err(bridge.ended.borrow().unwrap_or(ErrorCode::TargetUnreachable)),result=handshake(&config,&target,&connection,backend.as_ref(),bridge.port)=>result?};
+            let mut bridge = TargetBridge::start(config, &target, deadline, &stop).await?;
+            let mut stream = tokio::select! {_ = bridge.ended.changed()=>return Err(bridge.ended.borrow().unwrap_or(ErrorCode::TargetUnreachable)),result=handshake(config,&target,&connection,backend.as_ref(),bridge.port)=>result?};
             let mut policy = InstructionPolicy::for_protocol(target.protocol);
             let mut buffered = Vec::new();
             let mut buffered_bytes = 0;

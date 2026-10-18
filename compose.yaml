@@ -242,7 +242,10 @@ services:
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
 
+  # Bundled TLS proxy, enabled by COMPOSE_PROFILES=bundled-proxy in .env. Deployments behind an existing
+  # nginx/Caddy leave the profile out, so a plain `up` never needs nginx.conf/tls/ or port 443.
   proxy:
+    profiles: [bundled-proxy]
     container_name: ${COMPOSE_PROJECT_NAME}-proxy
     logging: *default-logging
     image: nginx:stable-alpine

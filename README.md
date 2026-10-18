@@ -1,6 +1,6 @@
 # ZeroTerm Browser Bastion
 
-自托管的**纯浏览器** SSH / RDP / VNC 工作台。用户只需要浏览器：不用装客户端、不用拿目标密码、不用开 VPN。
+自托管的浏览器 SSH / RDP / VNC 工作台，另提供可选的 ZeroTerm 原生 SSH 入口。用户只需要浏览器：不用装客户端、不用拿目标密码、不用开 VPN。
 目标凭据只在服务端内存里短暂解密，永远不会下发到浏览器。
 
 > **候选版本，请勿直接上生产：`production_ready=false`。**
@@ -17,14 +17,19 @@
 | RDP | 私有 guacd + Guacamole 前端 | 仅 NLA / TLS，证书指纹强校验 |
 | VNC | 同上 | none / password，且只允许管理员显式信任的网段 |
 
-每个连接都会写一份加密录制（`ZTREC002`）。只录屏幕输出，**不录键盘、不录凭据**。录制只有在完整结束、
+每个浏览器连接和原生 shell 都会写一份加密录制（`ZTREC002`）。只录屏幕输出，**不录键盘、不录凭据**。录制只有在完整结束、
 校验通过后才显示为"完整"，可离线回放。
 
-**明确不做**：原生 SSH 入口、SFTP/文件管理、跨主机复制、端口转发、Android/iOS 客户端、多副本 HA。
+**原生入口**：ZeroTerm 的 shell、exec 和 SFTP；exec 与文件操作仅写审计，不录制输出。
+
+**明确不做**：浏览器文件管理、跨主机复制、端口转发、独立 Android/iOS 客户端、多副本 HA。
 
 ---
 
 ## 2. 部署（Docker，约 5 分钟）
+
+> 服务器上**已经有 nginx 或 Caddy** 占着 443？不要按本节部署，看 [deploy/existing-proxy.md](deploy/existing-proxy.md)。
+> 本节用自带的 nginx 容器做 TLS 反代。
 
 ### 2.1 前置条件
 
@@ -45,8 +50,9 @@
 curl -fL https://raw.githubusercontent.com/NotPeppa/zeroterm-terminal/main/compose.yaml -o compose.yaml
 curl -fL https://raw.githubusercontent.com/NotPeppa/zeroterm-terminal/main/.env.example -o .env.example
 curl -fL https://raw.githubusercontent.com/NotPeppa/zeroterm-terminal/main/config/production.example.toml -o production.example.toml
-# 用自带的 proxy 容器才需要；已有 nginx / Caddy 可以不下
 curl -fL https://raw.githubusercontent.com/NotPeppa/zeroterm-terminal/main/deploy/nginx.example.conf -o nginx.example.conf
+# 可选：ZeroTerm 原生 SSH 入口，见 3.2
+curl -fL https://raw.githubusercontent.com/NotPeppa/zeroterm-terminal/main/deploy/compose.native-ssh.yaml --create-dirs -o deploy/compose.native-ssh.yaml
 # 可选：磁盘维护脚本，见第 5 节
 curl -fL https://raw.githubusercontent.com/NotPeppa/zeroterm-terminal/main/deploy/maintenance.sh --create-dirs -o deploy/maintenance.sh
 ```
@@ -101,10 +107,6 @@ chmod 644 .local/docker/*.toml .local/docker/nginx.conf
 > 适合 git clone 部署。只下载了 `compose.yaml` 的话，可以在 `.env` 里写 `BASTION_CONFIG_DIR=.`，
 > 配置直接平铺在同目录；也可以写绝对路径，如 `/etc/zeroterm-bastion`。上面命令里的 `.local/docker` 换成同一个目录。
 
-> **服务器上已经有 nginx / Caddy？** 证书和 `nginx.conf` 都只给自带的 `proxy` 容器用，可以不准备：
-> 不建 `.local/docker/tls/`，不复制 `nginx.example.conf`，`chmod` 那行去掉 `nginx.conf`。
-> 只需要 `production.toml` 和 `maintenance.toml`，证书在你自己的反代上配。具体看 [2.7](#27-已经有-nginx-或-caddy)。
-
 ### 2.5 启动应用（拉取镜像、初始化、建表、授权都自动完成）
 
 先改 `.env`（2.4 里从 `.env.example` 复制的）：
@@ -112,13 +114,14 @@ chmod 644 .local/docker/*.toml .local/docker/nginx.conf
 | 变量 | 说明 |
 |---|---|
 | `COMPOSE_PROJECT_NAME` | Compose 项目名，自己取，代替每条命令的 `-p`。**定了之后不要改**，改了就是另起一套空的部署 |
+| `COMPOSE_PROFILES` | 保持 `bundled-proxy`，它负责启动自带的 nginx 容器 |
 | `BASTION_ADMIN_PASSWORD` | 可选。不设就自动生成，打印到日志里，见下面"管理员密码" |
 | 其他 | 配置目录、镜像版本、端口、最小密码长度，模板里有注释和默认值，不改就用默认值 |
 
 所有 `docker compose` 命令都要在 `compose.yaml` 所在目录执行，Compose 会自动读同目录的 `.env`。
 
 ```sh
-# 拉取镜像后直接启动（已有 nginx / Caddy 的话，末尾加上 bastion guacd，不起自带代理，见 2.7）
+# 拉取镜像后直接启动
 docker compose pull
 docker compose up -d --wait
 curl --fail https://你的域名/health/ready      # 期望输出 ok
@@ -164,52 +167,7 @@ guacd 负责解析 RDP/VNC 目标发来的数据，按"它可能被攻破"来设
 规则写好之前 guacd 不会启动。宿主机重启、容器重建都会自动重新生效，**不需要 sudo，也不改宿主机防火墙**。
 guacd 本身没有任何权限，改不了这些规则。
 
-### 2.7 已经有 nginx 或 Caddy
-
-自带的 `proxy` 容器是可选的。服务器上已经有 nginx / Caddy 占着 443，启动时就**只起应用和 guacd**：
-`docker compose up -d --wait bastion guacd`，
-让你自己的反代指向应用的固定地址 `172.30.63.2:8080`（宿主机能直接访问这个地址，不需要映射端口）。
-这种情况下 2.4 里的证书和 `nginx.conf` 都不用准备，TLS 证书在你自己的反代上配。
-
-**1. 把反代的来源 IP 加进 `production.toml` 的 `trusted_proxies`**
-
-应用只接受白名单 IP 发来的转发头，其他请求一律返回 403。
-
-| 你的反代跑在哪 | `trusted_proxies` 填什么 |
-|---|---|
-| 宿主机上（apt 装的 nginx / Caddy） | `["172.30.63.1/32"]`，这是 Docker 网桥的网关地址 |
-| 另一个 Docker 容器里 | 把那个容器接到 `<项目名>_ingress` 网络并固定一个 IP（如 `172.30.63.4`），填这个 IP |
-
-改完重启应用：`docker compose up -d --wait bastion`。
-
-**2. 反代要满足这几条**，否则请求会被拒绝：
-
-- `X-Forwarded-For` 只能有一个值，必须**覆盖**，不能在客户端传来的值后面追加
-- `X-Forwarded-Proto` 必须是 `https`
-- 不能带 `Forwarded` 头
-- 支持 WebSocket，并保留客户端原始的 `Host`
-
-**nginx**：把 [deploy/nginx.example.conf](deploy/nginx.example.conf) 里 `location /` 那一整段复制进你的
-server 块，它已经满足上面所有要求。顺手把 `location = /metrics { return 404; }` 也带上。
-
-**Caddy**：
-
-```caddy
-bastion.example.com {
-    reverse_proxy 172.30.63.2:8080 {
-        header_up X-Forwarded-For {remote_host}
-        header_up -Forwarded
-        flush_interval -1
-    }
-}
-```
-
-Caddy 默认会把客户端发来的 `Forwarded` 头原样转发，应用会因此拒绝请求，所以要用 `-Forwarded` 删掉；
-`flush_interval -1` 让录制回放不被缓冲。
-
-不管用哪种反代，`production.toml` 里的 `public_origin` 都要和浏览器地址栏完全一致。
-
-### 2.8 完整走一遍
+### 2.7 完整走一遍
 
 上面全部命令连起来就是 [deploy/docker.md](deploy/docker.md) 的 Fresh setup 一节；
 生产值班、备份恢复、KEK 轮换、审计清理等操作看 [deploy/README.md](deploy/README.md)。
@@ -241,12 +199,15 @@ Caddy 默认会把客户端发来的 `Forwarded` 头原样转发，应用会因�
 
 - SSH 上用 **Ctrl+Shift+C / Ctrl+Shift+V** 复制粘贴，**Ctrl+Shift+F** 搜索。
 - 录制回放在 **日志审计 → 录制回放**，只读，不能控制目标。
+- ZeroTerm 客户端可以走原生 SSH 入口（默认关闭）。在 `.env` 中启用
+  `COMPOSE_FILE=compose.yaml:deploy/compose.native-ssh.yaml` 后发布 2222 端口；网关主机密钥由 `init`
+  生成一次，请把指纹告知使用者核对。同一连接支持 shell、exec 和 SFTP（最多 16 个通道、一个 shell）；shell 录制可在 Web 回放，exec 和文件操作写审计。说明见 [deploy/docker.md](deploy/docker.md#native-ssh-entry-zeroterm-opt-in)。
 
 ### 3.3 出问题先看哪里
 
 | 现象 | 看这里 |
 |---|---|
-| 页面打不开 | `docker compose logs proxy bastion` |
+| 页面打不开 | `docker compose logs proxy bastion`（用自己的反代的话看 [deploy/existing-proxy.md](deploy/existing-proxy.md) 第 7 节） |
 | 登录提示"服务不可用" | `docker compose logs bastion`，多半是迁移失败，看 `logs migrate grant-runtime` |
 | 连不上目标 | `logs bastion`，注意是"网络策略拒绝"还是"主机指纹未确认" |
 | RDP 报安全模式错误 | 目标是否只支持 NLA；用资产页的"重新核验主机指纹"重新扫描 |
@@ -259,7 +220,7 @@ Caddy 默认会把客户端发来的 `Forwarded` 头原样转发，应用会因�
 ```sh
 # 先下载新的 compose.yaml，然后：
 docker compose pull
-docker compose up -d --wait     # 迁移和授权自动先跑；已有反代的话末尾加 bastion guacd
+docker compose up -d --wait     # 迁移和授权自动先跑
 ```
 
 从使用 `egress.py` 的旧版本升级：先 `sudo python3 deploy/guacd/egress.py remove 项目名`（`.env` 里的 `COMPOSE_PROJECT_NAME`）
@@ -367,6 +328,7 @@ python3 -u tests/docker_guacd_acceptance.py
 | 文件 | 内容 |
 |---|---|
 | [deploy/docker.md](deploy/docker.md) | 完整部署 runbook：拓扑、初始化、guacd 隔离与验证 |
+| [deploy/existing-proxy.md](deploy/existing-proxy.md) | 已有 nginx / Caddy 时的部署流程 |
 | [deploy/README.md](deploy/README.md) | 运维：备份恢复、KEK 轮换、审计保留 |
 | [docs/RFC-005-guacamole-browser.md](docs/RFC-005-guacamole-browser.md) | 当前实现合同（schema/protocol family 2） |
 | [docs/ssh-xterm.md](docs/ssh-xterm.md) | SSH 改用 xterm.js 的合同与验收门槛 |

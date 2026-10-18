@@ -1,0 +1,14 @@
+# Opt-in RFC-006 native SSH entry for ZeroTerm. Enable it with, in .env:
+#   COMPOSE_FILE=compose.yaml:deploy/compose.native-ssh.yaml
+# Without this file no SSH port is published and BASTION_NATIVE_SSH_LISTEN stays unset (no listener).
+# The host key was generated once by `init` in the secrets volume; see deploy/docker.md before rotating it.
+services:
+  bastion:
+    environment:
+      BASTION_NATIVE_SSH_LISTEN: 0.0.0.0:2222
+      # Address ZeroTerm is told to dial; defaults: the HTTPS origin host and the published port.
+      BASTION_NATIVE_SSH_PUBLIC_HOST: ${BASTION_NATIVE_SSH_PUBLIC_HOST:-}
+      BASTION_NATIVE_SSH_PUBLIC_PORT: ${BASTION_NATIVE_SSH_PORT:-2222}
+      BASTION_NATIVE_SSH_MAX_UNAUTHENTICATED: ${BASTION_NATIVE_SSH_MAX_UNAUTHENTICATED:-64}
+    ports:
+      - "${BASTION_NATIVE_SSH_PORT:-2222}:2222"

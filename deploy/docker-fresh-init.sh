@@ -15,6 +15,16 @@ populated() {
 }
 
 if populated "$secret_dir" && populated "$owner_dir" && populated "$runtime_dir"; then
+    # Installations initialized before RFC-006 have no native SSH host key: create it once, only if absent.
+    # An existing key is never touched (replacing it breaks every client's pinned fingerprint).
+    host_key="$secret_dir/ssh_host_ed25519_key"
+    if [ ! -e "$host_key" ]; then
+        umask 077
+        ssh-keygen -q -t ed25519 -N '' -C '' -f "$host_key"
+        chmod 600 "$host_key"
+        rm -f "$host_key.pub"
+        echo 'Native SSH host key created for this existing installation.'
+    fi
     echo 'Secrets already initialized; nothing to do.'
     exit 0
 fi

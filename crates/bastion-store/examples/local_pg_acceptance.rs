@@ -117,6 +117,7 @@ async fn execute() -> Result<(), String> {
                 | "user_deletion"
                 | "audit_partitions"
                 | "asset_groups"
+                | "native_sessions"
         ) {
             return Err("unknown isolated suite".into());
         }

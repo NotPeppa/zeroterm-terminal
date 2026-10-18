@@ -17,12 +17,15 @@ use tokio::{
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 mod guacd;
+mod native;
 mod policy;
 mod recording;
 mod runtime;
+mod sftp;
 mod ssh;
 mod web;
 pub use guacd::protocol_available;
+pub use native::{serve_native, NativeListenerConfig, NativeTicket, NativeTickets};
 pub use recording::{check_recording_directory, RecordingConfig, SessionRecording};
 pub use runtime::{RuntimeLimits, RuntimeRegistry};
 pub use web::run_web_session;
@@ -66,6 +69,46 @@ pub trait GatewayBackend: Send + Sync {
         checksum: Option<String>,
         failure: Option<ErrorCode>,
     ) -> Result<(), ErrorCode>;
+    /// `connecting → active` for a native connection with no recording (exec/sftp only, RFC-006
+    /// §14.2), after the same authorization as `activate_recording`. Idempotent once active;
+    /// refuses websocket connections.
+    async fn activate_native_connection(&self, _connection: &Connection) -> Result<(), ErrorCode> {
+        Err(ErrorCode::TargetProtocolUnavailable)
+    }
+    /// Audits one finished native exec channel (`exec.completed`, RFC-006 §14.3). `command` is the
+    /// full request bytes; the store keeps a 4 KiB preview and the SHA-256.
+    async fn exec_completed(
+        &self,
+        _connection: &Connection,
+        _command: &[u8],
+        _outcome: &ExecOutcome,
+    ) -> Result<(), ErrorCode> {
+        Err(ErrorCode::TargetProtocolUnavailable)
+    }
+    /// SFTP operation/file/session metadata audit; never includes file contents.
+    async fn sftp_audit(
+        &self,
+        _connection: &Connection,
+        _entry: &SftpAudit,
+    ) -> Result<(), ErrorCode> {
+        Err(ErrorCode::TargetProtocolUnavailable)
+    }
+    async fn sftp_rejected(
+        &self,
+        _connection: &Connection,
+        _reason: ErrorCode,
+    ) -> Result<(), ErrorCode> {
+        Err(ErrorCode::TargetProtocolUnavailable)
+    }
+    /// Audits a native exec request refused before the target ran it (`exec.rejected`).
+    async fn exec_rejected(
+        &self,
+        _connection: &Connection,
+        _command: &[u8],
+        _reason: ErrorCode,
+    ) -> Result<(), ErrorCode> {
+        Err(ErrorCode::TargetProtocolUnavailable)
+    }
 }
 #[derive(Clone, Deserialize)]
 #[serde(deny_unknown_fields)]

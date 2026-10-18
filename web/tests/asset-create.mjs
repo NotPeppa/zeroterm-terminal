@@ -750,10 +750,13 @@ test('RDP re-verification warns when the certificate changed, and cancelling sav
 test('connection rows name the user, asset and account, and details expand under the clicked row', async t => {
   const base = { ticket_id: 't', user_id: 'u1', login_session_id: 's', target_protocol: 'ssh', display: { width: 1280, height: 720, dpi: 96 }, protocol_version: 2, state: 'closed', created_at: '2026-01-01T00:00:00Z', started_at: null, ended_at: null, failure: null, bytes_in: 2048, bytes_out: 10, recording_id: null };
   const first = { ...base, id: 'conn-1', asset_id: 'a1', account_id: 'c1', user_snapshot: 'alice', asset_snapshot: 'db-prod', account_label: 'Primary', target_username: 'root' };
-  const second = { ...base, id: 'conn-2', asset_id: 'a2', account_id: 'c2', user_snapshot: 'bob', asset_snapshot: 'web-01', account_label: null, target_username: null };
+  const second = { ...base, id: 'conn-2', asset_id: 'a2', account_id: 'c2', user_snapshot: 'bob', asset_snapshot: 'web-01', account_label: null, target_username: null, transport: 'native_ssh', display: null };
   const main = await fixture(t, async () => null, { open: false, connections: true, read: async () => ({ items: [first, second], next_cursor: null }) });
   const rows = () => all(main.view).filter(value => value.tagName === 'tr');
   for (const text of ['alice', 'db-prod', 'Primary · root', 'web-01', 'c2']) assert.match(main.view.textContent, new RegExp(text));
+  // RFC-006 transport column: browser rows (also older rows without the field) vs native ZeroTerm rows.
+  const [, firstRow, secondRow] = rows();
+  assert.match(firstRow.textContent, /浏览器/); assert.match(secondRow.textContent, /ZeroTerm/); assert.doesNotMatch(secondRow.textContent, /浏览器/);
   const toggles = all(main.view).filter(value => value.tagName === 'button' && value.textContent === '详情');
   toggles[0].click();
   let list = rows(); const opened = list.findIndex(row => row.className.includes('row-detail'));
@@ -764,10 +767,10 @@ test('connection rows name the user, asset and account, and details expand under
 });
 
 test('audit rows name the actor, action and object, and the payload opens under the clicked row', async t => {
-  const event = { id: 'e1', occurred_at: '2026-01-01T00:00:00Z', actor_id: 'u1', actor_username: 'alice', login_session_id: 's1', action: 'asset.updated', resource_type: 'asset', resource_id: 'a1', resource_name: 'db-prod', request_id: 'r1', sanitized_payload: { port: 2222 } };
-  const failure = { id: 'e2', occurred_at: '2026-01-01T00:01:00Z', actor_id: null, actor_username: null, login_session_id: null, action: 'user.login_failure', resource_type: 'user', resource_id: null, resource_name: null, request_id: 'r2', sanitized_payload: { reason_code: 'UNAUTHENTICATED' } };
+  const event = { id: 'e1', occurred_at: '2026-01-01T00:00:00Z', actor_id: 'u1', actor_username: 'alice', login_session_id: 's1', action: 'asset.updated', resource_type: 'asset', resource_id: 'a1', resource_name: 'db-prod', request_id: 'r1', client_ip: '198.51.100.7', sanitized_payload: { port: 2222 } };
+  const failure = { id: 'e2', occurred_at: '2026-01-01T00:01:00Z', actor_id: null, actor_username: null, login_session_id: null, action: 'user.login_failure', resource_type: 'user', resource_id: null, resource_name: null, request_id: 'r2', client_ip: '203.0.113.9', sanitized_payload: { reason_code: 'UNAUTHENTICATED', attempted_username: 'root' } };
   const main = await fixture(t, async () => null, { open: false, audit: true, read: async () => ({ items: [event, failure], next_cursor: null }) });
-  for (const text of ['alice', '修改资产', 'db-prod', '登录失败', '系统 / 未登录']) assert.match(main.view.textContent, new RegExp(text));
+  for (const text of ['alice', '修改资产', 'db-prod', '登录失败', '系统 / 未登录', '198.51.100.7', '203.0.113.9']) assert.match(main.view.textContent, new RegExp(text));
   assert.doesNotMatch(all(main.view).filter(value => value.tagName === 'tr' && !value.className.includes('row-detail')).map(row => row.textContent).join(''), /r1|UNAUTHENTICATED/);
   const toggles = all(main.view).filter(value => value.tagName === 'button' && value.textContent === '详情');
   toggles[0].click();

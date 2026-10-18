@@ -1,6 +1,7 @@
 # RFC-005 Docker deployment (candidate, not production acceptance)
 
-Only HTTPS is public. No SSH listener/2222, development API token, gateway host key or legacy config.
+Only HTTPS is public by default. The RFC-006 native SSH entry for ZeroTerm is opt-in (see
+[Native SSH entry](#native-ssh-entry-zeroterm-opt-in)); there is no development API token or legacy config.
 Use a **new Compose project and new volumes** for schema family 2. Existing databases/recordings are
 not converted and must not be dropped. Keep old projects offline or separately preserved; never reuse an
 existing production/test project name for these steps.
@@ -12,7 +13,7 @@ succeeds: `init` (fresh secrets; skips when all three secret volumes are populat
 state), `migrate` (owner connection), `grant-runtime` (least-privilege runtime grants) and
 `bootstrap-admin` (first administrator, only if none exists). The application itself still never migrates
 and never holds owner credentials; it starts only after these exit 0, and startup rejects a schema older
-than the binary expects (currently migration 0006). Upgrades and restored family-2 backups therefore
+than the binary expects (currently migration 0001; `serve` refuses to start until `migrate` applied it). Upgrades and restored family-2 backups therefore
 migrate on the next `up`; take a backup first when a release contains an irreversible migration. The
 one-shots are idempotent. If you ever run a CLI command by hand, use `maintenance` (no fixed IPs), because
 `run bastion` collides with a running bastion's fixed addresses.
@@ -58,36 +59,48 @@ curl --fail https://YOUR-EXACT-PUBLIC-ORIGIN/health/ready
 
 ### Using an existing nginx or Caddy instead of the bundled proxy
 
-The bundled `proxy` service is optional. Start only `docker compose up -d --wait bastion guacd`,
-keep 443 for your own server, and point it at the API's fixed ingress address `172.30.63.2:8080` (reachable
-from the host; no published port needed). `.local/docker/tls/` and `.local/docker/nginx.conf` are only read by the bundled proxy, so they can
-be left out entirely; `up bastion guacd` does not need them. TLS terminates on your own server. Then set:
-
-- `trusted_proxies` in `production.toml` to the address your proxy appears as. A host-level proxy arrives
-  from the Docker bridge gateway `172.30.63.1`; a proxy running in a container on the `<project>_ingress`
-  network needs that container's fixed IP instead.
-- The proxy must satisfy the app's forwarding-header check: exactly one `X-Forwarded-For` (overwritten,
-  never appended), exactly one `X-Forwarded-Proto: https`, no `Forwarded` header, and WebSocket upgrade
-  headers with the client's `Host` preserved. The `location /` block of `deploy/nginx.example.conf`
-  already does this. For Caddy, use:
-
-```caddy
-bastion.example.com {
-    reverse_proxy 172.30.63.2:8080 {
-        header_up X-Forwarded-For {remote_host}
-        header_up -Forwarded
-        flush_interval -1
-    }
-}
-```
-
-Caddy forwards a client-supplied `Forwarded` header by default, which the app rejects, so it must be deleted.
+See [existing-proxy.md](existing-proxy.md): remove `COMPOSE_PROFILES=bundled-proxy` from `.env` so the bundled
+`proxy` service never starts, and point your own proxy at `172.30.63.2:8080`.
 
 Initialization refuses nonempty secret volumes or any arguments. `bastion-server init` generates only KEK;
 owner/runtime DB passwords are independent `/dev/urandom` 32-byte values, never reused API tokens.
 Secrets files are UID 10001/0600, containing directories 0700. Runtime mounts KEK/runtime credentials read-only;
 only explicit maintenance can write them. Owner URL is never visible in the app. Runtime grants must be
 refreshed explicitly after migrations; runtime owns no schema/table, cannot perform DDL or mutate audit rows.
+
+## Native SSH entry (ZeroTerm, opt-in)
+
+Off unless enabled: without it no port besides HTTPS is published, `BASTION_NATIVE_SSH_LISTEN` is unset,
+`/api/v1/native/*` returns 404 and `/info` has no `native` block. To enable, uncomment in `.env`:
+
+```
+COMPOSE_FILE=compose.yaml:deploy/compose.native-ssh.yaml
+#BASTION_NATIVE_SSH_PORT=2222          # published host port, also announced to clients
+#BASTION_NATIVE_SSH_PUBLIC_HOST=       # default: the HTTPS origin host (set it behind NAT)
+```
+
+and run `docker compose up -d`. The overlay sets `BASTION_NATIVE_SSH_LISTEN=0.0.0.0:2222` inside the
+container and publishes it. Clients authenticate with a one-time ticket from `/api/v1/native/*`
+(`zt1:<ticket_id>` + ticket secret, one password attempt per connection, 10 s handshake limit, at most
+`BASTION_NATIVE_SSH_MAX_UNAUTHENTICATED` (64) unauthenticated connections, failed attempts rate limited and
+audited per source IP). Up to 16 session channels share one target connection, with one interactive PTY shell per connection lifetime. Exec and SFTP v3 are supported; port/agent/X11 forwarding remains refused. Shell output is recorded; commands and file operations produce metadata audits. Sessions use the same grants, target host-key pinning, recording, limits and
+revocation as browser sessions.
+
+The gateway host key is `secrets/ssh_host_ed25519_key` in the secrets volume (Ed25519, mode 0600, service
+uid). `init` generates it once on a fresh install, and for an installation initialized before this feature
+it is created once on the next `up` if absent; it is never regenerated. Publish its fingerprint to users
+through a trusted channel so they can compare it with what ZeroTerm (or `ssh`) shows on first use:
+
+```
+docker compose run --rm --no-deps --entrypoint sh maintenance -c \
+  'ssh-keygen -lf /etc/zeroterm-bastion/secrets/ssh_host_ed25519_key'
+```
+
+ZeroTerm pins the key from `/info.native.gateway.public_key` (served only over HTTPS) and refuses a changed
+key instead of replacing it. Rotation is therefore manual and disruptive: stop `bastion`, replace the file
+(same owner and 0600), start it, publish the new fingerprint, and every user must re-verify the gateway in
+ZeroTerm; `ssh` users must remove the old `known_hosts` entry. Keep the old key out of backups you might
+restore later, or restoring it rolls the fingerprint back. Losing the key has the same effect as rotation.
 
 ## Guacd isolation and capability gate
 

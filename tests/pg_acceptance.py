@@ -25,9 +25,9 @@ for line in build.stdout.splitlines():
     item = json.loads(line)
     if item.get('reason') != 'compiler-artifact' or not item.get('executable'): continue
     target = item['target']
-    if target['kind'] == ['test'] and target['name'] in ('postgres', 'web_sessions', 'lifecycle', 'implicit_access', 'user_deletion', 'audit_partitions', 'asset_groups'):
+    if target['kind'] == ['test'] and target['name'] in ('postgres', 'web_sessions', 'lifecycle', 'implicit_access', 'user_deletion', 'audit_partitions', 'asset_groups', 'native_sessions'):
         binaries['server-postgres' if target['name'] == 'postgres' else target['name']] = item['executable']
-suites = ('server-postgres', 'web_sessions', 'lifecycle', 'implicit_access', 'user_deletion', 'audit_partitions', 'asset_groups')
+suites = ('server-postgres', 'web_sessions', 'lifecycle', 'implicit_access', 'user_deletion', 'audit_partitions', 'asset_groups', 'native_sessions')
 assert set(binaries) == set(suites), 'missing real PostgreSQL test binaries'
 command = ['cargo', 'run', '--locked', '-p', 'bastion-store', '--example', 'local_pg_acceptance']
 if args.release: command += ['--release']

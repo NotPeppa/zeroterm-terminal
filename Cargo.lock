@@ -269,6 +269,7 @@ name = "bastion-api"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "axum",
  "bastion-domain",
  "bastion-gateway",
@@ -387,6 +388,7 @@ dependencies = [
  "chrono",
  "serde",
  "serde_json",
+ "sha2 0.10.9",
  "sqlx",
  "ssh-key",
  "tokio",

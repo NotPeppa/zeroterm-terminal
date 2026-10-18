@@ -28,6 +28,7 @@ BEGIN
         resource_id uuid,
         request_id uuid NOT NULL,
         sanitized_payload jsonb NOT NULL DEFAULT '{}',
+        client_ip inet,
         CONSTRAINT audit_events_partitioned_pk PRIMARY KEY(id,occurred_at)
     ) PARTITION BY RANGE(occurred_at);
     CREATE TRIGGER audit_append_only BEFORE UPDATE OR DELETE ON public.audit_events
@@ -65,7 +66,9 @@ BEGIN
             WHERE n.nspname='public' AND c.relname=partition_name;
     END LOOP;
     CREATE TABLE public.audit_events_default PARTITION OF public.audit_events DEFAULT;
-    INSERT INTO public.audit_events SELECT * FROM public.audit_events_prepartition;
+    INSERT INTO public.audit_events(id,occurred_at,actor_id,login_session_id,action,resource_type,resource_id,request_id,sanitized_payload,client_ip)
+        SELECT id,occurred_at,actor_id,login_session_id,action,resource_type,resource_id,request_id,sanitized_payload,client_ip
+        FROM public.audit_events_prepartition;
     SELECT count(*) INTO old_count FROM public.audit_events_prepartition;
     SELECT count(*) INTO new_count FROM public.audit_events;
     IF old_count<>new_count THEN

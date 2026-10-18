@@ -1,9 +1,11 @@
 mod browser;
 mod groups;
+mod native;
 mod recordings;
 #[cfg(test)]
 mod tests;
 use browser::BrowserLogin;
+pub use native::{NativeGateway, NativeTicketService};
 pub use recordings::{remove_recording_file, verify_recording_file};
 
 use axum::{
@@ -47,6 +49,7 @@ pub struct ControlApi {
     dummy_phc: String,
     password_work: Arc<Semaphore>,
     rate: Mutex<HashMap<String, (Instant, u32)>>,
+    native: Option<NativeGateway>,
 }
 impl ControlApi {
     pub fn new(
@@ -69,6 +72,7 @@ impl ControlApi {
             dummy_phc: hash_password(Secret::random().expose())?,
             password_work: Arc::new(Semaphore::new(4)),
             rate: Mutex::new(HashMap::new()),
+            native: None,
         })
     }
     pub fn with_browser(
@@ -93,6 +97,11 @@ impl ControlApi {
         self.recording_available = recording_available;
         self
     }
+    /// Enables `/api/v1/native/*` and the `/info.native` block (RFC-006). Without it both are absent.
+    pub fn with_native(mut self, gateway: NativeGateway) -> Self {
+        self.native = Some(gateway);
+        self
+    }
     pub fn with_recordings(mut self, directory: std::path::PathBuf) -> Self {
         self.recording_directory = Some(directory);
         self.recording_available = true;
@@ -113,11 +122,17 @@ impl ControlApi {
         true
     }
     fn username_limited(&self, name: &str) -> bool {
+        self.exhausted(&format!("user:{name}"), 5)
+    }
+    /// Peek without counting: failure-only limits record with `hit` after the failure.
+    fn exhausted(&self, key: &str, limit: u32) -> bool {
         self.rate
             .lock()
             .expect("rate map poisoned")
-            .get(&format!("user:{name}"))
-            .is_some_and(|(time, count)| time.elapsed() < Duration::from_secs(60) && *count >= 5)
+            .get(key)
+            .is_some_and(|(time, count)| {
+                time.elapsed() < Duration::from_secs(60) && *count >= limit
+            })
     }
     async fn password_hash(&self, password: Secret) -> ApiResult<String> {
         let permit = self
@@ -302,11 +317,29 @@ pub fn control_router(state: Arc<ControlApi>) -> Router {
         .route("/connections/{id}/disconnect", post(disconnect))
         .route("/audit-events", get(audit_events))
         .layer(middleware::from_fn_with_state(state.clone(), authenticate));
+    // Native routes never pass through the browser cookie/CSRF layer, and browser routes never through this one.
+    let native = Router::new()
+        .route("/native/auth/logout", post(native::logout))
+        .route("/native/assets", get(native::assets))
+        .route("/native/assets/{id}", get(native::asset))
+        .route("/native/connection-tickets", post(native::issue_ticket))
+        .route("/native/connections/{id}", get(native::connection))
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            native::authenticate,
+        ))
+        .route("/native/auth/login", post(native::login))
+        .route("/native/auth/refresh", post(native::refresh))
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            native::enabled,
+        ));
     Router::new()
         .nest(
             "/api/v1",
             Router::new()
                 .merge(protected)
+                .merge(native)
                 .route("/info", get(info))
                 .route("/auth/login", post(login))
                 .route("/auth/csrf", get(browser::csrf_token))
@@ -326,19 +359,26 @@ async fn context(mut request: axum::extract::Request, next: Next) -> Response {
     let streamed = request.method() == axum::http::Method::GET
         && request.uri().path().contains("/recordings/")
         && request.uri().path().ends_with("/content");
-    let ip = request
+    let peer = request
         .extensions()
         .get::<ConnectInfo<SocketAddr>>()
-        .map(|ConnectInfo(addr)| addr.ip())
-        .unwrap_or_else(|| "127.0.0.1".parse().unwrap());
+        .map(|ConnectInfo(addr)| addr.ip());
+    let ip = peer.unwrap_or_else(|| "127.0.0.1".parse().unwrap());
     request.extensions_mut().insert(RequestContext { id, ip });
-    let mut response = if streamed {
-        next.run(request).await
-    } else {
-        match tokio::time::timeout(Duration::from_secs(15), next.run(request)).await {
-            Ok(response) => response,
-            Err(_) => ApiError(ErrorCode::PolicyStoreUnavailable).into_response(),
+    let run = async move {
+        if streamed {
+            next.run(request).await
+        } else {
+            match tokio::time::timeout(Duration::from_secs(15), next.run(request)).await {
+                Ok(response) => response,
+                Err(_) => ApiError(ErrorCode::PolicyStoreUnavailable).into_response(),
+            }
         }
+    };
+    // Audit rows written while serving this request record the real peer; the fallback above is never recorded.
+    let mut response = match peer {
+        Some(peer) => bastion_store::CLIENT_IP.scope(peer, run).await,
+        None => run.await,
     };
     if response.status().is_client_error() || response.status().is_server_error() {
         let (parts, body) = response.into_parts();
@@ -450,14 +490,16 @@ async fn info(State(state): State<Arc<ControlApi>>) -> Json<Value> {
     } else {
         (false, false)
     };
-    Json(
-        json!({"server_id":state.store.server_id,"schema_version":2,"protocol_version":2,
+    let mut info = json!({"server_id":state.store.server_id,"schema_version":2,"protocol_version":2,
         "stream_protocol":STREAM_PROTOCOL,"production_ready":false,
         "stream_protocols":{"ssh":SSH_STREAM_PROTOCOL,"rdp":STREAM_PROTOCOL,"vnc":STREAM_PROTOCOL},
         "recording":{"required":state.recording_required,"format_version":2,"available":recording_available},
         "password_min_length":bastion_secrets::password_min_length().unwrap_or(12),
-        "features":{"web_ssh":usable,"web_rdp":rdp,"web_vnc":vnc,"recording_replay":replay_available,"device_sessions":true}}),
-    )
+        "features":{"web_ssh":usable,"web_rdp":rdp,"web_vnc":vnc,"recording_replay":replay_available,"device_sessions":true}});
+    if let Some(native) = native::info(&state, recording_available) {
+        info["native"] = native;
+    }
+    Json(info)
 }
 async fn recording_ready(state: &ControlApi) -> ApiResult<()> {
     if state.recording_required {
@@ -513,18 +555,42 @@ async fn login(
 ) -> ApiResult<Response> {
     let mut body = input(body)?;
     browser::web_login(&state, &headers)?;
+    let (user, hash) = verify_login(
+        &state,
+        &ctx,
+        &body.username,
+        std::mem::take(&mut body.password),
+        &body.device_label,
+    )
+    .await?;
+    let result = state
+        .store
+        .login_web(&user, &hash, &body.device_label, ctx.id)
+        .await?;
+    browser::login_response(&state, result)
+}
+/// Browser and native login share one IP limit, one username limit, constant-work verification and
+/// the failure audit, so neither entry widens password guessing. Returns the verified user and hash.
+async fn verify_login(
+    state: &ControlApi,
+    ctx: &RequestContext,
+    username: &str,
+    password: String,
+    device_label: &str,
+) -> ApiResult<(UserView, String)> {
+    let password = Secret::new(password);
     if !state.hit(format!("ip:{}", ctx.ip), 10) {
         return Err(ApiError(ErrorCode::RateLimited));
     }
-    let normalized = normalize_username(&body.username).ok();
+    let normalized = normalize_username(username).ok();
     let username = normalized.as_deref().unwrap_or("invalid-user-format");
     if state.username_limited(username) {
         return Err(ApiError(ErrorCode::RateLimited));
     }
-    if body.device_label.is_empty()
-        || body.device_label.len() > 128
-        || body.device_label.chars().any(char::is_control)
-        || body.password.len() > 1024
+    if device_label.is_empty()
+        || device_label.len() > 128
+        || device_label.chars().any(char::is_control)
+        || password.expose().len() > 1024
     {
         return Err(ApiError(ErrorCode::InvalidArgument));
     }
@@ -537,20 +603,17 @@ async fn login(
         .as_ref()
         .map(|(_, hash)| hash.clone())
         .unwrap_or_else(|| state.dummy_phc.clone());
-    let matches = state
-        .password_matches(Secret::new(std::mem::take(&mut body.password)), phc)
-        .await?;
+    let matches = state.password_matches(password, phc).await?;
     if let Some((user, hash)) = candidate {
         if matches && user.enabled {
-            let result = state
-                .store
-                .login_web(&user, &hash, &body.device_label, ctx.id)
-                .await?;
-            return browser::login_response(&state, result);
+            return Ok((user, hash));
         }
     }
     state.hit(format!("user:{username}"), 5);
-    state.store.login_failure(ctx.id).await?;
+    state
+        .store
+        .login_failure(ctx.id, normalized.as_deref())
+        .await?;
     Err(ApiError(ErrorCode::Unauthenticated))
 }
 async fn logout(

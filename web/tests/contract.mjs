@@ -49,7 +49,8 @@ test('user DELETE documents bodyless admin/self protection, exact Origin/CSRF/co
 });
 
 test('RFC-005 schemas remove all legacy routes and permissions',()=>{
- for(const path of Object.keys(contract.paths)) assert.doesNotMatch(path,/channels|\/files|copy-jobs|connection-tickets|\/test$/);
+ // RFC-006 reintroduces tickets only under the Bearer-only /native/ prefix; legacy ticket paths stay removed.
+ for(const path of Object.keys(contract.paths)) assert.doesNotMatch(path.replace(/^\/native\/connection-tickets$/,'/native'),/channels|\/files|copy-jobs|connection-tickets|\/test$/);
  for(const path of Object.keys(contract.paths)) if(path.includes('host-key')) assert.equal(path,'/admin/assets/{id}/ssh-host-key/scan');
  for(const name of ['Capability','Purpose','TicketRequest','TicketResponse','NativeLoginResponse']) assert.equal(schemas[name],undefined);
  assert.deepEqual(schemas.WebSessionRequest.required,['asset_id','account_id','display']);
@@ -83,4 +84,21 @@ test('RDP creation accepts pending trust; discovery is bodyless asset confirmati
  assert.deepEqual(resolve(operation.responses['200'].content['application/json'].schema).properties.security.enum, ['nla', 'tls']);
  assert.match(operation.description, /no target credentials are ever sent and nothing is stored/);
  assert.match(operation.description, /own socket before authentication/);
+});
+
+test('RFC-006 native routes are Bearer-only and never cookie-authenticated', () => {
+  assert.equal(contract.components.securitySchemes.NativeBearer.scheme, 'bearer');
+  const native = Object.keys(contract.paths).filter(path => path.startsWith('/native/'));
+  assert.deepEqual(native.sort(), ['/native/assets', '/native/assets/{id}', '/native/auth/login', '/native/auth/logout', '/native/auth/refresh', '/native/connection-tickets', '/native/connections/{id}']);
+  for (const path of native) for (const operation of Object.values(contract.paths[path]).filter(value => value && value.responses)) {
+    assert(!(operation.security ?? []).some(security => 'BrowserSession' in security), path);
+    assert(!(operation.parameters ?? []).some(parameter => ['Origin', 'X-Bastion-CSRF'].includes(parameter.name ?? '') || /Origin|Csrf/.test(parameter.$ref ?? '')), path);
+  }
+  assert.deepEqual(schemas.NativeLogin.required, ['username', 'password', 'device_label']);
+  assert.deepEqual(schemas.NativeTicketRequest.required, ['asset_id', 'account_id', 'capabilities']);
+  assert.equal(schemas.NativeTicketRequest.properties.purpose, undefined);
+  assert.deepEqual(schemas.NativeTicket.required, ['protocol_version', 'ticket_id', 'ticket_secret', 'connection_id', 'gateway', 'capabilities', 'expires_at']);
+  assert.deepEqual(schemas.Info.properties.native.required, ['protocol_version', 'minimum_client_protocol_version', 'available', 'gateway', 'features']);
+  assert.deepEqual(schemas.NativeAccount.required, ['id', 'label', 'username', 'domain', 'credential_kind', 'capabilities']);
+  assert.equal(schemas.Account.properties.capabilities, undefined, 'browser accounts stay capability-free');
 });

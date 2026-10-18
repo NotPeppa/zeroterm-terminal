@@ -48,6 +48,9 @@ pub enum Collection {
     Audit,
     Assets,
     Asset(Uuid),
+    /// RFC-006 §5: the `/assets` catalog restricted to SSH, for `/native/assets`.
+    NativeAssets,
+    NativeAsset(Uuid),
     DeviceSessions,
     Recordings,
 }
@@ -88,7 +91,11 @@ fn validate_filter(collection: Collection, f: &ListFilter) -> StoreResult<()> {
     let audit = matches!(collection, Collection::Audit);
     let assets = matches!(
         collection,
-        Collection::Assets | Collection::Asset(_) | Collection::AdminAssets
+        Collection::Assets
+            | Collection::Asset(_)
+            | Collection::NativeAssets
+            | Collection::NativeAsset(_)
+            | Collection::AdminAssets
     );
     if (!matches!(collection, Collection::Recordings) && f.connection_id.is_some())
         || (!connections && (f.state.is_some() || f.target_protocol.is_some()))
@@ -121,7 +128,12 @@ impl PgStore {
                 return Err(ErrorCode::PermissionDenied)
             }
             Collection::Audit if !admin && !auditor => return Err(ErrorCode::PermissionDenied),
-            Collection::Assets | Collection::Asset(_) if auditor => {
+            Collection::Assets
+            | Collection::Asset(_)
+            | Collection::NativeAssets
+            | Collection::NativeAsset(_)
+                if auditor =>
+            {
                 return Err(ErrorCode::PermissionDenied)
             }
             _ => {}
@@ -147,7 +159,8 @@ impl PgStore {
             Collection::Connections=>(CONNECTION_METADATA,"connections u","u.created_at","(u.user_id=$5 OR $6) AND ($9::uuid IS NULL OR u.user_id=$9) AND ($10::uuid IS NULL OR u.asset_id=$10) AND ($13::text IS NULL OR u.state=$13) AND ($14::text IS NULL OR u.target_protocol=$14)",Uuid::nil(),false),
             Collection::Audit=>(AUDIT_METADATA,"audit_events u","u.occurred_at","($9::uuid IS NULL OR u.actor_id=$9) AND ($10::uuid IS NULL OR u.resource_id=$10) AND ($11::text IS NULL OR u.resource_type=$11) AND ($12::text IS NULL OR u.action=$12)",Uuid::nil(),true),
             Collection::Assets|Collection::Asset(_)=>(ASSET_METADATA,"assets u","u.created_at",ASSET_FILTER,match collection {Collection::Asset(id)=>id,_=>Uuid::nil()},false),
-            Collection::DeviceSessions=>("jsonb_build_object('id',u.id,'device_label',u.device_label,'current',u.id=$15,'created_at',u.created_at,'expires_at',u.expires_at,'revoked_at',u.revoked_at)","login_sessions u","u.created_at","u.user_id=$5",Uuid::nil(),false),
+            Collection::NativeAssets|Collection::NativeAsset(_)=>(NATIVE_ASSET_METADATA,"assets u","u.created_at",NATIVE_ASSET_FILTER,match collection {Collection::NativeAsset(id)=>id,_=>Uuid::nil()},false),
+            Collection::DeviceSessions=>("jsonb_build_object('id',u.id,'device_label',u.device_label,'current',u.id=$15,'client_type',u.client_type,'created_at',u.created_at,'expires_at',u.expires_at,'revoked_at',u.revoked_at)","login_sessions u","u.created_at","u.user_id=$5",Uuid::nil(),false),
             Collection::Recordings=>("jsonb_build_object('id',u.id,'connection_id',u.connection_id,'target_protocol',u.target_protocol,'format_version',u.format_version,'bytes',u.bytes,'checksum',u.checksum,'state',u.state,'retention_until',u.retention_until,'last_written_seq',u.last_written_seq,'last_synced_seq',u.last_synced_seq,'created_at',u.created_at,'ended_at',u.ended_at,'user_snapshot',c.user_snapshot,'asset_snapshot',c.asset_snapshot,'target_username',c.target_username)","recordings u JOIN connections c ON c.id=u.connection_id","u.created_at","(c.user_id=$5 OR $6) AND ($16::uuid IS NULL OR u.connection_id=$16)",Uuid::nil(),false),
         };
         let comparison = if descending { "<" } else { ">" };
@@ -206,7 +219,13 @@ impl PgStore {
             };
             let values: Vec<Value> = rows.into_iter().map(|row| row.get("data")).collect();
             let mut result = json!({"items":values,"next_cursor":next});
-            if matches!(collection, Collection::Assets | Collection::Asset(_)) {
+            if matches!(
+                collection,
+                Collection::Assets
+                    | Collection::Asset(_)
+                    | Collection::NativeAssets
+                    | Collection::NativeAsset(_)
+            ) {
                 result["policy_revision"] = json!(sqlx::query_scalar::<_, i64>(
                     "SELECT policy_revision FROM server_settings WHERE singleton"
                 )
@@ -215,7 +234,7 @@ impl PgStore {
                 .map_err(super::postgres::db)?);
             }
             // The client tree needs the group hierarchy alongside the assets it may reach; ancestor groups come along.
-            if matches!(collection, Collection::Assets) {
+            if matches!(collection, Collection::Assets | Collection::NativeAssets) {
                 result["groups"] =
                     sqlx::query_scalar::<_, Value>(super::groups::visible_groups_sql())
                         .bind(parent)
@@ -230,15 +249,37 @@ impl PgStore {
         })
         .await
     }
+    /// `/native/assets` page or single asset. Every listed account is reachable by the caller (Grant
+    /// is all-or-nothing), so each carries the same `capabilities`: the gateway's open features, or
+    /// `[]` while the gateway is unavailable.
+    pub async fn native_assets(
+        &self,
+        identity: &Identity,
+        asset: Option<Uuid>,
+        page: PageRequest,
+        capabilities: &[&str],
+    ) -> StoreResult<Value> {
+        let collection = asset.map_or(Collection::NativeAssets, Collection::NativeAsset);
+        let mut result = self.list_page(identity, collection, page).await?;
+        for item in result["items"].as_array_mut().into_iter().flatten() {
+            for account in item["accounts"].as_array_mut().into_iter().flatten() {
+                account["capabilities"] = json!(capabilities);
+            }
+        }
+        Ok(result)
+    }
 }
-const CONNECTION_METADATA:&str="jsonb_build_object('id',u.id,'ticket_id',u.ticket_id,'user_id',u.user_id,'login_session_id',u.login_session_id,'asset_id',u.asset_id,'account_id',u.account_id,'target_protocol',u.target_protocol,'protocol_version',u.protocol_version,'display',jsonb_build_object('width',u.width,'height',u.height,'dpi',u.dpi),'state',u.state,'created_at',u.created_at,'started_at',u.started_at,'ended_at',u.ended_at,'user_snapshot',u.user_snapshot,'asset_snapshot',u.asset_snapshot,'account_label',(SELECT t.label FROM target_accounts t WHERE t.id=u.account_id),'target_username',u.target_username,'bytes_in',u.bytes_in,'bytes_out',u.bytes_out,'failure',CASE WHEN u.failure_code IS NULL THEN NULL ELSE jsonb_build_object('code',canonical_failure_code(u.failure_code)) END,'recording_id',(SELECT r.id FROM recordings r WHERE r.connection_id=u.id))";
+const CONNECTION_METADATA:&str="jsonb_build_object('id',u.id,'ticket_id',u.ticket_id,'user_id',u.user_id,'login_session_id',u.login_session_id,'asset_id',u.asset_id,'account_id',u.account_id,'target_protocol',u.target_protocol,'protocol_version',u.protocol_version,'display',CASE WHEN u.width IS NULL THEN NULL ELSE jsonb_build_object('width',u.width,'height',u.height,'dpi',u.dpi) END,'state',u.state,'created_at',u.created_at,'started_at',u.started_at,'ended_at',u.ended_at,'user_snapshot',u.user_snapshot,'asset_snapshot',u.asset_snapshot,'account_label',(SELECT t.label FROM target_accounts t WHERE t.id=u.account_id),'target_username',u.target_username,'transport',u.transport,'bytes_in',u.bytes_in,'bytes_out',u.bytes_out,'failure',CASE WHEN u.failure_code IS NULL THEN NULL ELSE jsonb_build_object('code',canonical_failure_code(u.failure_code)) END,'recording_id',(SELECT r.id FROM recordings r WHERE r.connection_id=u.id),'client_ip',host(u.client_ip))";
 // Names are resolved at read time so the log stays readable; soft-deleted rows still resolve, unknown types stay null.
-const AUDIT_METADATA:&str="to_jsonb(u) || jsonb_build_object('sanitized_payload',CASE WHEN jsonb_typeof(u.sanitized_payload->'reason_code')='string' THEN jsonb_set(u.sanitized_payload,'{reason_code}',to_jsonb(canonical_failure_code(u.sanitized_payload->>'reason_code'))) ELSE u.sanitized_payload END,'actor_username',(SELECT au.username FROM users au WHERE au.id=u.actor_id),'resource_name',CASE u.resource_type WHEN 'user' THEN (SELECT ru.username FROM users ru WHERE ru.id=u.resource_id) WHEN 'asset' THEN (SELECT ra.name FROM assets ra WHERE ra.id=u.resource_id) WHEN 'asset_group' THEN (SELECT rg.name FROM asset_groups rg WHERE rg.id=u.resource_id) WHEN 'account' THEN (SELECT ra.name||' / '||rt.label FROM target_accounts rt JOIN assets ra ON ra.id=rt.asset_id WHERE rt.id=u.resource_id) WHEN 'connection' THEN (SELECT rc.user_snapshot||' → '||rc.asset_snapshot FROM connections rc WHERE rc.id=u.resource_id) WHEN 'recording' THEN (SELECT rc.user_snapshot||' → '||rc.asset_snapshot FROM recordings rr JOIN connections rc ON rc.id=rr.connection_id WHERE rr.id=u.resource_id) WHEN 'grant' THEN (SELECT gu.username||' → '||ga.name||' / '||gt.label FROM grants g JOIN users gu ON gu.id=g.user_id JOIN assets ga ON ga.id=g.asset_id JOIN target_accounts gt ON gt.id=g.account_id WHERE g.id=u.resource_id) WHEN 'login_session' THEN (SELECT su.username||' · '||rs.device_label FROM login_sessions rs JOIN users su ON su.id=rs.user_id WHERE rs.id=u.resource_id) END)";
+const AUDIT_METADATA:&str="to_jsonb(u) || jsonb_build_object('sanitized_payload',CASE WHEN jsonb_typeof(u.sanitized_payload->'reason_code')='string' THEN jsonb_set(u.sanitized_payload,'{reason_code}',to_jsonb(canonical_failure_code(u.sanitized_payload->>'reason_code'))) ELSE u.sanitized_payload END,'client_ip',host(u.client_ip),'actor_username',(SELECT au.username FROM users au WHERE au.id=u.actor_id),'resource_name',CASE u.resource_type WHEN 'user' THEN (SELECT ru.username FROM users ru WHERE ru.id=u.resource_id) WHEN 'asset' THEN (SELECT ra.name FROM assets ra WHERE ra.id=u.resource_id) WHEN 'asset_group' THEN (SELECT rg.name FROM asset_groups rg WHERE rg.id=u.resource_id) WHEN 'account' THEN (SELECT ra.name||' / '||rt.label FROM target_accounts rt JOIN assets ra ON ra.id=rt.asset_id WHERE rt.id=u.resource_id) WHEN 'connection' THEN (SELECT rc.user_snapshot||' → '||rc.asset_snapshot FROM connections rc WHERE rc.id=u.resource_id) WHEN 'recording' THEN (SELECT rc.user_snapshot||' → '||rc.asset_snapshot FROM recordings rr JOIN connections rc ON rc.id=rr.connection_id WHERE rr.id=u.resource_id) WHEN 'grant' THEN (SELECT gu.username||' → '||ga.name||' / '||gt.label FROM grants g JOIN users gu ON gu.id=g.user_id JOIN assets ga ON ga.id=g.asset_id JOIN target_accounts gt ON gt.id=g.account_id WHERE g.id=u.resource_id) WHEN 'login_session' THEN (SELECT su.username||' · '||rs.device_label FROM login_sessions rs JOIN users su ON su.id=rs.user_id WHERE rs.id=u.resource_id) END)";
 const ASSET_FILTER:&str="u.enabled AND u.deleted_at IS NULL AND ($4='00000000-0000-0000-0000-000000000000'::uuid OR u.id=$4) AND ($6 OR EXISTS(SELECT 1 FROM target_accounts t JOIN grants g ON g.account_id=t.id AND g.asset_id=t.asset_id WHERE t.asset_id=u.id AND t.enabled AND t.deleted_at IS NULL AND g.user_id=$5 AND g.enabled AND (g.expires_at IS NULL OR g.expires_at>clock_timestamp()))) AND ($17::uuid IS NULL OR u.group_id=$17) AND (NOT $18 OR u.group_id IS NULL)";
 // Assets/Asset reject auditors above, so $6 (admin || auditor) is admin-only here.
 const ADMIN_ASSET_FILTER:&str="u.deleted_at IS NULL AND ($17::uuid IS NULL OR u.group_id=$17) AND (NOT $18 OR u.group_id IS NULL)";
-const ACCOUNT_LIST_FILTER:&str="u.asset_id=$4 AND u.deleted_at IS NULL";
+const ACCOUNT_LIST_FILTER: &str = "u.asset_id=$4 AND u.deleted_at IS NULL";
 const ASSET_METADATA:&str="jsonb_build_object('id',u.id,'name',u.name,'protocol',u.protocol,'tags',u.tags,'group_id',u.group_id,'group_name',(SELECT name FROM asset_groups WHERE id=u.group_id),'revision',u.config_revision,'accounts',COALESCE((SELECT jsonb_agg(jsonb_build_object('id',t.id,'label',t.label,'username',t.username,'domain',t.domain,'credential_kind',COALESCE(c.kind,'none')) ORDER BY t.id) FROM target_accounts t LEFT JOIN credentials c ON c.id=t.credential_id WHERE t.asset_id=u.id AND t.enabled AND t.deleted_at IS NULL AND ($6 OR EXISTS(SELECT 1 FROM grants g WHERE g.account_id=t.id AND g.asset_id=t.asset_id AND g.user_id=$5 AND g.enabled AND (g.expires_at IS NULL OR g.expires_at>clock_timestamp())))),'[]'::jsonb))";
+// Native catalog: SSH assets only, and only accounts with a target username (the client decodes a string).
+const NATIVE_ASSET_FILTER:&str="u.protocol='ssh' AND u.enabled AND u.deleted_at IS NULL AND ($4='00000000-0000-0000-0000-000000000000'::uuid OR u.id=$4) AND ($6 OR EXISTS(SELECT 1 FROM target_accounts t JOIN grants g ON g.account_id=t.id AND g.asset_id=t.asset_id WHERE t.asset_id=u.id AND t.enabled AND t.deleted_at IS NULL AND t.username IS NOT NULL AND g.user_id=$5 AND g.enabled AND (g.expires_at IS NULL OR g.expires_at>clock_timestamp()))) AND ($17::uuid IS NULL OR u.group_id=$17) AND (NOT $18 OR u.group_id IS NULL)";
+const NATIVE_ASSET_METADATA:&str="jsonb_build_object('id',u.id,'name',u.name,'protocol',u.protocol,'tags',u.tags,'group_id',u.group_id,'group_name',(SELECT name FROM asset_groups WHERE id=u.group_id),'revision',u.config_revision,'accounts',COALESCE((SELECT jsonb_agg(jsonb_build_object('id',t.id,'label',t.label,'username',t.username,'domain',t.domain,'credential_kind',COALESCE(c.kind,'none')) ORDER BY t.id) FROM target_accounts t LEFT JOIN credentials c ON c.id=t.credential_id WHERE t.asset_id=u.id AND t.enabled AND t.deleted_at IS NULL AND t.username IS NOT NULL AND ($6 OR EXISTS(SELECT 1 FROM grants g WHERE g.account_id=t.id AND g.asset_id=t.asset_id AND g.user_id=$5 AND g.enabled AND (g.expires_at IS NULL OR g.expires_at>clock_timestamp())))),'[]'::jsonb))";
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -378,6 +419,24 @@ mod tests {
             ASSET_METADATA.contains("t.deleted_at IS NULL"),
             "a deleted account would still be embedded in the asset payload"
         );
+        for native in [NATIVE_ASSET_FILTER, NATIVE_ASSET_METADATA] {
+            assert!(native.contains("t.deleted_at IS NULL"));
+            assert!(native.contains("t.username IS NOT NULL"));
+        }
+        assert!(NATIVE_ASSET_FILTER
+            .starts_with("u.protocol='ssh' AND u.enabled AND u.deleted_at IS NULL"));
+        // The native projection is the browser one plus the username guard, nothing wider.
+        assert_eq!(
+            NATIVE_ASSET_METADATA.replace(" AND t.username IS NOT NULL", ""),
+            ASSET_METADATA
+        );
+        assert_eq!(
+            NATIVE_ASSET_FILTER
+                .replace(" AND t.username IS NOT NULL", "")
+                .replace("u.protocol='ssh' AND ", ""),
+            ASSET_FILTER
+        );
+        assert!(CONNECTION_METADATA.contains("'transport',u.transport"));
         assert!(
             super::super::groups::visible_groups_sql().contains("a.deleted_at IS NULL"),
             "a deleted asset would still expose its group"

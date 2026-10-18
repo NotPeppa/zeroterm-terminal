@@ -6,11 +6,15 @@ use clap::{Parser, Subcommand};
 use std::io::Write;
 use std::path::PathBuf;
 mod control;
+mod native;
 mod production;
 mod proxy;
 
 #[derive(Parser)]
-#[command(version, about = "Browser-only SSH/RDP/VNC Guacamole bastion")]
+#[command(
+    version,
+    about = "SSH/RDP/VNC bastion with browser and native SSH entry"
+)]
 struct Cli {
     #[command(subcommand)]
     command: Command,

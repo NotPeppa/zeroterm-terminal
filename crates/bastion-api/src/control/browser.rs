@@ -79,7 +79,7 @@ fn cookie(headers: &HeaderMap, name: &str) -> Option<String> {
     }
     found
 }
-fn valid_secret(value: &str) -> bool {
+pub(super) fn valid_secret(value: &str) -> bool {
     value.len() == 43
         && value
             .bytes()

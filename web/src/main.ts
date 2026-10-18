@@ -861,6 +861,10 @@ const auditActions: Record<string, string> = {
   'asset.created': '新建资产', 'asset.updated': '修改资产', 'asset.deleted': '删除资产', 'account.created': '新建账号', 'account.updated': '修改账号', 'account.deleted': '删除账号',
   'asset_group.created': '新建分组', 'asset_group.renamed': '重命名分组', 'asset_group.moved': '移动分组', 'asset_group.deleted': '删除分组', 'grant.created': '新建授权', 'grant.updated': '修改授权',
   'ticket.issued': '申请连接', 'ticket.consumed': '开始连接', 'ticket.rejected': '连接被拒绝', 'connection.active': '连接建立', 'connection.disconnect_requested': '请求断开', 'connection.interrupted': '连接中断',
+  'exec.completed': '命令执行结束', 'exec.rejected': '命令执行被拒绝', 'native.auth_failure': '原生 SSH 认证失败',
+  'sftp.file': 'SFTP 文件传输', 'sftp.session': 'SFTP 会话结束', 'sftp.setstat': 'SFTP 修改属性', 'sftp.fsetstat': 'SFTP 修改文件属性',
+  'sftp.remove': 'SFTP 删除文件', 'sftp.mkdir': 'SFTP 创建目录', 'sftp.rmdir': 'SFTP 删除目录', 'sftp.rename': 'SFTP 重命名', 'sftp.symlink': 'SFTP 创建符号链接',
+  'sftp.posix-rename': 'SFTP 原子重命名', 'sftp.rejected': 'SFTP 被拒绝', 'sftp.hardlink': 'SFTP 创建硬链接', 'recording.active': '录制开始传输',
   'recording.preparing': '开始录制', 'recording.finalized': '录制结束', 'recording.viewed': '查看录制',
   'audit.partition_upgrade': '审计分区转换', 'audit.partition_created': '新建审计分区', 'audit.partition_drop_started': '开始清理审计分区', 'audit.partition_dropped': '清理审计分区',
 };
@@ -883,6 +887,7 @@ function describe(rows: [string, string | Node][], raw: unknown) {
   for (const [term, value] of rows) { const dd = node('dd'); dd.append(value); list.append(node('dt', term), dd); }
   const box = node('div'); box.append(list, details('原始数据', raw)); return box;
 }
+const payloadLabels: Record<string, string> = { reason_code: '原因', attempted_username: '尝试的用户名', device_label: '设备' };
 function payloadValue(value: unknown) { return value === null || value === undefined ? '—' : typeof value === 'object' ? JSON.stringify(value) : String(value); }
 function auditDetails(item: Audit) {
   const action = String(item.action ?? ''), payload = item.sanitized_payload && typeof item.sanitized_payload === 'object' ? item.sanitized_payload as Record<string, unknown> : {};
@@ -892,23 +897,28 @@ function auditDetails(item: Audit) {
     ['对象', stacked(String(item.resource_name ?? '—'), item.resource_id)],
     ['对象类型', resourceTypes[String(item.resource_type)] ?? String(item.resource_type ?? '—')],
     ['操作者', item.actor_id ? stacked(String(item.actor_username ?? '—'), item.actor_id) : '系统 / 未登录'],
+    ['来源 IP', mono(item.client_ip)],
     ['登录会话', mono(item.login_session_id)],
     ['request_id', mono(item.request_id)],
-    ...Object.entries(payload).map(([key, value]): [string, string] => [key, payloadValue(value)]),
+    ...Object.entries(payload).map(([key, value]): [string, string] => [payloadLabels[key] ?? key, payloadValue(value)]),
   ];
   return describe(rows, item);
 }
 // Names are the snapshot taken when the connection was opened; the account label is its current label.
 function accountText(item: Connection) { const parts = [item.account_label, item.target_username].filter(Boolean); return parts.length ? parts.join(' · ') : String(item.account_id); }
+// RFC-006: client-to-bastion leg. Rows from before migration 0007 have no transport and were browser sessions.
+function transportText(value: unknown) { return value === 'native_ssh' ? 'ZeroTerm' : value === undefined || value === null || value === 'websocket' ? '浏览器' : String(value); }
 function byteText(value: unknown) { const bytes = Number(value); if (!Number.isFinite(bytes) || bytes < 0) return '—'; return bytes < 1024 ? `${bytes} B` : bytes < 1048576 ? `${(bytes / 1024).toFixed(1)} KiB` : `${(bytes / 1048576).toFixed(1)} MiB`; }
 function connectionDetails(item: Connection) {
   return describe([
     ['连接 ID', mono(item.id)],
     ['用户', stacked(item.user_snapshot ?? '—', item.user_id)],
+    ['来源 IP', mono(item.client_ip)],
     ['资产', stacked(item.asset_snapshot ?? '—', item.asset_id)],
     ['账号', stacked(accountText(item), item.account_id)],
     ['状态', tag(item.state)],
     ['目标协议', item.target_protocol ?? '—'],
+    ['客户端', transportText(item.transport)],
     ['创建 / 开始 / 结束', [item.created_at, item.started_at, item.ended_at].map(when).join(' → ')],
     ['分辨率', item.display ? `${item.display.width}×${item.display.height} @ ${item.display.dpi} DPI` : '—'],
     ['流量（入 / 出）', `${byteText(item.bytes_in)} / ${byteText(item.bytes_out)}`],
@@ -927,10 +937,11 @@ function mountActivity(kind: 'connections' | 'audit', life: RouteLifetime) {
   }
   const apply = node('button', '查询', 'primary'); apply.type = 'submit'; filters.append(apply);
   const page = kind === 'connections' ? paged(view, life, query => api.connections(query, life.signal), (items, output) => table(output, items, [
-    { label: '用户', value: item => stacked(item.user_snapshot ?? '—', item.user_id) },
+    { label: '用户', value: item => stacked(item.user_snapshot ?? '—', item.client_ip ?? item.user_id) },
     { label: '资产 / 账号', value: item => { const span = node('span', item.asset_snapshot ?? String(item.asset_id)); span.append(node('span', accountText(item), 'sub')); return span; } },
     { label: '状态', value: item => tag(item.state) },
     { label: '目标协议', value: item => item.target_protocol ?? '—' },
+    { label: '客户端', value: item => transportText(item.transport) },
     { label: '创建时间', value: item => when(item.created_at) },
     { label: '失败原因', value: item => item.failure ? tag(item.failure.code, 'red') : '—' },
   ], (item, toolbar) => {
@@ -940,6 +951,7 @@ function mountActivity(kind: 'connections' | 'audit', life: RouteLifetime) {
   })) : paged(view, life, query => api.audit(query, life.signal), (items, output) => table(output, items, [
     { label: '时间', value: item => when(item.occurred_at) },
     { label: '操作者', value: item => item.actor_id ? String(item.actor_username ?? item.actor_id) : node('span', '系统 / 未登录', 'muted') },
+    { label: '来源 IP', value: item => mono(item.client_ip) },
     { label: '动作', value: item => { const action = String(item.action ?? '—'), result = tag(auditActions[action] ?? action, actionTone(action)); result.title = action; return result; } },
     { label: '对象', value: item => stacked(String(item.resource_name ?? (item.resource_id ? '（已无记录）' : '—')), resourceTypes[String(item.resource_type)] ?? item.resource_type) },
   ], (item, toolbar) => rowDetails(toolbar, () => auditDetails(item))));

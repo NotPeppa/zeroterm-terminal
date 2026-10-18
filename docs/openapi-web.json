@@ -1010,7 +1010,7 @@
         "summary": "List own login devices without tokens",
         "responses": {
           "200": {
-            "description": "Device identities and expiry/revocation, no token secrets."
+            "description": "Device identities and expiry/revocation, no token secrets. Each item carries client_type web|native; browser and ZeroTerm devices are listed and revocable together."
           }
         }
       }
@@ -1675,7 +1675,7 @@
         "summary": "List sanitized role-authorized audit events",
         "responses": {
           "200": {
-            "description": "Paged sanitized events, no ticket or target secrets Each item also carries actor_username and resource_name, resolved when read (null when the type has no name or the row is gone)."
+            "description": "Paged sanitized events, no ticket or target secrets Each item also carries actor_username and resource_name, resolved when read (null when the type has no name or the row is gone). client_ip is the browser address of the request that produced the event (null for CLI/background events). user.login_failure payloads include attempted_username when it was well-formed."
           }
         }
       }
@@ -2030,6 +2030,297 @@
           }
         }
       }
+    },
+    "/native/auth/login": {
+      "post": {
+        "security": [],
+        "summary": "Native ZeroTerm login",
+        "description": "Exact {username,password,device_label}. Shares IP/username limits and failure audit with browser login. Tokens are returned in the body only; the server stores hashes. No cookies are read or set. 404 when native is not configured.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NativeLogin"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "No-store native tokens",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NativeTokens"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/native/auth/refresh": {
+      "post": {
+        "security": [],
+        "summary": "Rotate native tokens",
+        "description": "One-use refresh; a replayed refresh token revokes the login family (LOGIN_SESSION_REVOKED). Browser refresh tokens are unknown here.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NativeRefresh"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Rotated tokens",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NativeTokens"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/native/auth/logout": {
+      "post": {
+        "security": [
+          {
+            "NativeBearer": []
+          }
+        ],
+        "summary": "Revoke the current native login family",
+        "description": "Bodyless. Pending tickets are revoked and bound native connections are disconnected.",
+        "responses": {
+          "204": {
+            "description": "Revoked"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/native/assets": {
+      "get": {
+        "security": [
+          {
+            "NativeBearer": []
+          }
+        ],
+        "summary": "Native asset catalog",
+        "description": "Same paging, cursors, authorization and groups as /assets, restricted to SSH assets, with per-account capabilities.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/AssetGroupId"
+          },
+          {
+            "$ref": "#/components/parameters/Ungrouped"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "{items,next_cursor,policy_revision,groups}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "items",
+                    "next_cursor",
+                    "policy_revision",
+                    "groups"
+                  ],
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/NativeAsset"
+                      }
+                    },
+                    "next_cursor": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "policy_revision": {
+                      "type": "integer"
+                    },
+                    "groups": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/AssetGroup"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/native/assets/{id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/Id"
+        }
+      ],
+      "get": {
+        "security": [
+          {
+            "NativeBearer": []
+          }
+        ],
+        "summary": "One native SSH asset",
+        "responses": {
+          "200": {
+            "description": "Asset with accounts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NativeAsset"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/native/connection-tickets": {
+      "post": {
+        "security": [
+          {
+            "NativeBearer": []
+          }
+        ],
+        "summary": "Issue a native SSH ticket",
+        "description": "Same transaction as POST /sessions: exact binding, revision freeze, pending and concurrent limits shared with browser connections, ticket.issued audit (transport, capabilities). Non-SSH assets are PERMISSION_DENIED. Requires /info.native.available (else TARGET_PROTOCOL_UNAVAILABLE or RECORDING_UNAVAILABLE). Never replay automatically after an unknown outcome.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NativeTicketRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Ticket for ssh zt1:<ticket_id>@host -p port",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NativeTicket"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/native/connections/{id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/Id"
+        }
+      ],
+      "get": {
+        "security": [
+          {
+            "NativeBearer": []
+          }
+        ],
+        "summary": "Read own native or browser connection",
+        "description": "Caller's own connections only, regardless of role. failure is {code} or null.",
+        "responses": {
+          "200": {
+            "description": "Connection state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Connection"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2039,6 +2330,11 @@
         "in": "cookie",
         "name": "bastion_session",
         "description": "HttpOnly SameSite=Strict Secure browser access session. Must never be placed in localStorage or substituted as bearer token."
+      },
+      "NativeBearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "RFC-006 native ZeroTerm access token from /native/auth/login. Accepted only under /native/; browser routes reject any Authorization header, and native routes ignore cookies, need no Origin/CSRF and send no CORS headers."
       }
     },
     "parameters": {
@@ -2373,7 +2669,8 @@
           "protocol_version",
           "failure",
           "user_id",
-          "login_session_id"
+          "login_session_id",
+          "transport"
         ],
         "properties": {
           "ticket_id": {
@@ -2381,7 +2678,15 @@
             "format": "uuid"
           },
           "display": {
-            "$ref": "#/components/schemas/Display"
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Display"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Browser display. Native connections have none: null in /connections lists, nominal 1280x720@96 on single reads."
           },
           "protocol_version": {
             "type": "integer",
@@ -2514,6 +2819,20 @@
             ],
             "format": "uuid",
             "description": "list only"
+          },
+          "client_ip": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Browser address that opened the connection, after trusted-proxy resolution (list only)"
+          },
+          "transport": {
+            "enum": [
+              "websocket",
+              "native_ssh"
+            ],
+            "description": "Client leg: browser WebSocket or ZeroTerm native SSH"
           }
         }
       },
@@ -2811,6 +3130,79 @@
               "vnc": {
                 "type": "string",
                 "const": "bastion.guac.v1"
+              }
+            }
+          },
+          "native": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "protocol_version",
+              "minimum_client_protocol_version",
+              "available",
+              "gateway",
+              "features"
+            ],
+            "description": "Present only when BASTION_NATIVE_SSH_LISTEN is configured. available is true only while the SSH listener runs and recording/engine/shutdown state allow sessions; otherwise every feature is false. gateway and features are always present.",
+            "properties": {
+              "protocol_version": {
+                "const": 1
+              },
+              "minimum_client_protocol_version": {
+                "const": 1
+              },
+              "available": {
+                "type": "boolean"
+              },
+              "gateway": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "host",
+                  "port",
+                  "public_key"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "host": {
+                    "type": "string"
+                  },
+                  "port": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 65535
+                  },
+                  "public_key": {
+                    "type": "string",
+                    "pattern": "^ssh-ed25519 [A-Za-z0-9+/=]+$",
+                    "description": "Gateway host key; clients pin its SHA-256 fingerprint and refuse changes"
+                  }
+                }
+              },
+              "features": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "shell",
+                  "exec",
+                  "sftp"
+                ],
+                "properties": {
+                  "shell": {
+                    "type": "boolean"
+                  },
+                  "exec": {
+                    "type": "boolean",
+                    "description": "Same availability rule as shell"
+                  },
+                  "sftp": {
+                    "type": "boolean",
+                    "description": "Same availability rule as shell and exec"
+                  }
+                }
               }
             }
           }
@@ -3484,6 +3876,271 @@
             "minimum": 1
           }
         }
+      },
+      "NativeLogin": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "username",
+          "password",
+          "device_label"
+        ],
+        "properties": {
+          "username": {
+            "type": "string"
+          },
+          "password": {
+            "$ref": "#/components/schemas/Secret"
+          },
+          "device_label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        }
+      },
+      "NativeRefresh": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "refresh_token"
+        ],
+        "properties": {
+          "refresh_token": {
+            "$ref": "#/components/schemas/Secret"
+          }
+        }
+      },
+      "NativeTokens": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "access_token",
+          "refresh_token",
+          "access_expires_at"
+        ],
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Bearer for /native/ routes, 10 minutes"
+          },
+          "refresh_token": {
+            "type": "string",
+            "description": "One-use; rotation keeps the family's 7-day expiry. Replay revokes the whole login family."
+          },
+          "access_expires_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "NativeTicketRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "asset_id",
+          "account_id",
+          "capabilities"
+        ],
+        "properties": {
+          "asset_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "account_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "capabilities": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 2,
+            "uniqueItems": true,
+            "items": {
+              "enum": [
+                "shell",
+                "exec",
+                "sftp"
+              ]
+            },
+            "description": "Non-empty subset of the open native capabilities, in any order, without duplicates. Unknown or duplicate values are INVALID_ARGUMENT. No purpose field."
+          }
+        }
+      },
+      "NativeTicket": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "protocol_version",
+          "ticket_id",
+          "ticket_secret",
+          "connection_id",
+          "gateway",
+          "capabilities",
+          "expires_at"
+        ],
+        "properties": {
+          "protocol_version": {
+            "const": 1
+          },
+          "ticket_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "ticket_secret": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{43,}$",
+            "description": "32 random bytes, base64url. SSH password for gateway.username; one attempt per SSH connection."
+          },
+          "connection_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "gateway": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "host",
+              "port",
+              "username"
+            ],
+            "properties": {
+              "host": {
+                "type": "string"
+              },
+              "port": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 65535
+              },
+              "username": {
+                "type": "string",
+                "pattern": "^zt1:[0-9a-f-]{36}$"
+              }
+            }
+          },
+          "capabilities": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "enum": [
+                "shell",
+                "exec",
+                "sftp"
+              ]
+            },
+            "description": "The requested capabilities, echoed in request order; the gateway accepts only channels they cover."
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "30 seconds, single use"
+          }
+        }
+      },
+      "NativeAccount": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "label",
+          "username",
+          "domain",
+          "credential_kind",
+          "capabilities"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1
+          },
+          "username": {
+            "type": "string",
+            "minLength": 1
+          },
+          "domain": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "credential_kind": {
+            "enum": [
+              "none",
+              "password",
+              "private_key"
+            ]
+          },
+          "capabilities": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "enum": [
+                "shell",
+                "exec",
+                "sftp"
+              ]
+            },
+            "description": "Every open native capability for this granted account ([\"shell\",\"exec\",\"sftp\"]), [] while /info.native.available is false. Grants are all-or-nothing."
+          }
+        }
+      },
+      "NativeAsset": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "protocol",
+          "accounts",
+          "group_id",
+          "group_name"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "protocol": {
+            "const": "ssh"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "accounts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NativeAccount"
+            }
+          },
+          "group_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "Single asset group; null means ungrouped. Organizational metadata only, never an authorization grant."
+          },
+          "group_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 128
+          }
+        },
+        "description": "SSH assets only, same authorization as /assets; accounts without a target username are omitted."
       }
     }
   }

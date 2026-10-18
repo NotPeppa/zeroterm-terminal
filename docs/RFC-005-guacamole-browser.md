@@ -23,8 +23,8 @@ is included. Existing databases must never be dropped automatically.
   leaf certificate's DER bytes, RDP only. This is certificate pinning, not a claim
   of public-CA/domain verification.
 - Asset organization is a separate flat `asset_groups` catalog with id, unique
-  name and revision; `assets.group_id` is nullable. New family-2 migration 0003
-  leaves existing assets ungrouped. Group CRUD is admin-only, revision-checked
+  name and revision; `assets.group_id` is nullable. Groups are part of the
+  family-2 baseline migration 0001; new assets start ungrouped. Group CRUD is admin-only, revision-checked
   and audited. Moving assets or deleting groups changes only configuration
   revisions; routing/credential revisions and exact grants remain intact.
   Operators see group names only on authorized assets; no group grant exists.

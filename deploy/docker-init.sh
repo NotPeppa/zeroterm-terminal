@@ -24,7 +24,15 @@ done
 bastion-server init --directory "$secret_dir"
 test -s "$secret_dir/kek-v1"
 test ! -e "$secret_dir/api-token"
-test ! -e "$secret_dir/ssh_host_ed25519_key"
+# RFC-006 native SSH entry host key: generated once here, with the KEK, never regenerated afterwards (a new
+# key makes every ZeroTerm client refuse the gateway until users re-verify). Unused unless
+# BASTION_NATIVE_SSH_LISTEN is set. Owner is this container's service uid, mode 0600, no passphrase.
+host_key="$secret_dir/ssh_host_ed25519_key"
+test ! -e "$host_key" && test ! -e "$host_key.pub"
+ssh-keygen -q -t ed25519 -N '' -C '' -f "$host_key"
+chmod 600 "$host_key"
+rm -f "$host_key.pub"
+test -s "$host_key"
 for role in owner runtime; do
     password=$(od -An -N32 -tx1 /dev/urandom | tr -d ' \n')
     test "${#password}" -eq 64
@@ -35,4 +43,4 @@ for role in owner runtime; do
     chmod 600 "$directory/password" "$directory/database-url"
     unset password
 done
-echo 'Fresh secrets initialized; migrate, grant-runtime and bootstrap-admin run next as one-shot services.'
+echo 'Fresh secrets (KEK, native SSH host key) initialized; migrate, grant-runtime and bootstrap-admin run next as one-shot services.'
